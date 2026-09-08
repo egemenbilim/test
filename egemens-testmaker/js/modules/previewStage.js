@@ -1,6 +1,6 @@
 import { questions, S } from '../state.js';
-import { $ } from '../utils.js';
-import { buildPreviewPages, pageSizeMM, getMebLogoBox, imgCache, fixLogoAspect } from './pdfEngine.js';
+import { $, openModal, closeModal } from '../utils.js';
+import { buildPreviewPages, pageSizeMM, getMebLogoBox, imgCache, fixLogoAspect, calculateQuestionBounds } from './pdfEngine.js';
 import { openText } from './textModal.js';
 import { render } from './questionManager.js';
 
@@ -138,6 +138,20 @@ export function layoutOverlay() {
   ov.innerHTML = '';
   ov.appendChild(snapLine);
   ov.appendChild(marquee);
+  
+  if (S.showQuestionAreaGuide) {
+    try {
+      const qb = calculateQuestionBounds();
+      const guideBox = document.createElement('div');
+      guideBox.className = 'pv-qa-guide';
+      guideBox.style.left = (qb.left * k) + 'px';
+      guideBox.style.top = (qb.contentTop * k) + 'px';
+      guideBox.style.width = (qb.width * k) + 'px';
+      guideBox.style.height = (qb.usableH * k) + 'px';
+      guideBox.innerHTML = `<span class="pv-qa-tag">📐 Güvenli Soru Alanı (${Math.round(qb.usableH)} mm)</span>`;
+      ov.appendChild(guideBox);
+    } catch (e) {}
+  }
   
   (pg.items || []).forEach((it, i) => {
     const chip = document.createElement('div');

@@ -1,0 +1,607 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Egemen's Testmaker</title>
+  
+  <!-- CDN Kütüphaneleri -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { darkMode: 'class' }</script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
+  
+  <!-- Özel Stiller -->
+  <link rel="stylesheet" href="css/style.css">
+  
+  <!-- Ana ES Modülü -->
+  <script type="module" src="js/main.js"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100">
+
+<!-- Sidebar Overlay -->
+<div id="sidebarOverlay"></div>
+
+<!-- Sidebar Panel -->
+<div id="sidebarPanel">
+  <!-- Sidebar Header -->
+  <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 px-3 py-2.5 shrink-0">
+    <span class="text-[11px] font-bold tracking-widest text-slate-500 dark:text-slate-400 uppercase">Test Ayarları</span>
+    <button id="sidebarClose" class="rounded-md px-1.5 py-0.5 text-[11px] text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">✕</button>
+  </div>
+
+  <!-- Scrollable area -->
+  <div id="sidebarScrollArea">
+
+    <!-- Sınav Şablonları (EN ÜSTTE) -->
+    <div>
+      <button id="tplBtn" class="flex w-full items-center justify-between rounded py-0.5 text-[11px] font-semibold text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition">
+        <span>Sınav Şablonları</span><span id="tplArrow" class="text-slate-400">＋</span>
+      </button>
+      <div id="tplBox" class="mt-2 hidden space-y-1.5 rounded-lg bg-slate-50 dark:bg-slate-800/50 p-3">
+        <div id="tplList" class="space-y-1.5">
+          <button type="button" data-tpl="none" class="tpl-card active">
+            <span class="tpl-name">Varsayılan</span>
+            <span class="tpl-desc">Klasik yazılı / konu denemesi düzeni</span>
+          </button>
+          <button type="button" data-tpl="meb" class="tpl-card">
+            <span class="tpl-name">MEB Resmî Şablon</span>
+            <span class="tpl-desc">Logolu resmî sınav başlığı</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Type tabs (yalnızca varsayılan şablonda) -->
+    <div class="sb-type-tab tpl-hide-meb" id="typeTabs">
+      <button data-t="yazili" class="active">Yazılı Kağıdı</button>
+      <button data-t="yaprak">Konu Denemesi</button>
+    </div>
+
+    <!-- VARSAYILAN ŞABLON ALANLARI -->
+    <div class="tpl-hide-meb space-y-1.5">
+      <label class="sb-lbl">Test Adı
+        <input id="title" class="sb-inp mt-0.5" placeholder="Türk Dili - Tanzimat" value=""></label>
+      <div id="konuRow" class="hidden">
+        <label class="sb-lbl">Konu Kapsamı <span class="font-normal normal-case text-slate-300">· virgülle ayırın</span>
+          <input id="konuKapsami" class="sb-inp mt-0.5" placeholder="Şiir Bilgisi, Roman"></label>
+      </div>
+      <label class="sb-lbl">Okul / Kurum
+        <input id="school" class="sb-inp mt-0.5" placeholder="Bilim Akademi" value=""></label>
+      <label class="sb-lbl">Üst Bilgi
+        <input id="lesson" class="sb-inp mt-0.5" value="2025-2026 EĞİTİM ÖĞRETİM YILI"></label>
+    </div>
+
+    <!-- MEB ŞABLONU ALANLARI -->
+    <div id="mebFields" class="tpl-show-meb hidden space-y-1.5">
+      <label class="sb-lbl">Eğitim - Öğretim Yılı
+        <input id="mebYear" class="sb-inp mt-0.5" value="2026 - 2027 Eğitim - Öğretim Yılı"></label>
+      <label class="sb-lbl">Okul Adı
+        <input id="mebSchool" class="sb-inp mt-0.5" placeholder="Çakabey Anadolu Lisesi"></label>
+      <label class="sb-lbl">Sınav Tarihi
+        <input id="mebDate" class="sb-inp mt-0.5" placeholder="01.06.2027"></label>
+      <div class="grid grid-cols-2 gap-1.5">
+        <label class="sb-lbl">Ders
+          <input id="mebLesson" class="sb-inp mt-0.5" placeholder="Matematik"></label>
+        <label class="sb-lbl">Sınıf
+          <input id="mebGrade" class="sb-inp mt-0.5" placeholder="9. Sınıf"></label>
+      </div>
+      <label class="sb-lbl">Sınav Adı
+        <input id="mebExam" class="sb-inp mt-0.5" placeholder="1. Dönem 2. Sınavı"></label>
+      <div class="grid grid-cols-2 gap-1.5">
+        <label class="sb-lbl">Ad Alanı
+          <input id="mebNameLbl" class="sb-inp mt-0.5" value="Adı-Soyadı:"></label>
+        <label class="sb-lbl">Sınıf Alanı
+          <input id="mebClassLbl" class="sb-inp mt-0.5" value="Sınıfı:"></label>
+        <label class="sb-lbl">Numara Alanı
+          <input id="mebNoLbl" class="sb-inp mt-0.5" value="Okul No.:"></label>
+        <label class="sb-lbl">Puan Alanı
+          <input id="mebScoreLbl" class="sb-inp mt-0.5" value="Puan:"></label>
+      </div>
+      <!-- Logo seçimi -->
+      <div class="sb-section space-y-1.5">
+        <span class="sb-lbl" style="margin-bottom:2px">Logo</span>
+        <div class="space-y-1">
+          <label class="sb-check-row"><input type="radio" name="logoChoice" id="mebLogoRadio" value="meb" checked style="accent-color:#0f172a;width:.85rem;height:.85rem"> MEB Resmî Logosu</label>
+          <label class="sb-check-row"><input type="radio" name="logoChoice" id="customLogoRadio" value="custom" style="accent-color:#0f172a;width:.85rem;height:.85rem"> Kendi Logonuzu Ekleyin</label>
+          <label class="sb-check-row"><input type="radio" name="logoChoice" id="noLogoRadio" value="none" style="accent-color:#0f172a;width:.85rem;height:.85rem"> Logo Kullanma</label>
+        </div>
+        <div id="customLogoPanel" class="hidden">
+          <div class="flex items-center gap-2">
+            <label class="flex-1 cursor-pointer rounded-lg border border-dashed border-slate-300 bg-white px-3 py-4 text-center transition hover:border-slate-900 dark:border-slate-600 dark:bg-slate-900">
+              <div id="customLogoPlaceholder" class="text-[11px] text-slate-400">📷 Logo seçin <span class="block text-[10px] text-slate-300">JPG, PNG, WEBP</span></div>
+              <img id="customLogoPreview" class="mx-auto hidden max-h-16 rounded">
+              <input id="customLogoFile" type="file" accept="image/jpeg,image/png,image/webp,image/bmp,image/svg+xml" class="hidden">
+            </label>
+            <button id="customLogoRemove" type="button" class="hidden rounded border border-slate-200 px-1.5 py-0.5 text-[10px] text-slate-400 hover:border-rose-300 hover:text-rose-600">✕</button>
+          </div>
+        </div>
+        <div class="flex items-center justify-between pt-0.5">
+          <span class="text-[10px] text-slate-400 leading-snug">"Büyüt ve Düzenle" ekranında logonun köşesinden sürükleyerek boyutunu değiştirebilirsiniz.</span>
+          <div class="flex gap-1 shrink-0 ml-2">
+            <button id="logoFixAspect" type="button" class="rounded border border-slate-200 px-1.5 py-0.5 text-[10px] text-slate-500 hover:border-slate-900 hover:text-slate-900 dark:border-slate-600 dark:text-slate-400" title="Logoyu doğal oranına geri getirir">Görseli Geri Düzelt</button>
+            <button id="logoSizeReset" type="button" class="rounded border border-slate-200 px-1.5 py-0.5 text-[10px] text-slate-500 hover:border-slate-900 hover:text-slate-900 dark:border-slate-600 dark:text-slate-400" title="Logoyu varsayılan boyutuna getirir">Boyutu Sıfırla</button>
+            <button id="logoPosReset" type="button" class="rounded border border-slate-200 px-1.5 py-0.5 text-[10px] text-slate-500 hover:border-slate-900 hover:text-slate-900 dark:border-slate-600 dark:text-slate-400" title="Tüm başlık metinlerinin ve logonun konumlarını ilk haline getirir">Konumları Sıfırla</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ORTAK ALANLAR -->
+    <div class="space-y-1.5">
+      <label class="sb-lbl">Sınav Yönergesi
+        <textarea id="description" class="sb-inp mt-0.5 leading-relaxed" style="height:52px;resize:none">Aşağıdaki soruları dikkatlice okuyunuz. Her soru 10 Puan olmakla birlikte sınav süreniz 40 dakikadır.</textarea></label>
+      <label class="sb-lbl">Kitapçık Sayısı
+        <select id="groups" class="sb-inp mt-0.5">
+          <option value="1">Tek kitapçık (A)</option>
+          <option value="2">A - B</option>
+          <option value="4">A - B - C - D</option>
+        </select></label>
+    </div>
+
+    <!-- Checkboxes -->
+    <div class="sb-section space-y-0.5">
+      <label class="sb-check-row"><input type="checkbox" id="optic"> Optik form ekle</label>
+      <label class="sb-check-row"><input type="checkbox" id="spacing"> Sorular arasına boşluk bırak</label>
+      <div id="spacingBox" class="hidden pl-4 text-[10px] text-slate-500">Boşluk <b class="text-slate-700 dark:text-slate-200" id="spVal">10</b> mm
+        <input type="range" id="spacingValue" min="5" max="30" value="10" class="mt-1 w-full"></div>
+      <label class="sb-check-row"><input type="checkbox" id="showAnswerKey" checked> Cevap anahtarı <span class="text-slate-400">(<span id="ansCount">0</span>)</span></label>
+    </div>
+
+    <!-- Gelişmiş -->
+    <div class="sb-section">
+      <button id="advBtn" class="flex w-full items-center justify-between rounded py-0.5 text-[11px] font-semibold text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition">
+        <span>Gelişmiş Ayarlar</span><span id="advArrow" class="text-slate-400">＋</span>
+      </button>
+      <div id="advBox" class="mt-2 hidden space-y-2 rounded-lg bg-slate-50 dark:bg-slate-800/50 p-3">
+        <label class="sb-check-row"><input type="checkbox" id="smartLayout"> Akıllı soru yerleşimi</label>
+        <label class="sb-lbl">Filigran Metni<input id="watermark" class="sb-inp mt-0.5" placeholder="Bilim Akademi"></label>
+        <label class="sb-lbl">Filigran Açısı <span class="float-right font-semibold text-slate-700 dark:text-slate-200 normal-case" id="wmAngleVal">45°</span>
+          <input type="range" id="watermarkAngle" min="-90" max="90" step="15" value="45" class="mt-0.5 w-full"></label>
+        <label class="sb-lbl">Filigran Boyutu <span class="float-right font-semibold text-slate-700 dark:text-slate-200 normal-case"><span id="wmSizeVal">44</span>pt</span>
+          <input type="range" id="watermarkSize" min="12" max="80" step="2" value="44" class="mt-0.5 w-full"></label>
+        <label class="flex items-start gap-1.5 text-[10px] leading-snug text-slate-600 dark:text-slate-300">
+          <input type="checkbox" id="watermarkDivider" class="mt-0.5"> Filigranı yalnızca orta çizgide dikey göster
+        </label>
+        <label class="sb-lbl">Tasarım Rengi<input type="color" id="themeColor" value="#1d4ed8" class="mt-0.5 h-6 w-full cursor-pointer rounded border border-slate-200"></label>
+        <div class="grid grid-cols-2 gap-1.5">
+          <label class="sb-lbl">Sayfa
+            <select id="pageSize" class="sb-inp mt-0.5"><option value="a4">A4</option><option value="a5">A5</option><option value="letter">Letter</option></select></label>
+          <label class="sb-lbl">Yön
+            <select id="orientation" class="sb-inp mt-0.5"><option value="portrait">Dikey</option><option value="landscape">Yatay</option></select></label>
+          <label class="sb-lbl">Sütun
+            <select id="columns" class="sb-inp mt-0.5"><option>1</option><option selected>2</option><option>3</option></select></label>
+            <label class="sb-lbl">Kenar <span class="float-right font-semibold text-slate-700 dark:text-slate-200 normal-case"><span id="mgVal">5</span>mm</span>
+              <input type="range" id="margin" min="5" max="30" value="5" class="mt-1 w-full"></label>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<header class="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur-md dark:border-slate-800 dark:bg-slate-900/90">
+  <div class="mx-auto flex max-w-[1500px] flex-wrap items-center gap-3 px-4 py-2.5">
+    <!-- Hamburger -->
+    <button id="sidebarToggle" title="Test Ayarları">
+      <span class="ham-icon"><span></span><span></span><span></span></span>
+      <span>Ayarlar</span>
+    </button>
+
+    <span class="flex items-center gap-2 text-[14px] font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+      <span class="flex h-6 w-6 items-center justify-center rounded-md bg-slate-900 text-[10px] font-bold text-white dark:bg-white dark:text-slate-900">ET</span>
+      <span><a href="https://www.instagram.com/egemenbilim/" target="_blank" rel="noopener noreferrer" style="color:#06b6d4" class="transition hover:underline hover:brightness-110">Egemen</a>'s Testmaker</span>
+    </span>
+    <button id="openGuide" class="rounded-lg px-2.5 py-1 text-[12px] font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white">Kullanım Kılavuzu</button>
+    <button id="darkBtn" title="Karanlık / aydınlık mod" class="ml-auto rounded-lg px-2 py-1 text-[15px] leading-none transition hover:bg-slate-100 dark:hover:bg-slate-800">🌙</button>
+    <span class="hidden text-[12px] italic text-slate-400 dark:text-slate-500 lg:block">"Milletleri kurtaranlar yalnız ve ancak öğretmenlerdir."</span>
+  </div>
+</header>
+
+<!-- Main layout: split -->
+<div class="mx-auto max-w-[1500px] p-5">
+  <div id="mainScrollArea">
+
+    <!-- SOL: SINAV KAĞIDI ÖNİZLEMESİ -->
+    <section id="previewPane">
+      <div class="pv-card">
+        <div class="pv-head">
+          <span class="pv-title">Sınav Kağıdı Önizlemesi</span>
+          <span id="pvLiveDot" class="pv-dot" title="Canlı senkron"></span>
+          <button id="pvOpenBig" class="pv-big-btn" style="margin-left:auto">⤢ Büyüt ve Düzenle</button>
+          <div class="pv-nav">
+            <button id="pvPrev" title="Önceki sayfa">‹</button>
+            <span id="pvPageInfo">1 / 1</span>
+            <button id="pvNext" title="Sonraki sayfa">›</button>
+            <button id="pvRefresh" title="Yenile">⟳</button>
+          </div>
+        </div>
+        <div id="pvWrap">
+          <div id="pvStack"></div>
+          <div id="pvEmpty" class="pv-empty">Ayarları girdikçe kağıt burada canlı güncellenir.</div>
+          <div id="pvBusy" class="pv-busy">⟳ Hazırlanıyor…</div>
+        </div>
+        <div class="pv-foot-make">
+          <span id="pvMeta" class="pv-meta-bottom">—</span>
+          <button id="makeBtn" class="pv-make-btn pv-make-wide"><span class="pvMakeSpark">✨</span> Sınav Kağıdını Oluştur</button>
+          <button id="wordBtn" type="button" class="w-full mt-1.5 rounded-lg border border-slate-200 bg-white py-2 text-[12px] font-semibold text-slate-600 transition hover:border-slate-900 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">📄 Word olarak indir</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- SAĞ: SORULAR -->
+    <div class="space-y-5">
+      <div id="dropzone" class="rounded-2xl border-2 border-dashed border-slate-300 bg-white px-8 py-10 text-center transition-all duration-300 hover:border-sky-400 hover:bg-sky-50/30 hover:shadow-[0_0_30px_rgba(56,189,248,0.22)] dark:border-slate-700 dark:bg-slate-900">
+        <p class="text-[15px] font-medium text-slate-800 dark:text-slate-100">Soruları buraya sürükleyip bırakın</p>
+        <p class="mt-1.5 text-[13px] text-slate-400">JPG, PNG, GIF · en fazla 100 soru · .db taslak dosyası</p>
+        <div class="mt-5 flex flex-wrap justify-center gap-2.5">
+          <button id="pickBtn" class="flex items-center gap-1.5 rounded-xl bg-blue-600 px-5 py-2.5 text-[13px] font-semibold text-white shadow-sm transition-all duration-150 hover:bg-blue-500 hover:shadow-md hover:shadow-blue-500/20 active:scale-[0.98]">
+            <span>📁</span> Soru Seçin
+          </button>
+          <button id="textBtn" class="flex items-center gap-1.5 rounded-xl bg-[#0b1329] px-5 py-2.5 text-[13px] font-semibold text-white shadow-sm transition-all duration-150 hover:bg-[#152347] hover:shadow-md hover:shadow-slate-900/30 active:scale-[0.98]">
+            <span>✍️</span> Yazılı Soru Ekleyin
+          </button>
+          <button id="openCrop" class="flex items-center gap-1.5 rounded-xl bg-slate-500 px-5 py-2.5 text-[13px] font-semibold text-white shadow-sm transition-all duration-150 hover:bg-slate-600 hover:shadow-md hover:shadow-slate-500/20 active:scale-[0.98]">
+            <span>✂️</span> Görselden/PDF'ten Soru Kesin
+          </button>
+        </div>
+        <input id="fileInput" type="file" multiple accept="image/jpeg,image/png,image/gif,.db" class="hidden">
+      </div>
+
+      <div class="flex items-center gap-3 px-1">
+        <h2 class="text-[13px] font-semibold text-slate-900 dark:text-slate-100">Sorular <span class="ml-0.5 font-normal text-slate-400"><span id="qCount">0</span> / 100</span></h2>
+        <span class="hidden text-xs text-slate-400 sm:block">Sıralamak için sürükleyin</span>
+        <button id="clearAll" class="ml-auto text-xs text-slate-400 transition hover:text-rose-600">Tümünü sil</button>
+      </div>
+
+      <div id="grid" class="grid grid-cols-2 gap-3 xl:grid-cols-3">
+        <div id="emptyState" class="col-span-full flex items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-white px-6 py-20 text-center dark:border-slate-700 dark:bg-slate-900">
+          <div>
+            <p class="text-[15px] font-medium text-slate-700 dark:text-slate-300">Henüz soru oluşturmadınız</p>
+            <p class="mt-1.5 text-[13px] leading-relaxed text-slate-400">
+              Dilerseniz yukarıdaki seçenekleri kullanarak<br><b class="text-slate-600 dark:text-slate-300">Yazılı Kağıdı</b> veya <b class="text-slate-600 dark:text-slate-300">Konu Denemesi</b> oluşturabilirsiniz
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Büyüt ve Düzenle -->
+<div id="pvBig">
+  <div id="pvBigBar">
+    <span class="pvBTitle">Büyüt ve Düzenle</span>
+    <button id="pvBigPrev">‹</button>
+    <span id="pvBigInfo">1 / 1</span>
+    <button id="pvBigNext">›</button>
+    <span class="pvBHint">Sürükle: sırala / header taşı · Shift+sürükle: kutu seçim · Köşe: boyutlandır · ✂: kırp · Tekerlek: yakınlaştır</span>
+    <button id="pvZoomReset" title="Yakınlaştırmayı sıfırla">Ekrana Sığdır</button>
+    <button id="pvBigClose">Kapat ✕</button>
+  </div>
+  <div id="pvBigWrap">
+    <div id="pvStage">
+      <canvas id="pvBigCanvas"></canvas>
+      <div id="pvOverlay">
+        <div id="pvSnapLine"></div>
+        <div id="pvMarquee"></div>
+      </div>
+      <div id="pvDropLine"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Görsel Kırpma Modalı -->
+<div id="imgCropModal">
+  <div class="icCard">
+    <div class="icHead">
+      <span>Görseli Kırp</span>
+      <button id="icClose" type="button">✕</button>
+    </div>
+    <div id="icWrap">
+      <div id="icStage">
+        <img id="icImg" alt="">
+        <div id="icRect"></div>
+      </div>
+    </div>
+    <div class="icFoot">
+      <span class="icHint">Fareyle kırpılacak alanı çerçeveleyin</span>
+      <button id="icReset" type="button">Sıfırla</button>
+      <button id="icApply" type="button">Kırp ve Uygula</button>
+    </div>
+  </div>
+</div>
+
+<footer class="pb-10 pt-6 text-center">
+  <span class="text-xs text-slate-400 dark:text-slate-500">Egemen Bilim'in Eğitim Teknolojileri</span>
+</footer>
+
+<div class="fixed bottom-5 right-5 z-30 flex flex-col items-end gap-2">
+  <div id="progress" class="hidden rounded-xl bg-slate-900 px-3.5 py-2.5 text-xs text-white shadow-lg"></div>
+  <button id="saveDraft" title="Çalışmayı kaydet (.db)" class="group flex items-center gap-2 rounded-full border border-slate-200 bg-white py-2 pl-4 pr-2.5 shadow-lg transition hover:border-slate-900 hover:shadow-xl dark:border-slate-700 dark:bg-slate-900">
+    <span class="text-[13px] font-medium text-slate-600 transition group-hover:text-slate-900 dark:text-slate-300">Soruları Kaydet</span>
+    <span class="text-2xl leading-none">💾</span>
+  </button>
+</div>
+
+<!-- Önizleme Modalı -->
+<div id="preview" class="fixed inset-0 z-40 hidden items-center justify-center bg-slate-900/60 p-6 backdrop-blur-sm">
+  <div id="previewBody" class="fade-in max-h-full max-w-3xl overflow-auto rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900 dark:text-slate-200"></div>
+</div>
+
+<!-- Geri Yükleme Modalı -->
+<div id="restoreModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
+  <div class="fade-in w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900 dark:text-slate-200">
+    <h3 class="text-[15px] font-semibold text-slate-900 dark:text-slate-100">Kaldığınız yerden devam</h3>
+    <p class="mt-1.5 text-[13px] leading-relaxed text-slate-500">Tarayıcınızda kaydedilmiş bir çalışma bulundu. Devam etmek ister misiniz?</p>
+    <p id="restoreMeta" class="mt-2 text-[12px] text-slate-400"></p>
+    <div class="mt-5 flex justify-end gap-2 border-t border-slate-100 pt-4 dark:border-slate-800">
+      <button id="restoreNo" class="rounded-lg px-4 py-2 text-[13px] font-medium text-slate-500 transition hover:bg-slate-100 dark:hover:bg-slate-800">Yeni Başla</button>
+      <button id="restoreYes" class="rounded-lg bg-slate-900 px-5 py-2 text-[13px] font-medium text-white transition hover:bg-slate-700">Devam Et</button>
+    </div>
+  </div>
+</div>
+
+<!-- Soru Gruplama Modalı -->
+<div id="groupModal" class="fixed inset-0 z-40 hidden items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
+  <div class="fade-in max-h-[85vh] w-full max-w-2xl overflow-auto rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900 dark:text-slate-200">
+    <h3 class="text-[15px] font-semibold text-slate-900 dark:text-slate-100">Soruları Grupla</h3>
+    <p class="mt-1 text-[13px] text-slate-500">Bu soruya bağlanacak soruları seçin. Gruplanan sorular kitapçıklarda birbirinden ayrılmaz.</p>
+    <textarea id="gStem" class="inp mt-4 h-20 leading-relaxed" placeholder="Ortak paragraf / soru kökü (isteğe bağlı)"></textarea>
+    <div id="gGrid" class="mt-4 grid grid-cols-4 gap-2"></div>
+    <div class="mt-5 flex justify-end gap-2 border-t border-slate-100 pt-4 dark:border-slate-800">
+      <button id="gCancel" class="rounded-lg px-4 py-2 text-[13px] font-medium text-slate-500 transition hover:bg-slate-100 dark:hover:bg-slate-800">İptal</button>
+      <button id="gSave" class="rounded-lg bg-slate-900 px-5 py-2 text-[13px] font-medium text-white transition hover:bg-slate-700">Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<!-- Yazılı Soru Ekleme / Düzenleme Modalı -->
+<div id="textModal" class="fixed inset-0 z-40 hidden items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
+  <div class="fade-in max-h-[90vh] w-full max-w-2xl overflow-auto rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900 dark:text-slate-200">
+    <h3 id="txtTitle" class="text-[15px] font-semibold text-slate-900 dark:text-slate-100">Yazılı Soru Ekle</h3>
+    <p class="mt-1 text-[13px] text-slate-500">Hazır bir soruyu kutulara yapıştırırsanız şıklar ve soru kökü otomatik ayrılır.</p>
+
+    <div class="mt-4 grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1 text-xs dark:bg-slate-800">
+      <button data-qk="coktan" class="qkind rounded-lg py-2 font-medium">Çoktan Seçmeli</button>
+      <button data-qk="bosluk" class="qkind rounded-lg py-2 font-medium">Boşluk Doldurma</button>
+      <button data-qk="klasik" class="qkind rounded-lg py-2 font-medium">Klasik</button>
+    </div>
+
+    <!-- Boşluk Doldurma Paneli -->
+    <div id="blankPanel" class="mt-4 hidden rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/60">
+      <label class="lbl">Kelime Havuzu <span class="font-normal text-slate-300">· isteğe bağlı, virgülle ayırın</span>
+        <input id="txtWordBank" class="inp mt-1.5" placeholder="Şemsettin Sami, Namık Kemal, Ahmet Mithat">
+      </label>
+      <div class="mt-4 mb-2 flex items-center justify-between">
+        <span class="lbl">Sorular</span>
+        <span class="text-[11px] text-slate-400">Boşluk için <code class="rounded bg-slate-200 px-1 text-slate-600 dark:bg-slate-700 dark:text-slate-300">...</code> yazın</span>
+      </div>
+      <div id="blankQList" class="space-y-2"></div>
+      <button id="blankAddBtn" type="button" class="mt-2.5 w-full rounded-lg border border-dashed border-slate-300 py-2 text-[13px] font-medium text-slate-500 transition hover:border-slate-900 hover:text-slate-900">+ Soru Ekle</button>
+      <div class="mt-4 border-t border-slate-200 pt-3 dark:border-slate-700">
+        <label class="flex items-center gap-2 text-[13px] font-medium text-slate-700 dark:text-slate-300">
+          <input type="checkbox" id="blankHasImage">
+          <span>Görsel İçeren Soru <span class="font-normal text-slate-400">(Coğrafya, Matematik vb. dersler için)</span></span>
+        </label>
+        <div id="blankImgPanel" class="mt-3 hidden">
+          <div class="flex items-center gap-2">
+            <label class="flex-1 cursor-pointer rounded-lg border border-dashed border-slate-300 bg-white px-3 py-6 text-center transition hover:border-slate-900 dark:border-slate-600 dark:bg-slate-900">
+              <div id="blankImgPlaceholder">
+                <div class="text-slate-400">📷 Görsel seçin</div>
+                <div class="mt-1 text-[11px] text-slate-300">JPG, PNG veya GIF</div>
+              </div>
+              <img id="blankImgPreview" class="mx-auto hidden max-h-28 rounded-lg">
+              <input id="blankImgFile" type="file" accept="image/*" class="hidden">
+            </label>
+            <button id="blankImgRemove" type="button" class="hidden rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-400 transition hover:border-rose-300 hover:text-rose-600">✕</button>
+          </div>
+          <p class="mt-2 text-[11px] text-slate-400">Görsel, ilk boşluk doldurma sorusunun üstüne eklenir.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ortak Görsel Paneli -->
+    <div id="commonImgBlock" class="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/60">
+      <label class="flex items-center gap-2 text-[13px] font-medium text-slate-700 dark:text-slate-300">
+        <input type="checkbox" id="txtHasImage">
+        <span>Görsel İçeren Soru <span class="font-normal text-slate-400">(Coğrafya, Matematik vb. dersler için)</span></span>
+      </label>
+      <div id="imgUploadPanel" class="mt-3 hidden">
+        <div class="flex items-center gap-2">
+          <label class="flex-1 cursor-pointer rounded-lg border border-dashed border-slate-300 bg-white px-3 py-6 text-center transition hover:border-slate-900 dark:border-slate-600 dark:bg-slate-900">
+            <div id="imgUploadPlaceholder">
+              <div class="text-slate-400">📷 Görsel seçin</div>
+              <div class="mt-1 text-[11px] text-slate-300">JPG, PNG veya GIF</div>
+            </div>
+            <img id="imgPreview" class="mx-auto hidden max-h-28 rounded-lg">
+            <input id="txtImgFile" type="file" accept="image/*" class="hidden">
+          </label>
+          <button id="txtImgRemove" type="button" class="hidden rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-400 transition hover:border-rose-300 hover:text-rose-600">✕</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI Prompt Paneli -->
+    <details id="aiPromptPanel" class="group mt-3 overflow-hidden rounded-xl border border-slate-200 bg-slate-50/70 dark:border-slate-700 dark:bg-slate-800/50">
+      <summary class="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-[13px] font-medium text-slate-700 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800">
+        <span>Girdi Düzeni Hk.</span>
+        <span class="text-slate-400 transition group-open:rotate-45">＋</span>
+      </summary>
+      <div class="border-t border-slate-200 px-4 pb-4 pt-3 dark:border-slate-700">
+        <p class="text-[12px] leading-relaxed text-slate-500">
+          Sorularınızı şu promptu kullanarak yapay zeka araçlarına göndererek en uygun forma sokabilirsiniz.
+          Soru kökünü <b class="text-slate-800 dark:text-slate-100">* ile başlayıp * ile biten</b> yazarsanız otomatik algılanır.
+        </p>
+        <div class="mt-2.5 flex items-start gap-2">
+          <pre id="aiPrompt" class="flex-1 select-all whitespace-pre-wrap rounded-lg border border-slate-200 bg-white p-3 text-[11px] leading-relaxed text-slate-700 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-300">Yüklenen soruları analiz et ve öncül / soru kökü / şık ayrımı yap. Soru kökünün ilk sözcüğü önüne ve son sözcüğü bittikten sonra * koyarak çıktıyı ver. Bu formatı asla bozma ve bu şekilde indirilebilir pdf halinde soruları sırala. Cevapları ) ile belirt. A) B) C) D) E) gibi olmalıdır. A.   B. olanları da A) şekline çevir. Soru numarası başta sadece numara olarak bulunsun. Her sorunun Altında Doğru Cevap: X şeklinde yazsın</pre>
+          <button id="copyPrompt" type="button" class="shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[12px] font-medium text-slate-600 transition hover:border-slate-900 hover:text-slate-900 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300">Kopyala</button>
+        </div>
+      </div>
+    </details>
+
+    <div id="preamblePanel" class="mt-4">
+      <div class="flex items-center justify-between">
+        <label class="lbl">Öncül / Bilgi Metni / Paragraf <span class="font-normal text-slate-400">(İsteğe bağlı • Normal Font)</span></label>
+        <button type="button" class="math-trigger shrink-0 rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-500 transition hover:border-slate-900 hover:text-slate-900 dark:border-slate-600 dark:text-slate-400" data-target="txtPreamble">∑ Formül</button>
+      </div>
+      <textarea id="txtPreamble" class="inp mt-1.5 h-20 leading-relaxed" placeholder="I. TBMM'nin açılması&#10;II. Saltanatın kaldırılması&#10;III. Cumhuriyetin ilanı"></textarea>
+    </div>
+
+    <div id="rootPanel" class="mt-3">
+      <div class="flex items-center justify-between">
+        <label class="lbl">Soru Kökü / Yönerge Cümlesi <span class="font-normal text-slate-400">(PDF'te KALIN / BOLD yazılır)</span></label>
+        <button type="button" class="math-trigger shrink-0 rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-500 transition hover:border-slate-900 hover:text-slate-900 dark:border-slate-600 dark:text-slate-400" data-target="txtRoot">∑ Formül</button>
+      </div>
+      <textarea id="txtRoot" class="inp mt-1.5 h-14 font-medium leading-relaxed" placeholder="Yukarıdaki gelişmelerin kronolojik sıralaması aşağıdakilerden hangisidir?"></textarea>
+    </div>
+
+    <div id="optionsPanel" class="mt-4">
+      <span class="lbl">Seçenekler <span class="font-normal text-slate-400">(Opsiyonel: Doğru şıkkı seçiniz)</span></span>
+      <input id="txtAns" type="hidden" value="">
+      <div class="mt-1.5 grid grid-cols-1 divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200 bg-white dark:divide-slate-800 dark:border-slate-700 dark:bg-slate-900">
+        <div class="flex items-center gap-2 px-2.5 py-1.5 transition focus-within:bg-slate-50 dark:focus-within:bg-slate-800">
+          <button type="button" data-opt-answer="A" class="opt-answer w-7 shrink-0 rounded-md py-1 text-xs font-bold text-slate-400 transition">A)</button>
+          <input id="opt0" class="flex-1 bg-transparent text-[13px] outline-none placeholder:text-slate-300" placeholder="Birinci seçenek">
+          <button type="button" class="math-trigger shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium text-slate-400 transition hover:text-slate-900" data-target="opt0" title="Formül ekle">∑</button>
+        </div>
+        <div class="flex items-center gap-2 px-2.5 py-1.5 transition focus-within:bg-slate-50 dark:focus-within:bg-slate-800">
+          <button type="button" data-opt-answer="B" class="opt-answer w-7 shrink-0 rounded-md py-1 text-xs font-bold text-slate-400 transition">B)</button>
+          <input id="opt1" class="flex-1 bg-transparent text-[13px] outline-none placeholder:text-slate-300" placeholder="İkinci seçenek">
+          <button type="button" class="math-trigger shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium text-slate-400 transition hover:text-slate-900" data-target="opt1" title="Formül ekle">∑</button>
+        </div>
+        <div class="flex items-center gap-2 px-2.5 py-1.5 transition focus-within:bg-slate-50 dark:focus-within:bg-slate-800">
+          <button type="button" data-opt-answer="C" class="opt-answer w-7 shrink-0 rounded-md py-1 text-xs font-bold text-slate-400 transition">C)</button>
+          <input id="opt2" class="flex-1 bg-transparent text-[13px] outline-none placeholder:text-slate-300" placeholder="Üçüncü seçenek">
+          <button type="button" class="math-trigger shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium text-slate-400 transition hover:text-slate-900" data-target="opt2" title="Formül ekle">∑</button>
+        </div>
+        <div class="flex items-center gap-2 px-2.5 py-1.5 transition focus-within:bg-slate-50 dark:focus-within:bg-slate-800">
+          <button type="button" data-opt-answer="D" class="opt-answer w-7 shrink-0 rounded-md py-1 text-xs font-bold text-slate-400 transition">D)</button>
+          <input id="opt3" class="flex-1 bg-transparent text-[13px] outline-none placeholder:text-slate-300" placeholder="Dördüncü seçenek">
+          <button type="button" class="math-trigger shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium text-slate-400 transition hover:text-slate-900" data-target="opt3" title="Formül ekle">∑</button>
+        </div>
+        <div class="flex items-center gap-2 px-2.5 py-1.5 transition focus-within:bg-slate-50 dark:focus-within:bg-slate-800">
+          <button type="button" data-opt-answer="E" class="opt-answer w-7 shrink-0 rounded-md py-1 text-xs font-bold text-slate-400 transition">E)</button>
+          <input id="opt4" class="flex-1 bg-transparent text-[13px] outline-none placeholder:text-slate-300" placeholder="Beşinci seçenek">
+          <button type="button" class="math-trigger shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium text-slate-400 transition hover:text-slate-900" data-target="opt4" title="Formül ekle">∑</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-4 grid grid-cols-2 gap-2.5 border-t border-slate-100 pt-4 dark:border-slate-800">
+      <label id="layoutPanel" class="lbl">Şık Dizilimi
+        <select id="txtLayout" class="inp mt-1.5">
+          <option value="v">Alt alta</option>
+          <option value="h">Yan yana</option>
+        </select>
+      </label>
+      <label class="lbl">Cevap Boşluğu
+        <select id="txtBlank" class="inp mt-1.5">
+          <option value="0">Yok</option>
+          <option value="15">Küçük · 3 satır</option>
+          <option value="25">Orta · 5 satır</option>
+          <option value="40">Büyük · 8 satır</option>
+        </select>
+      </label>
+    </div>
+
+    <div id="txtWarn" class="tw-warn" role="alert"></div>
+
+    <div class="mt-5 flex justify-end gap-2 border-t border-slate-100 pt-4 dark:border-slate-800">
+      <button id="txtCancel" class="rounded-lg px-4 py-2 text-[13px] font-medium text-slate-500 transition hover:bg-slate-100 dark:hover:bg-slate-800">İptal</button>
+      <button id="txtSaveNew" class="rounded-lg border border-slate-200 px-4 py-2 text-[13px] font-medium text-slate-700 transition hover:border-slate-900 dark:border-slate-700 dark:text-slate-300">Kaydet ve Devam</button>
+      <button id="txtSave" class="rounded-lg bg-slate-900 px-5 py-2 text-[13px] font-medium text-white transition hover:bg-slate-700">Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<!-- KaTeX Formül Editörü Modalı -->
+<div id="mathModal" class="fixed inset-0 hidden items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm" style="z-index:70">
+  <div class="fade-in max-h-[90vh] w-full max-w-2xl overflow-auto rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900 dark:text-slate-200">
+    <div class="flex items-center justify-between">
+      <h3 class="text-[15px] font-semibold text-slate-900 dark:text-slate-100">Formül Ekle</h3>
+      <button type="button" id="mathModalClose" class="rounded-lg px-2 py-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800">✕</button>
+    </div>
+    <p class="mt-1 text-[13px] text-slate-500">Aşağıdaki hazır yapılardan birine tıklayın, sarı ile işaretli kısımları kendi değerlerinizle değiştirin (Tab ile bir sonrakine geçebilirsiniz).</p>
+    <div id="eqedContainer" class="mt-4"></div>
+    <div class="mt-5 flex justify-end gap-2 border-t border-slate-100 pt-4 dark:border-slate-800">
+      <button type="button" id="mathModalCancel" class="rounded-lg px-4 py-2 text-[13px] font-medium text-slate-500 transition hover:bg-slate-100 dark:hover:bg-slate-800">İptal</button>
+      <button type="button" id="mathModalInsert" class="rounded-lg bg-slate-900 px-5 py-2 text-[13px] font-medium text-white transition hover:bg-slate-700">Alana Ekle</button>
+    </div>
+  </div>
+</div>
+
+<!-- PDF Sonuç Modalı -->
+<div id="resultModal" class="fixed inset-0 z-40 hidden items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
+  <div class="fade-in w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900 dark:text-slate-200">
+    <h3 class="text-[15px] font-semibold text-slate-900 dark:text-slate-100">PDF Hazır</h3>
+    <p class="mt-1 text-[13px] text-slate-500">İndirme başlamadıysa aşağıdaki butonları kullanın.</p>
+    <div id="resultList" class="mt-4 space-y-2"></div>
+    <div class="mt-5 flex justify-end border-t border-slate-100 pt-4 dark:border-slate-800">
+      <button id="resultClose" class="rounded-lg px-4 py-2 text-[13px] font-medium text-slate-500 transition hover:bg-slate-100 dark:hover:bg-slate-800">Kapat</button>
+    </div>
+  </div>
+</div>
+
+<!-- PDF / Görselden Kesme Aracı Modalı -->
+<div id="cropTool" class="fixed inset-0 z-50 hidden flex-col bg-slate-900 text-white">
+  <div class="flex flex-wrap items-center gap-3 border-b border-white/10 px-5 py-3">
+    <span class="text-[13px] font-semibold">Görselden/PDF'ten Soru Kes</span>
+    <label class="cursor-pointer rounded-lg bg-white/10 px-3.5 py-1.5 text-[13px] font-medium transition hover:bg-white/20">Görsel/PDF Yükle
+      <input id="cropFile" type="file" accept="image/*,application/pdf,.pdf" class="hidden"></label>
+    <div id="pdfPageBar" class="hidden items-center gap-2">
+      <span class="text-[13px] text-white/70">Sayfa:</span>
+      <select id="pdfPageSelect" class="rounded-lg border border-white/20 bg-slate-800 px-2.5 py-1.5 text-[13px] text-white outline-none transition focus:border-white/50" style="color-scheme:dark"></select>
+      <span id="pdfPageCount" class="text-[12px] text-white/50"></span>
+    </div>
+    <label class="flex items-center gap-2 text-[13px] text-white/70"><input type="checkbox" id="autoTrim" checked class="!accent-white"> Boşlukları temizle</label>
+    <button id="cutBtn" class="hidden">Kes</button>
+    <div class="ml-auto flex gap-2">
+      <button id="cropUpload" class="rounded-lg bg-white/10 px-3.5 py-1.5 text-[13px] font-medium transition hover:bg-white/20">Yükle · <span id="cutCount">0</span></button>
+      <button id="cropClose" class="rounded-lg px-3 py-1.5 text-[13px] text-white/50 transition hover:text-white">Kapat</button>
+    </div>
+  </div>
+  <div class="flex min-h-0 flex-1 flex-col lg:flex-row">
+    <div id="cropWrap" class="relative flex-1 overflow-auto bg-slate-800 p-6 lg:p-5">
+      <div id="cropStage" class="relative inline-block select-none">
+        <img id="cropImg" class="max-w-[calc(100vw-3rem)] max-h-[60vh] hidden rounded lg:max-w-none lg:max-h-none" draggable="false">
+        <div id="cropRect" class="pointer-events-none absolute hidden border-2 border-blue-500 bg-blue-500/20"></div>
+      </div>
+      <div id="cropAddBar" class="absolute z-20 hidden items-center gap-2 rounded-lg bg-slate-900/95 px-2 py-1.5 shadow-xl ring-1 ring-white/15">
+        <span class="text-[11px] font-medium text-white/60">Cevap</span>
+        <span id="cropAns" class="flex gap-1"></span>
+        <button id="cropAddBtn" type="button" class="rounded-md bg-white px-3 py-1 text-[12px] font-semibold text-slate-900 transition hover:bg-slate-100">
+          Ekle
+        </button>
+        <button id="cropOcrBtn" type="button" class="rounded-md bg-amber-400 px-3 py-1 text-[12px] font-semibold text-slate-900 transition hover:bg-amber-300">
+          Metni oku
+        </button>
+      </div>
+      <div id="cropHint" class="p-12 text-center text-[13px] leading-relaxed text-white/40">
+        Bir görsel veya PDF yükleyin, soruyu parmağınızla veya fareyle çerçeveleyin<br>ve çıkan <b class="text-white/70">Ekle</b> butonuna basın.
+      </div>
+      <div id="pdfLoading" class="absolute inset-0 z-30 hidden items-center justify-center bg-slate-900/60 text-[13px] font-medium">PDF işleniyor...</div>
+    </div>
+    <div id="cutList" class="max-h-44 w-full shrink-0 overflow-auto border-t border-white/10 p-3 lg:max-h-none lg:w-56 lg:border-l lg:border-t-0"></div>
+  </div>
+</div>
+
+<!-- Kullanım Kılavuzu Modalı -->
+<div id="guide" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
+  <div class="fade-in flex max-h-[86vh] w-full max-w-2xl flex-col rounded-2xl bg-white shadow-2xl dark:bg-slate-900 dark:text-slate-200">
+    <div class="flex items-center justify-between border-b border-slate-100 px-7 py-5 dark:border-slate-800">
+      <h2 class="text-[15px] font-semibold text-slate-900 dark:text-slate-100">Kullanım Kılavuzu</h2>
+      <button id="guideClose" class="rounded-lg px-3 py-1.5 text-[13px] font-medium text-slate-400 transition hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800">Kapat</button>
+    </div>
+    <div id="guideBody" class="overflow-auto px-7 py-6"></div>
+  </div>
+</div>
+
+</body>
+</html>

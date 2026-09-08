@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Eğitim Teknolojileri prompt deposu — Genel Yapay Zekâ ve NotebookLM promptları, çıktı Türkçe.">
+    <title>Eğitim Promptları — Prompt Üretici</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;0,9..144,900;1,9..144,600&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <!-- Özel Modüler Stiller -->
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+    <div class="grain"></div>
+    <span class="doodle">∑ &nbsp;π &nbsp;√x</span>
+    <span class="doodle">a² + b² = c²</span>
+    <span class="doodle">E = mc²</span>
+    <span class="doodle">✶ ✶</span>
+    <span class="doodle">∫ f(x) dx</span>
+
+    <header class="topbar reveal">
+        <div class="brand">
+            <div class="logo-mark" aria-hidden="true">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+                    <path d="M12 2v20M2 12h20M4.9 4.9l14.2 14.2M19.1 4.9L4.9 19.1"/>
+                </svg>
+            </div>
+            <div class="brand-text">
+                <h1>Eğitim Promptları</h1>
+                <svg class="squiggle" viewBox="0 0 220 12" preserveAspectRatio="none" aria-hidden="true">
+                    <path pathLength="1" d="M3 8c25-6 45 6 70 0s45-6 70 0 45 6 74 0"/>
+                </svg>
+                <span class="brand-sub"><a href="https://www.instagram.com/egemenbilim/" target="_blank" rel="noopener">Egemen</a>'s EdTech</span>
+            </div>
+        </div>
+        <div class="top-right">
+            <div class="chips">
+                <span class="top-chip">5 Genel Prompt</span>
+                <span class="top-chip sky">4 NotebookLM Promptu</span>
+                <span class="top-chip gold">Çıktı: Türkçe</span>
+            </div>
+            <p class="tagline">Promptunuzu oluşturun ve ilgili yapay zekâ aracına yapıştırın. Komutlar İngilizce yazılır; her promptun sonundaki kural çıktının <strong style="color:var(--emerald)">Türkçe</strong> verilmesini zorunlu kılar.</p>
+        </div>
+    </header>
+
+    <main class="layout">
+
+        <section class="board-card reveal" style="animation-delay:.08s" aria-label="Prompt girdileri">
+            <div class="card-title-row">
+                <h2 class="card-title">Girdiler</h2>
+                <span class="card-sub">Yıldızlı (*) alanlar zorunludur</span>
+            </div>
+
+            <!-- 01 · Materyal Türü -->
+            <div class="field">
+                <span class="field-label"><span class="chip-num">01</span> Materyal Türü <span class="req">*</span></span>
+
+                <!-- Genel Yapay Zekâ -->
+                <div class="mat-group is-gold">
+                    <div class="group-head">
+                        <span class="gh-dot"></span>
+                        <span class="gh-title">Genel Yapay Zekâ Promptları</span>
+                        <span class="gh-line"></span>
+                        <span class="gh-count">5</span>
+                    </div>
+                    <p class="gh-hint">ChatGPT, Gemini, Claude gibi <b>genel sohbet tabanlı</b> araçlara yapıştırılır.</p>
+                    <div class="mat-grid" role="radiogroup" aria-label="Genel yapay zekâ promptları">
+                        <label class="mat-tile"><input type="radio" name="materyal" value="maarif"><span class="m-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/><path d="M9 15.5l2 2 4-4"/></svg></span><span class="m-text"><span class="m-num">G1</span><span class="m-name">Maarif Günlük Ders Planı</span></span></label>
+                        <label class="mat-tile"><input type="radio" name="materyal" value="kavram_yanilgisi"><span class="m-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.8.6 1.5 1.3 1.5 2.1h4c0-.8.7-1.5 1.5-2.1A6 6 0 0 0 12 3z"/></svg></span><span class="m-text"><span class="m-num">G2</span><span class="m-name">Kavram Yanılgısı Analizi</span></span></label>
+                        <label class="mat-tile"><input type="radio" name="materyal" value="calisma_programi"><span class="m-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.2 2"/></svg></span><span class="m-text"><span class="m-num">G3</span><span class="m-name">Çalışma Programı</span></span></label>
+                        <label class="mat-tile"><input type="radio" name="materyal" value="veli_bulteni"><span class="m-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7.5l9 6 9-6"/></svg></span><span class="m-text"><span class="m-num">G4</span><span class="m-name">Veli Bilgilendirme Bülteni</span></span></label>
+                        <label class="mat-tile"><input type="radio" name="materyal" value="gagne"><span class="m-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h5v-4h4v-4h4V8h5"/><path d="M17 4h4v4"/></svg></span><span class="m-text"><span class="m-num">G5</span><span class="m-name">Gagné Dokuz Adım Planı</span></span></label>
+                    </div>
+                </div>
+
+                <!-- NotebookLM -->
+                <div class="mat-group">
+                    <div class="group-head">
+                        <span class="gh-dot"></span>
+                        <span class="gh-title">NotebookLM Promptları</span>
+                        <span class="gh-line"></span>
+                        <span class="gh-count">4</span>
+                    </div>
+                    <p class="gh-hint">Üretilen prompt <b>doğrudan NotebookLM'e</b> yapıştırılır; kaynaklarınız taranarak materyal üretilir.</p>
+                    <div class="mat-grid" role="radiogroup" aria-label="NotebookLM promptları">
+                        <label class="mat-tile"><input type="radio" name="materyal" value="not"><span class="m-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h9l4 4v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v4h4"/><path d="M8 12h7M8 16h5"/></svg></span><span class="m-text"><span class="m-num">N1</span><span class="m-name">Detaylı Ders Özeti</span></span></label>
+                        <label class="mat-tile"><input type="radio" name="materyal" value="nlm"><span class="m-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M12 16v4M8 20h8"/><path d="M7 12l3-3 2 2 4-4"/></svg></span><span class="m-text"><span class="m-num">N2</span><span class="m-name">Sunum Oluşturma (Yansı → Sunum)</span></span></label>
+                        <label class="mat-tile"><input type="radio" name="materyal" value="bosluk"><span class="m-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 6h6M13 6h8M3 12h9M3 18h5M12 18h9"/></svg></span><span class="m-text"><span class="m-num">N3</span><span class="m-name">Boşluk Doldurma Kağıdı</span></span></label>
+                        <label class="mat-tile"><input type="radio" name="materyal" value="video"><span class="m-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5.5" width="14" height="13" rx="2"/><path d="M16.5 10.5l5-3v9l-5-3z"/></svg></span><span class="m-text"><span class="m-num">N4</span><span class="m-name">Video Oluşturma (Derse Giriş)</span></span></label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 02 · Sınıf -->
+            <div class="field" id="sinif-group" style="display:none;">
+                <label class="field-label" for="sinif"><span class="chip-num">02</span> Sınıf Seviyesi <span class="req">*</span></label>
+                <select id="sinif" class="control">
+                    <option value="">Seviye seçiniz...</option>
+                    <option value="5. Sınıf">5. Sınıf</option><option value="6. Sınıf">6. Sınıf</option><option value="7. Sınıf">7. Sınıf</option>
+                    <option value="8. Sınıf">8. Sınıf</option><option value="9. Sınıf">9. Sınıf</option><option value="10. Sınıf">10. Sınıf</option>
+                    <option value="11. Sınıf">11. Sınıf</option><option value="12. Sınıf (YKS)">12. Sınıf (YKS)</option><option value="Mezun (YKS)">Mezun (YKS)</option>
+                </select>
+            </div>
+
+            <!-- 03 · Ders -->
+            <div class="field" id="main-ders-group">
+                <label class="field-label" for="ders"><span class="chip-num">03</span> Ders / Alan Adı <span class="req">*</span></label>
+                <select id="ders" class="control">
+                    <option value="">Bir ders seçiniz...</option>
+                    <option value="Türkçe">Türkçe</option><option value="Türk Dili ve Edebiyatı">Türk Dili ve Edebiyatı</option><option value="Tarih">Tarih</option>
+                    <option value="Coğrafya">Coğrafya</option><option value="Felsefe">Felsefe</option><option value="Din Kültürü ve Ahlak Bilgisi">Din Kültürü ve Ahlak Bilgisi</option>
+                    <option value="Matematik">Matematik</option><option value="Fizik">Fizik</option><option value="Kimya">Kimya</option>
+                    <option value="Biyoloji">Biyoloji</option><option value="Fen Bilgisi">Fen Bilgisi</option><option value="İngilizce">İngilizce</option>
+                </select>
+            </div>
+
+            <!-- 04 · Konu -->
+            <div class="field" id="konu-group" style="margin-bottom:0;">
+                <label class="field-label" for="konu"><span class="chip-num">04</span> Konu / Ünite / Alt Elemanlar <span class="req">*</span></label>
+                <textarea id="konu" class="control" placeholder="Örn: Divan Edebiyatı, Gazel nazım şekli ve özellikleri..."></textarea>
+            </div>
+
+            <!-- Video panel -->
+            <div id="video-options" class="panel-dyn acc-sky" style="display:none;">
+                <div class="panel-head">Video Oluşturma (Derse Giriş) — NotebookLM</div>
+                <p class="panel-note" style="margin-bottom:0;">Bu şablon hazır. Seçtiğiniz <strong>Ders</strong> ve <strong>Konu</strong> bilgileri kullanılarak NotebookLM kaynaklarınız üzerinden 3–4 dakikalık derse giriş videosu senaryosu promptu üretilecek. 7. sınıf ve altı için anlatım otomatik olarak somutlaştırılır.</p>
+            </div>
+
+            <!-- Gagné panel -->
+            <div id="gagne-options" class="panel-dyn acc-peach" style="display:none;">
+                <div class="panel-head">Gagné Modeli Ek Parametreleri</div>
+                <div class="field" style="margin-bottom:.2rem;">
+                    <label class="mini-label" for="g-sure">Eğitim / Ders Süresi <span class="req">*</span></label>
+                    <input type="text" id="g-sure" class="control" placeholder="Örn: 45 dakika / 2 saat / 1 gün">
+                </div>
+            </div>
+
+            <!-- Çalışma Programı panel -->
+            <div id="program-options" class="panel-dyn acc-gold" style="display:none;">
+                <div class="panel-head">I. Program İçeriği &amp; Zorunlu Alanlar</div>
+                <div id="dynamic-courses"></div>
+                <button type="button" id="btn-add-course" class="btn-add" style="color:var(--gold); border-color:rgba(201,168,76,.5);">+ Yeni Ders Ekle (Max 10)</button>
+                <div class="field">
+                    <label class="mini-label" for="p-sure">Program Süresi <span class="req">*</span></label>
+                    <input type="text" id="p-sure" class="control" placeholder="Örn: 3 Haftalık, 1 Aylık">
+                </div>
+                <div class="panel-head">II. Hedefler &amp; Ek Detaylar</div>
+                <p class="panel-note" style="margin-top:-.55rem;">Opsiyoneldir; boş bırakılan alanlar yapay zekâ tarafından bağlamsal olarak belirlenir.</p>
+                <div class="p-grid">
+                    <div class="field"><label class="mini-label">Öğrenci İsmi</label><input type="text" id="p-ogrenci" class="control" placeholder="Örn: Ahmet"></div>
+                    <div class="field"><label class="mini-label">Önerilen Ders Kaynağı</label><input type="text" id="p-kaynak" class="control" placeholder="Örn: 3D Yayınları, OGM Materyal"></div>
+                    <div class="field"><label class="mini-label">Günlük Çalışma Süresi</label><input type="text" id="p-gunluk-sure" class="control" placeholder="Örn: 4 Saat"></div>
+                    <div class="field"><label class="mini-label">Toplam Soru Sayısı</label><input type="text" id="p-toplam-soru" class="control" placeholder="Örn: 1500"></div>
+                    <div class="field"><label class="mini-label">Günlük Soru Sayısı</label><input type="text" id="p-gunluk-soru" class="control" placeholder="Örn: 150"></div>
+                    <div class="field"><label class="mini-label">Deneme Sayısı</label><input type="text" id="p-deneme" class="control" placeholder="Örn: Haftada 2 TYT"></div>
+                    <div class="field span2"><label class="mini-label">Ek Girdiler</label><textarea id="p-ek" class="control" placeholder="Örn: Pazartesi sadece Matematik olsun, Pazar günü boş geçilsin."></textarea></div>
+                </div>
+            </div>
+
+            <!-- Veli panel -->
+            <div id="veli-options" class="panel-dyn acc-sky" style="display:none;">
+                <div class="panel-head">İşlenen Dersler ve Konular</div>
+                <div id="dynamic-veli-courses"></div>
+                <button type="button" id="btn-add-veli-course" class="btn-add sky">+ Yeni Ders Ekle (Max 15)</button>
+                <div class="field" style="margin-bottom:.2rem;">
+                    <label class="mini-label" for="v-etkinlikler">Yapılan Ekstra Etkinlikler <span class="opt">(Opsiyonel)</span></label>
+                    <textarea id="v-etkinlikler" class="control" placeholder="Örn: Okuma saati düzenlendi..."></textarea>
+                </div>
+            </div>
+
+            <!-- Sunum panel -->
+            <div id="nlm-options" class="panel-dyn acc-chalk" style="display:none;">
+                <div class="panel-head">Sunum Kimliği</div>
+                <div class="p-grid">
+                    <div class="field"><label class="mini-label" for="ogretmen">Öğretmen Adı</label><input type="text" id="ogretmen" class="control" placeholder="Örn: Egemen Bilim"></div>
+                    <div class="field" style="margin-bottom:.2rem;"><label class="mini-label" for="kurum">Kurum Adı</label><input type="text" id="kurum" class="control" placeholder="Örn: Atatürk Anadolu Lisesi"></div>
+                </div>
+            </div>
+
+            <!-- Maarif panel -->
+            <div id="maarif-options" class="panel-dyn acc-emerald" style="display:none;">
+                <div class="panel-head">I. Bölüm: Ders Bilgisi &amp; Zorunlu Alanlar</div>
+                <div class="p-grid">
+                    <div class="field span2"><label class="mini-label" for="m-okul">Okul Adı <span class="req">*</span></label><input type="text" id="m-okul" class="control" placeholder="Örn: Atatürk Anadolu Lisesi"></div>
+                    <div class="field"><label class="mini-label" for="m-tarih">Ders Tarihi <span class="req">*</span></label><input type="text" id="m-tarih" class="control" placeholder="Örn: 12/10/2026"></div>
+                    <div class="field"><label class="mini-label" for="m-hafta">Hafta <span class="req">*</span></label><input type="text" id="m-hafta" class="control" placeholder="Örn: 5. Hafta"></div>
+                    <div class="field"><label class="mini-label" for="m-sure">Ders Süresi <span class="req">*</span></label><input type="text" id="m-sure" class="control" placeholder="Örn: 80 dk"></div>
+                    <div class="field"><label class="mini-label" for="m-unite">Ünite Adı <span class="req">*</span></label><input type="text" id="m-unite" class="control" placeholder="Örn: 2. Ünite: Şiir"></div>
+                    <div class="field span2"><label class="mini-label" for="m-konular">Konular <span class="req">*</span> <span class="opt">(En az 4 kavram başlığı)</span></label><textarea id="m-konular" class="control" placeholder="Örn: 1. Tanzimat Şiiri, 2. Şinasi, 3. Namık Kemal, 4. Ziya Paşa..."></textarea></div>
+                    <div class="field span2" style="margin-bottom:.2rem;"><label class="mini-label" for="m-ogrenme_ciktilari">Öğrenme Çıktısı <span class="opt">(Opsiyonel)</span> <a href="https://tymm.meb.gov.tr/ogretim-programlari" target="_blank" rel="noopener" class="link-ext" style="font-size:.74rem;">Tablo →</a></label><input type="text" id="m-ogrenme_ciktilari" class="control" placeholder="Örn: TDE1.2."></div>
+                </div>
+                <div class="panel-head" style="margin-top:1.1rem;">II. Maarif Modeli Bileşenleri</div>
+                <p class="panel-note">Boş bırakılan alanlar yapay zekâ tarafından bağlamsal olarak tamamlanacaktır.</p>
+                <div class="scrollbox">
+                    <div class="field"><label class="mini-label">Alan Becerileri</label><input type="text" id="m-alan" class="control"></div>
+                    <div class="field"><label class="mini-label">Kavramsal Beceriler</label><input type="text" id="m-kavramsal" class="control"></div>
+                    <div class="field"><label class="mini-label">Eğilimler</label><input type="text" id="m-egilimler" class="control"></div>
+                    <div class="field"><label class="mini-label">Sosyal-Duygusal Öğrenme</label><input type="text" id="m-sosyal" class="control"></div>
+                    <div class="field"><label class="mini-label">Değerler</label><input type="text" id="m-degerler" class="control"></div>
+                    <div class="field"><label class="mini-label">Okuryazarlık Becerileri</label><input type="text" id="m-okuryazarlik" class="control"></div>
+                    <div class="field"><label class="mini-label">Disiplinler Arası İlişkiler</label><input type="text" id="m-disiplinler" class="control"></div>
+                    <div class="field"><label class="mini-label">Beceriler Arası İlişkiler</label><input type="text" id="m-beceriler_arasi" class="control"></div>
+                    <div class="field"><label class="mini-label">İçerik Çerçevesi</label><input type="text" id="m-icerik" class="control"></div>
+                    <div class="field"><label class="mini-label">Ölçme ve Değerlendirme</label><input type="text" id="m-olcme" class="control"></div>
+                    <div class="field"><label class="mini-label">Temel Kabuller</label><input type="text" id="m-kabuller" class="control"></div>
+                    <div class="field"><label class="mini-label">Ön Değerlendirme Süreci</label><input type="text" id="m-on_degerlendirme" class="control"></div>
+                    <div class="field"><label class="mini-label">Köprü Kurma</label><input type="text" id="m-kopru" class="control"></div>
+                    <div class="field"><label class="mini-label">Öğretme-Öğrenme Uygulamaları</label><input type="text" id="m-uygulamalar" class="control"></div>
+                    <div class="field"><label class="mini-label">Zenginleştirme</label><input type="text" id="m-zenginlestirme" class="control"></div>
+                    <div class="field" style="margin-bottom:.2rem;"><label class="mini-label">Destekleme</label><input type="text" id="m-destekleme" class="control"></div>
+                </div>
+            </div>
+
+            <button class="btn-cta" onclick="generatePrompt()">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="3.2"/></svg>
+                Profesyonel Prompt Oluştur
+                <span class="kbd">Ctrl + ↵</span>
+            </button>
+        </section>
+
+        <aside class="col-right reveal" style="animation-delay:.16s" aria-label="Üretilen prompt">
+            <div class="paper" id="paper">
+                <div class="paper-head">
+                    <span class="paper-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></span>
+                    <h2 class="paper-title">Üretilen Prompt</h2>
+                    <span class="status" id="status-chip"><span class="dot"></span><span id="status-text">Bekliyor</span></span>
+                    <button class="btn-copy" id="btn-copy" onclick="copyPrompt()">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+                        <span id="copy-text">Metni Kopyala</span>
+                    </button>
+                </div>
+
+                <div id="result-box" class="empty">Soldan bir prompt grubu ve materyal türü seçip "Profesyonel Prompt Oluştur" butonuna bastığınızda, kopyalayacağınız prompt metni burada belirecektir.
+
+• Sınıf Seviyesi yalnızca Gagné, Sunum Oluşturma ve Kavram Yanılgısı için açılır.
+• Sınıf ≤ 7 ise prompta İngilizce olarak somutlaştırma komutu otomatik eklenir.
+• Her promptun sonuna "çıktının tamamı Türkçe" kuralı eklenir.</div>
+
+                <div class="paper-foot">
+                    <span class="counts"><span id="count-chars">0</span> karakter · <span id="count-words">0</span> kelime</span>
+                    <span class="lang-note">🌐 Komut dili: İngilizce → <b>Çıktı: Türkçe</b></span>
+                </div>
+            </div>
+        </aside>
+    </main>
+
+    <footer class="footer reveal" style="animation-delay:.24s">
+        Bu sistem Eğitim Teknolojileri bağlamında prompt deposu olarak üretilmiştir.<br>
+        <strong>İletişim:</strong> <a href="mailto:egemenbilim@gmail.com">egemenbilim@gmail.com</a>
+    </footer>
+
+    <div class="toast-wrap" id="toast-wrap"></div>
+
+    <!-- Ana ES Modülü -->
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>

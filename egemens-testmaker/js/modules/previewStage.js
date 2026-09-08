@@ -261,7 +261,7 @@ function startHeaderDrag(e, startId, k, isLogo, isRz) {
     headerDragState = {
       mode: 'resize_logo',
       sx: e.clientX, sy: e.clientY,
-      w0: S.logoW || 22, h0: S.logoH || 22,
+      w0: S.logoW || 26, h0: S.logoH || 26,
       k, moved: false
     };
     return;

@@ -611,8 +611,8 @@ export function getMebLogoBox(M) {
     show: mebLogoVisible(),
     x: S.logoX != null ? S.logoX : defaultX,
     y: S.logoY != null ? S.logoY : defaultY,
-    w: S.logoW || 22,
-    h: S.logoH || 22
+    w: S.logoW || 26,
+    h: S.logoH || 26
   };
 }
 
@@ -626,7 +626,7 @@ export function activeLogoAspect() {
 
 export function fixLogoAspect(refreshFn) {
   const ar = activeLogoAspect();
-  let h = S.logoH || 22;
+  let h = S.logoH || 26;
   let w = h * ar;
   const maxW = 60;
   if (w > maxW) { w = maxW; h = w / ar; }
@@ -765,22 +765,22 @@ export function getMEBHeaderItems(ctx, PW, PH, M, t, version) {
   const L = M + 2, R = PW - M - 2;
   const logoBox = getMebLogoBox(M);
   const showLogo = logoBox.show;
-  // Başlık metinleri logodan bağımsızdır ve sayfa merkezine göre ortalanır
-  const textCx = (L + R) / 2;
-  let y = M + 4.5;
+  const textL = showLogo ? Math.max(L, logoBox.x + logoBox.w + 4) : L;
+  const textCx = (textL + R) / 2;
+  let y = M + 6.5;
   ctx.save();
 
   setFont(ctx, { size: PT(12), bold: true });
   const wYear = ctx.measureText(S.mebYear || '').width / SCALE;
   const defYear = { x: textCx - wYear / 2, y: y, w: wYear, h: 4.8 };
-  if (S.mebYear) y += 7;
+  if (S.mebYear) y += 7.5;
 
   setFont(ctx, { size: PT(12), bold: true });
   const wSchool = ctx.measureText(S.mebSchool || '').width / SCALE;
   const defSchool = { x: textCx - wSchool / 2, y: y, w: wSchool, h: 4.8 };
-  if (S.mebSchool) y += 7;
+  if (S.mebSchool) y += 7.5;
 
-  y = Math.max(y + 1, M + 7);
+  y = Math.max(y + 1.5, M + 7);
   const dash = (v) => (v && String(v).trim() ? String(v).trim() : '...............');
   const lessonText = dash(S.mebLesson);
   const gradeText = dash(S.mebGrade) + ' Sınıf';
@@ -801,11 +801,7 @@ export function getMEBHeaderItems(ctx, PW, PH, M, t, version) {
   const wDate = dateStr ? ctx.measureText(dateStr).width / SCALE : 18;
   const defDate = { x: R - wDate, y, w: wDate, h: 4.4 };
 
-  const textBottomY = y + 5.2;
-  // Logo sol tarafta ise (öğrenci bilgilerinin olduğu alanda), öğrenci satırı logonun altına yerleştirilmeli
-  const logoBottom = (showLogo && logoBox.x < L + (PW - 2 * M) * 0.35) ? (logoBox.y + logoBox.h) : 0;
-  y = Math.max(textBottomY + 1.5, logoBottom + 2.5);
-
+  y += 7;
   setFont(ctx, { size: PT(11), bold: true });
   const wName = S.mebNameLbl ? ctx.measureText(S.mebNameLbl).width / SCALE : 20;
   const wClass = S.mebClassLbl ? ctx.measureText(S.mebClassLbl).width / SCALE : 12;
@@ -845,9 +841,6 @@ export function drawMEBHeader(ctx, PW, PH, M, t, version, first) {
 
   const labelY = Math.max(items.mebNameLbl.y, items.mebClassLbl.y, items.mebNoLbl.y, items.mebScoreLbl.y);
   let y = labelY + 4.5;
-  if (logoBox.show) {
-    y = Math.max(y, logoBox.y + logoBox.h + 2.5);
-  }
   if (!t.hideVersion && S.groups > 1) {
     drawText(ctx, 'Kitapçık: ' + version, PW - M - 2, y - 6.2, { size: PT(9), bold: true, align: 'right' });
   }

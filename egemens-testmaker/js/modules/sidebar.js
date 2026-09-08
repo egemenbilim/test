@@ -241,7 +241,7 @@ export function initSidebar() {
         im.onload = () => {
           setCustomLogo(trimmed, im);
           const ar = (im.naturalWidth || 1) / (im.naturalHeight || 1);
-          let h = 22, w = h * ar;
+          let h = 26, w = h * ar;
           if (w > 60) { w = 60; h = w / ar; }
           S.logoW = Math.max(8, w);
           S.logoH = Math.max(8, h);
@@ -267,7 +267,7 @@ export function initSidebar() {
   };
 
   $('logoFixAspect').onclick = () => fixLogoAspect(refreshNow);
-  $('logoSizeReset').onclick = () => { S.logoW = 22; S.logoH = 22; schedulePreview(); };
+  $('logoSizeReset').onclick = () => { S.logoW = 26; S.logoH = 26; schedulePreview(); };
   $('logoPosReset').onclick = () => {
     S.logoX = null;
     S.logoY = null;

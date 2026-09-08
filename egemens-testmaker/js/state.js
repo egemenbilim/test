@@ -33,16 +33,28 @@ export const S = {
   mebScoreLbl: 'Puan:',
   mebLogo: true,
   logoChoice: 'meb',
-  logoW: 26,
-  logoH: 26,
+  logoW: 22,
+  logoH: 22,
   logoX: null,
   logoY: null,
   mebPos: null,
   title: '',
   school: '',
   lesson: '2025-2026 EĞİTİM ÖĞRETİM YILI',
-  description: 'Aşağıdaki soruları dikkatlice okuyunuz. Her soru 10 Puan olmakla birlikte sınav süreniz 40 dakikadır.'
+  description: 'Aşağıdaki soruları dikkatlice okuyunuz. Her soru 10 Puan olmakla birlikte sınav süreniz 40 dakikadır.',
+  // Yeni özellik durumları
+  customTemplateId: null,
+  showQuestionAreaGuide: false,
+  activeBankId: null
 };
+
+export const PRESET_COLORS = [
+  { name: 'MEB Bordo', hex: '#b91c1c' },
+  { name: 'Resmî Lacivert', hex: '#1e3a8a' },
+  { name: 'Zümrüt Yeşili', hex: '#0f766e' },
+  { name: 'Canlandırıcı Turuncu', hex: '#ea580c' },
+  { name: 'Kurşunî Antrasit', hex: '#334155' }
+];
 
 export const questions = [];
 

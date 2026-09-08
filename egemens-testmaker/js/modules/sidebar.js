@@ -1,7 +1,8 @@
-import { S, questions } from '../state.js';
-import { $ } from '../utils.js';
+import { S, questions, PRESET_COLORS } from '../state.js';
+import { $, esc } from '../utils.js';
 import { schedulePreview, pvDock, refreshNow } from './previewStage.js';
-import { trimLogoImage, setCustomLogo, fixLogoAspect } from './pdfEngine.js';
+import { trimLogoImage, setCustomLogo, fixLogoAspect, calculateQuestionBounds } from './pdfEngine.js';
+import { openCustomTemplateModal, getCustomTemplates, getActiveCustomTemplate } from './customTemplate.js';
 
 export function openSidebar() {
   $('sidebarPanel').classList.add('open');
@@ -32,37 +33,64 @@ export function initDark() {
 }
 
 export const GUIDE = [
-  { s: '🚀 Hızlı Başlangıç', items: [
-    ['Üç adımda test hazırlama', 'Önce sorularınızı ekleyin, ardından sol üstteki <b>Ayarlar</b> butonundan test ayarlarını yapın ve son olarak <b>Kağıdı Hazırla</b> butonuna basın. PDF dosyanız hazırdır.'],
-    ['Soru ekleme yöntemleri', 'Soru eklemenin üç yolu vardır:<br>• <b>Soru Seçin</b> — bilgisayarınızdaki soru görsellerini yükleyin.<br>• <b>Yazılı Soru Ekleyin</b> — Soru yazın yahut metin bloğu olarak soruyu şıkları ile yapıştırın.<br>• <b>Görselden Soru Kesin</b> — Soruyu yüklediğiniz görselden veya PDF\'den keserek seçin.'],
-  ]},
-  { s: '✍️ Yazılı Soru Ekleme', items: [
-    ['Soru tipleri', '<b>Çoktan Seçmeli:</b> A, B, C, D, E şıklı klasik test sorusudur.<br><b>Boşluk Doldurma:</b> Cümle içinde boş bırakılan yerlerin doldurulduğu sorudur.<br><b>Klasik:</b> Öğrencinin cevabını yazacağı boş satırlar içeren açık uçlu sorudur.'],
-    ['Öncül ile soru kökü farkı', 'Bilgi metni (öncül) normal yazı tipiyle, asıl soruyu soran cümle (soru kökü) ise <b>kalın</b> yazı tipiyle yazdırılır. Böylece öğrenci kendisinden ne istendiğini kolayca görür.'],
-    ['Hazır soruyu yapıştırma', 'Elinizdeki bir soruyu kopyalayıp metin kutusuna yapıştırdığınızda; şıklar, soru kökü ve varsa doğru cevap <b>otomatik olarak ayrıştırılır</b>.'],
-    ['Boşluk doldurma sorusu', 'Cümlede boşluk bırakmak istediğiniz yere <b>üç nokta (...)</b> yazmanız yeterlidir.'],
-    ['Görsel içeren soru', 'Soruya harita, grafik, şekil gibi bir görsel eklemek isterseniz <b>Görsel İçeren Soru</b> kutucuğunu işaretleyin.'],
-  ]},
-  { s: '✂️ Görselden/PDF\'ten Soru Kesme', items: [
-    ['Nasıl kullanılır?', 'Kitap veya test sayfasının fotoğrafını ya da PDF\'ini yükleyin. Fareyle soruyu çerçeve içine alın ve beliren <b>Ekle</b> butonuna basın.'],
-    ['PDF desteği', 'PDF dosyalarını yükleyebilir, sayfa seçerek istediğiniz sayfadan soru kesebilirsiniz.'],
-    ['Kesim ipucu', 'Sorunun solundaki numarayı çerçevenin dışında bırakın; numaralandırmayı program kendisi yapar.'],
-  ]},
-  { s: '🗂️ Soruları Düzenleme', items: [
-    ['Sıralama ve silme', 'Soruları fareyle sürükleyerek istediğiniz sıraya getirebilirsiniz.'],
-    ['Cevap anahtarı', 'Her sorunun altındaki A–E kutucuklarından doğru cevabı işaretleyin.'],
-  ]},
-  { s: '⚙️ Test Ayarları', items: [
-    ['Test türü', '<b>Yazılı Kağıdı:</b> Ad, sınıf ve puan alanları bulunan okul sınavı biçimidir.<br><b>Konu Denemesi:</b> Konu kapsamı girilebilen konu testi biçimidir.'],
-    ['Kitapçık türü', 'A-B veya A-B-C-D seçeneğini kullandığınızda sorular her kitapçıkta farklı sırayla dizilir.'],
-    ['Sayfa düzeni', 'Sütun sayısını, sayfa boyutunu, rengi ve kenar boşluklarını <b>Gelişmiş Ayarlar</b> bölümünden değiştirebilirsiniz.'],
-    ['Filigran', 'Sayfaya kurum adınızı filigran olarak ekleyebilirsiniz.'],
-    ['Optik form', 'Bu seçeneği işaretlediğinizde, soru sayınıza uygun bir optik cevap kağıdı testin sonuna eklenir.'],
-  ]},
-  { s: '💾 Kaydetme', items: [
-    ['Çalışmanızı kaydetme', 'Sağ alttaki <b>Soruları Kaydet</b> butonuyla çalışmanızı indirebilirsiniz.'],
-    ['Verileriniz güvende', 'Uygulama tamamen kendi bilgisayarınızda çalışır.'],
-  ]},
+  {
+    s: '🚀 1. Hızlı Başlangıç (3 Adımda Sınav Kâğıdı)',
+    items: [
+      ['Soruları Ekleyin', 'Soru görsellerini çalışma alanına sürükleyebilir, <b>Yazılı Soru Ekleyin</b> butonuyla çoktan seçmeli, boşluk doldurma veya klasik sorular yazabilir ya da <b>Soru Bankası Havuzu</b>ndan hazır sorular aktarabilirsiniz.'],
+      ['Sınav ve Şablon Ayarlarını Yapın', 'Sol menüdeki <b>Test Ayarları</b> panelinden MEB Resmî Şablonu, Varsayılan Düzen veya Kendi Şablonunuzu seçip okul adını, dersi ve mizanpajı belirleyin.'],
+      ['Baskıya Hazır PDF Oluşturun', '<b>Sınav Kâğıdını Oluştur</b> butonuna tıklayarak A4 boyutunda, çift sütunlu, cevap anahtarlı vektörel PDF çıktınızı anında indirin.']
+    ]
+  },
+  {
+    s: '🏛️ 2. MEB Resmî Şablonu ve Özel Şablon Yönetimi',
+    items: [
+      ['MEB Resmî Şablon Düzeni', 'Millî Eğitim Bakanlığı sınav yönergelerine tam uyumludur. Resmî MEB arması sol üst köşede yer alır; okul ve sınav başlığı sayfa genişliğinin tam ortasında bağımsız olarak hizalanır.'],
+      ['Öğrenci Bilgi Alanları', 'Adı-Soyadı, Sınıfı, Okul Numarası ve Puan haneleri logonun altına muntazam biçimde dizilir; logo taşınsa veya boyutlandırılsa dahi başlık metinleri sabit kalır.'],
+      ['Kendi Sınav Şablonunu Ekle', 'Okulunuza, kurumunuza veya zümrenize özel kutulu, çift çizgili veya minimalist sınav başlıkları oluşturup kaydedebilirsiniz.'],
+      ['Otomatik Soru Alanı Seçimi', 'Şablon başlığının yüksekliği ve sayfa kenar boşlukları taranarak soruların yerleşeceği güvenli alan otomatik olarak hesaplanır; başlık ve sorular asla üst üste binmez.']
+    ]
+  },
+  {
+    s: '📚 3. Soru Bankası Havuzu (DB Yönetimi ve Paylaşım)',
+    items: [
+      ['Kendi Soru Havuzunuzu Oluşturma', 'Dilediğiniz sayıda soru havuzu veritabanı (DB) açabilir, adlandırabilir ve branşlara göre kategorize edebilirsiniz.'],
+      ['Zorluk Seviyelendirmesi', 'Sorularınızı <b>Kolay (🟢)</b>, <b>Orta (🟡)</b> ve <b>Zor (🔴)</b> olarak derecelendirebilir; sınav hazırlarken seviyeye göre filtreleme yapabilirsiniz.'],
+      ['Konu ve Kazanım Etiketleri', 'Her soruya konu ve kazanım etiketleri ekleyebilir (ör. <i>#üçgenler</i>, <i>#fonksiyonlar</i>), etiketlere göre anında arama yapabilirsiniz.'],
+      ['.db Dosyası Olarak Paylaşma', 'Soru havuzunuzu tek tıkla <b>.db</b> formatında bilgisayarınıza indirebilir, zümre öğretmenlerinizle paylaşabilir veya başkalarının hazırladığı havuzları sisteme yükleyebilirsiniz.']
+    ]
+  },
+  {
+    s: '📐 4. Yazılı Soru Ekleme ve Geometri Çizim Aracı',
+    items: [
+      ['Soru Türleri', '<b>Çoktan Seçmeli</b> (A–E seçenekli), <b>Boşluk Doldurma</b> (üç nokta [...] ile otomatik algılanan kelime havuzlu) ve <b>Klasik</b> (açık uçlu, satır boşluklu) soru formatları desteklenir.'],
+      ['Öncül ve Soru Kökü Ayrımı', 'Öncül metni standart punto ile, soru kökü ise öğrencinin dikkatini çekecek şekilde <b>kalın (bold)</b> olarak basılır.'],
+      ['Geometri Soruları Çizim Alanı', '<b>Geometri Şekli Çiz</b> butonuna basarak; dik üçgen, ikizkenar/eşkenar üçgen, daire dilimi, dörtgen ve paralel doğruda açılar oluşturabilirsiniz.'],
+      ['Açı, Derece ve Kenar Seçenekleri', 'Şekiller üzerinde köşe adları (A, B, C), kenar uzunlukları, yükseklik (h), açı yayları, derece etiketleri (90°, 60°, α) ve taralı alanlar canlı önizleme ile soruya aktarılır.']
+    ]
+  },
+  {
+    s: '✂️ 5. Görsel ve PDF\'ten Soru Kesme (OCR Destekli)',
+    items: [
+      ['Hassas Alan Seçimi', 'Kitap taramalarını veya PDF sayfalarını yükleyip fareyle çerçeveleyerek tek tıkla soru havuzunuza ekleyebilirsiniz.'],
+      ['Optik Karakter Tanıma (OCR)', 'Kırpılan sorudaki metin ve şıkları yapay zekâ OCR motoru ile otomatik olarak metne dönüştürebilirsiniz.']
+    ]
+  },
+  {
+    s: '🎨 6. Sınav Tasarım Rengi ve Mizanpaj',
+    items: [
+      ['5 Önerilen Renk Paleti', 'Resmî MEB Bordo, Kurumsal Lacivert, Zümrüt Yeşili, Canlandırıcı Turuncu ve Kurşunî Antrasit paletlerinden birini tek dokunuşla seçebilirsiniz.'],
+      ['Özel Renk Seçici ve HEX Girişi', '<b>Kendi Rengini Seç</b> butonuyla renk tekerleğini açabilir veya doğrudan kurumunuzun <b>HEX</b> renk kodunu (ör. <i>#1E3A8A</i>) yazabilirsiniz.'],
+      ['Akıllı Yerleşim ve Boşluk Ayarı', 'Sayfa sütun sayısı (1, 2, 3 sütun), sorular arası boşluk ve filigran ayarlarını canlı olarak değiştirebilirsiniz.']
+    ]
+  },
+  {
+    s: '📄 7. Çıktı Alma ve Çevrim Dışı Güvenlik',
+    items: [
+      ['Baskıya Hazır PDF ve Word (.docx)', 'Sınavınızı doğrudan yazıcıya gönderebileceğiniz vektörel PDF olarak oluşturabilir veya Word formatında dışa aktarabilirsiniz.'],
+      ['Çoklu Kitapçık Desteği', 'A, B, C, D kitapçıkları oluşturulduğunda sorular otomatik olarak karıştırılır ve ortak cevap anahtarı üretilir.'],
+      ['Veri Gizliliği', 'Tüm işlemler yerel tarayıcınız üzerinde gerçekleşir; soru ve sınav verileriniz hiçbir haricî sunucuya gönderilmez.']
+    ]
+  }
 ];
 
 export function initGuide() {
@@ -102,9 +130,39 @@ export function renderTabs() {
 
 export function renderTplCards() {
   const isMeb = S.template === 'meb';
+  const isCustom = S.template === 'custom';
   document.querySelectorAll('.tpl-card').forEach(b => b.classList.toggle('active', b.dataset.tpl === S.template));
-  document.querySelectorAll('.tpl-hide-meb').forEach(el => el.classList.toggle('hidden', isMeb));
+  document.querySelectorAll('.tpl-hide-meb').forEach(el => el.classList.toggle('hidden', isMeb || isCustom));
   document.querySelectorAll('.tpl-show-meb').forEach(el => el.classList.toggle('hidden', !isMeb));
+  updateQuestionAreaMetrics();
+}
+
+export function renderColorPalette() {
+  const container = $('colorPaletteSwatches');
+  if (!container) return;
+  const curr = (S.themeColor || '#1d4ed8').toLowerCase();
+  container.innerHTML = PRESET_COLORS.map(c => {
+    const isAct = c.hex.toLowerCase() === curr;
+    return `<button type="button" class="color-swatch-circle ${isAct ? 'active' : ''}" data-hex="${c.hex}" title="${c.name} (${c.hex})" style="background-color:${c.hex}">
+      ${isAct ? '<span class="swatch-check">✓</span>' : ''}
+    </button>`;
+  }).join('');
+
+  if ($('themeColorHex')) {
+    $('themeColorHex').value = (S.themeColor || '#1d4ed8').toUpperCase();
+  }
+  if ($('themeColor')) {
+    $('themeColor').value = S.themeColor || '#1d4ed8';
+  }
+}
+
+export function updateQuestionAreaMetrics() {
+  try {
+    const b = calculateQuestionBounds();
+    if ($('qaUsableH')) $('qaUsableH').textContent = `${Math.round(b.usableH)} mm (${Math.round(b.contentTop)} mm - ${Math.round(b.bottomAdj)} mm)`;
+    if ($('qaCols')) $('qaCols').textContent = `${b.numCols} Sütun`;
+    if ($('qaColW')) $('qaColW').textContent = `${Math.round(b.colW)} mm`;
+  } catch (e) {}
 }
 
 export function renderLogoChoice() {
@@ -150,7 +208,10 @@ export function syncUI() {
   if (S.watermarkAngle !== undefined) { $('watermarkAngle').value = String(S.watermarkAngle); $('wmAngleVal').textContent = S.watermarkAngle + '°'; }
   if (S.watermarkSize !== undefined) { $('watermarkSize').value = String(S.watermarkSize); $('wmSizeVal').textContent = String(S.watermarkSize); }
   if (S.watermarkDivider !== undefined) $('watermarkDivider').checked = !!S.watermarkDivider;
-  if (S.themeColor !== undefined) $('themeColor').value = S.themeColor;
+  if (S.themeColor !== undefined) {
+    $('themeColor').value = S.themeColor;
+    renderColorPalette();
+  }
   if (S.pageSize !== undefined) $('pageSize').value = S.pageSize;
   if (S.orientation !== undefined) $('orientation').value = S.orientation;
   if (S.columns !== undefined) $('columns').value = String(S.columns);
@@ -168,6 +229,7 @@ export function syncUI() {
   if (S.mebScoreLbl !== undefined) $('mebScoreLbl').value = S.mebScoreLbl;
   if (S.logoChoice !== undefined) renderLogoChoice();
   renderTabs();
+  updateQuestionAreaMetrics();
   $('qCount').textContent = questions.length;
   $('ansCount').textContent = questions.filter((q) => q.answer).length;
 }
@@ -212,6 +274,11 @@ export function initSidebar() {
   });
   renderTplCards();
 
+  const openCtplBtn = $('openCustomTplModal');
+  if (openCtplBtn) {
+    openCtplBtn.onclick = () => openCustomTemplateModal();
+  }
+
   $('mebYear').oninput = e => S.mebYear = e.target.value;
   $('mebSchool').oninput = e => S.mebSchool = e.target.value;
   $('mebDate').oninput = e => S.mebDate = e.target.value;
@@ -241,7 +308,7 @@ export function initSidebar() {
         im.onload = () => {
           setCustomLogo(trimmed, im);
           const ar = (im.naturalWidth || 1) / (im.naturalHeight || 1);
-          let h = 26, w = h * ar;
+          let h = 22, w = h * ar;
           if (w > 60) { w = 60; h = w / ar; }
           S.logoW = Math.max(8, w);
           S.logoH = Math.max(8, h);
@@ -267,7 +334,7 @@ export function initSidebar() {
   };
 
   $('logoFixAspect').onclick = () => fixLogoAspect(refreshNow);
-  $('logoSizeReset').onclick = () => { S.logoW = 26; S.logoH = 26; schedulePreview(); };
+  $('logoSizeReset').onclick = () => { S.logoW = 22; S.logoH = 22; schedulePreview(); };
   $('logoPosReset').onclick = () => {
     S.logoX = null;
     S.logoY = null;
@@ -288,13 +355,62 @@ export function initSidebar() {
   };
   $('watermarkDivider').onchange = e => S.watermarkDivider = e.target.checked;
   $('konuKapsami').oninput = e => S.konuKapsami = e.target.value;
-  $('themeColor').oninput = e => S.themeColor = e.target.value;
-  $('pageSize').onchange = e => S.pageSize = e.target.value;
-  $('orientation').onchange = e => S.orientation = e.target.value;
-  $('columns').onchange = e => S.columns = +e.target.value;
+
+  // Sınav Tasarım Rengi Eventleri
+  renderColorPalette();
+  const swatches = $('colorPaletteSwatches');
+  if (swatches) {
+    swatches.onclick = (e) => {
+      const btn = e.target.closest('.color-swatch-circle');
+      if (btn && btn.dataset.hex) {
+        S.themeColor = btn.dataset.hex;
+        renderColorPalette();
+        schedulePreview();
+      }
+    };
+  }
+
+  const customColorBtn = $('customColorPickBtn');
+  if (customColorBtn) {
+    customColorBtn.onclick = () => $('themeColor').click();
+  }
+
+  $('themeColor').oninput = (e) => {
+    S.themeColor = e.target.value;
+    renderColorPalette();
+    schedulePreview();
+  };
+
+  const hexInp = $('themeColorHex');
+  if (hexInp) {
+    hexInp.oninput = (e) => {
+      let val = e.target.value.trim();
+      if (!val.startsWith('#')) val = '#' + val;
+      if (/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(val)) {
+        S.themeColor = val;
+        if ($('themeColor')) $('themeColor').value = val;
+        renderColorPalette();
+        schedulePreview();
+      }
+    };
+  }
+
+  const qaToggle = $('toggleQuestionAreaGuide');
+  if (qaToggle) {
+    qaToggle.onclick = () => {
+      S.showQuestionAreaGuide = !S.showQuestionAreaGuide;
+      qaToggle.textContent = S.showQuestionAreaGuide ? 'Kılavuzu Gizle' : 'Kılavuzu Göster';
+      schedulePreview();
+    };
+  }
+
+  $('pageSize').onchange = e => { S.pageSize = e.target.value; updateQuestionAreaMetrics(); };
+  $('orientation').onchange = e => { S.orientation = e.target.value; updateQuestionAreaMetrics(); };
+  $('columns').onchange = e => { S.columns = +e.target.value; updateQuestionAreaMetrics(); };
   $('margin').oninput = e => {
     S.margin = +e.target.value;
     $('mgVal').textContent = e.target.value;
+    updateQuestionAreaMetrics();
   };
 
   ['input', 'change'].forEach(ev => {

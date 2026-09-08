@@ -54,7 +54,14 @@
             <span class="tpl-name">MEB Resmî Şablon</span>
             <span class="tpl-desc">Logolu resmî sınav başlığı</span>
           </button>
+          <button type="button" data-tpl="custom" class="tpl-card">
+            <span class="tpl-name">Kendi Sınav Şablonum</span>
+            <span class="tpl-desc">Özel okul / zümre şablonu</span>
+          </button>
         </div>
+        <button type="button" id="openCustomTplModal" class="mt-2 flex w-full items-center justify-center gap-1 rounded-lg border border-dashed border-slate-300 py-1.5 text-center text-[11px] font-semibold text-slate-600 transition hover:border-slate-900 hover:text-slate-900 dark:border-slate-600 dark:text-slate-300 dark:hover:border-white">
+          <span>⚙️</span> Kendi Şablonunu Ekle / Yönet
+        </button>
       </div>
     </div>
 
@@ -169,8 +176,24 @@
         <label class="flex items-start gap-1.5 text-[10px] leading-snug text-slate-600 dark:text-slate-300">
           <input type="checkbox" id="watermarkDivider" class="mt-0.5"> Filigranı yalnızca orta çizgide dikey göster
         </label>
-        <label class="sb-lbl">Tasarım Rengi<input type="color" id="themeColor" value="#1d4ed8" class="mt-0.5 h-6 w-full cursor-pointer rounded border border-slate-200"></label>
-        <div class="grid grid-cols-2 gap-1.5">
+        <div class="space-y-2 pt-1 border-t border-slate-200 dark:border-slate-700">
+          <span class="sb-lbl">Sınav Tasarım Rengi</span>
+          <div class="flex items-center gap-2" id="colorPaletteSwatches">
+            <!-- 5 Önerilen Dairesel Renk Paleti (JS render) -->
+          </div>
+          <div class="flex items-center gap-1.5 pt-0.5">
+            <button type="button" id="customColorPickBtn" class="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-700 hover:border-slate-900 transition dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 shrink-0">
+              <span>🎨</span> Kendi Rengini Seç
+            </button>
+            <input type="color" id="themeColor" value="#1d4ed8" class="hidden">
+            <div class="flex flex-1 items-center rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] dark:border-slate-700 dark:bg-slate-800">
+              <span class="text-slate-400 font-mono text-[10px]">HEX</span>
+              <input type="text" id="themeColorHex" class="ml-1.5 w-full bg-transparent font-mono text-[11px] uppercase outline-none" value="#1D4ED8" placeholder="#1D4ED8" maxlength="7">
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-1.5 pt-1">
           <label class="sb-lbl">Sayfa
             <select id="pageSize" class="sb-inp mt-0.5"><option value="a4">A4</option><option value="a5">A5</option><option value="letter">Letter</option></select></label>
           <label class="sb-lbl">Yön
@@ -180,6 +203,19 @@
             <label class="sb-lbl">Kenar <span class="float-right font-semibold text-slate-700 dark:text-slate-200 normal-case"><span id="mgVal">5</span>mm</span>
               <input type="range" id="margin" min="5" max="30" value="5" class="mt-1 w-full"></label>
         </div>
+      </div>
+    </div>
+
+    <!-- Soru Yerleşim Alanı / Otomatik Seçim -->
+    <div class="sb-section space-y-1.5 rounded-lg bg-slate-50 dark:bg-slate-800/50 p-3 mt-2">
+      <div class="flex items-center justify-between">
+        <span class="text-[11px] font-semibold text-slate-700 dark:text-slate-300">📐 Soru Yerleşim Alanı</span>
+        <button type="button" id="toggleQuestionAreaGuide" class="rounded px-2 py-0.5 text-[10px] font-semibold border border-slate-200 bg-white text-slate-600 hover:border-slate-900 transition dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">Kılavuzu Göster</button>
+      </div>
+      <div class="text-[10px] text-slate-500 space-y-0.5">
+        <div>Kullanılabilir Boy: <b id="qaUsableH" class="text-slate-700 dark:text-slate-200">-</b></div>
+        <div>Mizanpaj: <b id="qaCols" class="text-slate-700 dark:text-slate-200">2 Sütun</b> · <span id="qaColW">-</span></div>
+        <div class="text-[9.5px] text-emerald-600 dark:text-emerald-400 font-medium">✓ Başlık ile soru alanı güvenli mesafeyle ayrılır</div>
       </div>
     </div>
 
@@ -198,9 +234,19 @@
       <span class="flex h-6 w-6 items-center justify-center rounded-md bg-slate-900 text-[10px] font-bold text-white dark:bg-white dark:text-slate-900">ET</span>
       <span><a href="https://www.instagram.com/egemenbilim/" target="_blank" rel="noopener noreferrer" style="color:#06b6d4" class="transition hover:underline hover:brightness-110">Egemen</a>'s Testmaker</span>
     </span>
-    <button id="openGuide" class="rounded-lg px-2.5 py-1 text-[12px] font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white">Kullanım Kılavuzu</button>
+
+    <div class="flex items-center gap-2">
+      <button id="openBankModalBtn" class="flex items-center gap-1.5 rounded-lg bg-emerald-700 px-3 py-1.5 text-[12px] font-semibold text-white shadow-sm transition hover:bg-emerald-600 hover:shadow">
+        <span>📚</span> Soru Bankası Havuzu
+      </button>
+      <button id="topbarGeoBtn" class="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[12px] font-semibold text-slate-700 transition hover:border-slate-900 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+        <span>📐</span> Geometri Çiz
+      </button>
+      <button id="openGuide" class="rounded-lg px-2.5 py-1 text-[12px] font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white">Kullanım Kılavuzu</button>
+    </div>
+
     <button id="darkBtn" title="Karanlık / aydınlık mod" class="ml-auto rounded-lg px-2 py-1 text-[15px] leading-none transition hover:bg-slate-100 dark:hover:bg-slate-800">🌙</button>
-    <span class="hidden text-[12px] italic text-slate-400 dark:text-slate-500 lg:block">"Milletleri kurtaranlar yalnız ve ancak öğretmenlerdir."</span>
+    <span class="hidden text-[12px] italic text-slate-400 dark:text-slate-500 xl:block">"Milletleri kurtaranlar yalnız ve ancak öğretmenlerdir."</span>
   </div>
 </header>
 
@@ -237,18 +283,21 @@
 
     <!-- SAĞ: SORULAR -->
     <div class="space-y-5">
-      <div id="dropzone" class="rounded-2xl border-2 border-dashed border-slate-300 bg-white px-8 py-10 text-center transition-all duration-300 hover:border-sky-400 hover:bg-sky-50/30 hover:shadow-[0_0_30px_rgba(56,189,248,0.22)] dark:border-slate-700 dark:bg-slate-900">
+      <div id="dropzone" class="rounded-2xl border-2 border-dashed border-slate-300 bg-white px-8 py-9 text-center transition-all duration-300 hover:border-sky-400 hover:bg-sky-50/30 hover:shadow-[0_0_30px_rgba(56,189,248,0.22)] dark:border-slate-700 dark:bg-slate-900">
         <p class="text-[15px] font-medium text-slate-800 dark:text-slate-100">Soruları buraya sürükleyip bırakın</p>
-        <p class="mt-1.5 text-[13px] text-slate-400">JPG, PNG, GIF · en fazla 100 soru · .db taslak dosyası</p>
-        <div class="mt-5 flex flex-wrap justify-center gap-2.5">
-          <button id="pickBtn" class="flex items-center gap-1.5 rounded-xl bg-blue-600 px-5 py-2.5 text-[13px] font-semibold text-white shadow-sm transition-all duration-150 hover:bg-blue-500 hover:shadow-md hover:shadow-blue-500/20 active:scale-[0.98]">
+        <p class="mt-1 text-[12.5px] text-slate-400">JPG, PNG, GIF · en fazla 100 soru · .db havuz ve taslak dosyaları</p>
+        <div class="mt-4 flex flex-wrap justify-center gap-2.5">
+          <button id="pickBtn" class="flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-[13px] font-semibold text-white shadow-sm transition-all duration-150 hover:bg-blue-500 hover:shadow-md hover:shadow-blue-500/20 active:scale-[0.98]">
             <span>📁</span> Soru Seçin
           </button>
-          <button id="textBtn" class="flex items-center gap-1.5 rounded-xl bg-[#0b1329] px-5 py-2.5 text-[13px] font-semibold text-white shadow-sm transition-all duration-150 hover:bg-[#152347] hover:shadow-md hover:shadow-slate-900/30 active:scale-[0.98]">
+          <button id="textBtn" class="flex items-center gap-1.5 rounded-xl bg-[#0b1329] px-4 py-2 text-[13px] font-semibold text-white shadow-sm transition-all duration-150 hover:bg-[#152347] hover:shadow-md hover:shadow-slate-900/30 active:scale-[0.98]">
             <span>✍️</span> Yazılı Soru Ekleyin
           </button>
-          <button id="openCrop" class="flex items-center gap-1.5 rounded-xl bg-slate-500 px-5 py-2.5 text-[13px] font-semibold text-white shadow-sm transition-all duration-150 hover:bg-slate-600 hover:shadow-md hover:shadow-slate-500/20 active:scale-[0.98]">
-            <span>✂️</span> Görselden/PDF'ten Soru Kesin
+          <button id="openCrop" class="flex items-center gap-1.5 rounded-xl bg-slate-600 px-4 py-2 text-[13px] font-semibold text-white shadow-sm transition-all duration-150 hover:bg-slate-500 hover:shadow-md hover:shadow-slate-600/20 active:scale-[0.98]">
+            <span>✂️</span> Görsel/PDF'ten Kes
+          </button>
+          <button id="dropzoneBankBtn" class="flex items-center gap-1.5 rounded-xl bg-emerald-700 px-4 py-2 text-[13px] font-semibold text-white shadow-sm transition-all duration-150 hover:bg-emerald-600 hover:shadow-md hover:shadow-emerald-700/20 active:scale-[0.98]">
+            <span>📚</span> Soru Bankası Havuzu
           </button>
         </div>
         <input id="fileInput" type="file" multiple accept="image/jpeg,image/png,image/gif,.db" class="hidden">
@@ -400,24 +449,33 @@
               <img id="blankImgPreview" class="mx-auto hidden max-h-28 rounded-lg">
               <input id="blankImgFile" type="file" accept="image/*" class="hidden">
             </label>
+            <button id="blankOpenGeoBtn" type="button" class="flex flex-col items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-4 text-center text-slate-700 shadow-sm transition hover:border-slate-900 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300" title="Geometri şekli oluşturup ekleyin">
+              <span class="text-xl">📐</span>
+              <span class="mt-1 text-[11px] font-semibold">Geometri Çiz</span>
+            </button>
             <button id="blankImgRemove" type="button" class="hidden rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-400 transition hover:border-rose-300 hover:text-rose-600">✕</button>
           </div>
-          <p class="mt-2 text-[11px] text-slate-400">Görsel, ilk boşluk doldurma sorusunun üstüne eklenir.</p>
+          <p class="mt-2 text-[11px] text-slate-400">Görsel veya geometri şekli, ilk boşluk doldurma sorusunun üstüne eklenir.</p>
         </div>
       </div>
     </div>
 
     <!-- Ortak Görsel Paneli -->
     <div id="commonImgBlock" class="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/60">
-      <label class="flex items-center gap-2 text-[13px] font-medium text-slate-700 dark:text-slate-300">
-        <input type="checkbox" id="txtHasImage">
-        <span>Görsel İçeren Soru <span class="font-normal text-slate-400">(Coğrafya, Matematik vb. dersler için)</span></span>
-      </label>
+      <div class="flex items-center justify-between">
+        <label class="flex items-center gap-2 text-[13px] font-medium text-slate-700 dark:text-slate-300">
+          <input type="checkbox" id="txtHasImage">
+          <span>Görsel İçeren Soru <span class="font-normal text-slate-400">(Coğrafya, Matematik vb. dersler için)</span></span>
+        </label>
+        <button id="txtOpenGeoBtn" type="button" class="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[12px] font-semibold text-slate-700 shadow-sm transition hover:border-slate-900 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+          <span>📐 Geometri Çiz</span>
+        </button>
+      </div>
       <div id="imgUploadPanel" class="mt-3 hidden">
         <div class="flex items-center gap-2">
           <label class="flex-1 cursor-pointer rounded-lg border border-dashed border-slate-300 bg-white px-3 py-6 text-center transition hover:border-slate-900 dark:border-slate-600 dark:bg-slate-900">
             <div id="imgUploadPlaceholder">
-              <div class="text-slate-400">📷 Görsel seçin</div>
+              <div class="text-slate-400">📷 Görsel seçin veya Geometri Çiz butonuna tıklayın</div>
               <div class="mt-1 text-[11px] text-slate-300">JPG, PNG veya GIF</div>
             </div>
             <img id="imgPreview" class="mx-auto hidden max-h-28 rounded-lg">
@@ -511,6 +569,22 @@
       </label>
     </div>
 
+    <!-- Soru Seviyesi ve Etiketler -->
+    <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2.5 border-t border-slate-100 pt-3 dark:border-slate-800">
+      <div>
+        <span class="lbl">Zorluk Seviyesi</span>
+        <div id="txtLevelGroup" class="mt-1.5 flex gap-1.5">
+          <button type="button" data-lvl="kolay" class="lvl-pill flex-1 rounded-lg border border-slate-200 bg-white py-1.5 text-[11px] font-semibold text-slate-600 transition hover:border-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">🟢 Kolay</button>
+          <button type="button" data-lvl="orta" class="lvl-pill active flex-1 rounded-lg border border-amber-500 bg-amber-50 py-1.5 text-[11px] font-semibold text-amber-800 transition dark:bg-amber-950/50 dark:text-amber-300">🟡 Orta</button>
+          <button type="button" data-lvl="zor" class="lvl-pill flex-1 rounded-lg border border-slate-200 bg-white py-1.5 text-[11px] font-semibold text-slate-600 transition hover:border-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">🔴 Zor</button>
+        </div>
+      </div>
+      <div>
+        <label class="lbl" for="txtTags">Etiketler <span class="font-normal text-slate-400">(virgülle ayırın)</span></label>
+        <input id="txtTags" class="inp mt-1.5" placeholder="Örn: 9.sınıf, üçgenler, pisagor">
+      </div>
+    </div>
+
     <div id="txtWarn" class="tw-warn" role="alert"></div>
 
     <div class="mt-5 flex justify-end gap-2 border-t border-slate-100 pt-4 dark:border-slate-800">
@@ -592,6 +666,392 @@
   </div>
 </div>
 
+<!-- Soru Bankası Havuzu Modalı -->
+<div id="bankModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 p-3 sm:p-5 backdrop-blur-sm">
+  <div class="fade-in flex max-h-[92vh] w-full max-w-5xl flex-col rounded-2xl bg-white shadow-2xl dark:bg-slate-900 dark:text-slate-100">
+    <!-- Modal Header -->
+    <div class="flex items-center justify-between border-b border-slate-200 px-6 py-4 dark:border-slate-800">
+      <div class="flex items-center gap-3">
+        <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 text-lg shadow-sm">📚</div>
+        <div>
+          <h2 class="text-base font-bold text-slate-900 dark:text-white">Soru Bankası Havuzu</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400">Kendi soru havuzlarınızı yönetin, seviyelendirin, etiketleyin ve .db olarak paylaşın.</p>
+        </div>
+      </div>
+      <button id="bankModalClose" type="button" class="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800">✕</button>
+    </div>
+
+    <!-- Modal Body with 2-level toolbars -->
+    <div class="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+      <!-- Havuz Seçim & Yönetim Barı -->
+      <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-800/60">
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="text-xs font-semibold text-slate-700 dark:text-slate-300">Aktif Havuz:</span>
+          <select id="bankSelect" class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-800 shadow-sm outline-none focus:border-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 min-w-[220px]">
+          </select>
+          <button id="bankCreateBtn" type="button" class="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition hover:border-slate-900 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">+ Yeni Havuz</button>
+          <button id="bankRenameBtn" type="button" class="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 shadow-sm transition hover:border-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300" title="Havuzu Yeniden Adlandır">✎</button>
+          <button id="bankDeleteBtn" type="button" class="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-rose-600 shadow-sm transition hover:border-rose-400 dark:border-slate-700 dark:bg-slate-900" title="Havuzu Sil">🗑</button>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+          <button id="bankSaveCurrentTestBtn" type="button" class="flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800 transition hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300">
+            <span>📥</span> Aktif Sınavı Bu Havuza Ekle
+          </button>
+          <button id="bankExportBtn" type="button" class="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition hover:border-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200" title="Havuzu .db dosyası olarak bilgisayara indir">
+            <span>📤</span> Havuzu Dışa Aktar (.db)
+          </button>
+          <button id="bankImportBtn" type="button" class="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition hover:border-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200" title="Daha önce dışa aktarılmış veya meslektaşınızdan aldığınız .db havuzunu yükleyin">
+            <span>📂</span> Havuz Yükle (.db)
+          </button>
+          <input type="file" id="bankImportFile" accept=".db,application/json" class="hidden">
+        </div>
+      </div>
+
+      <!-- Havuz Başlık Bilgisi & İstatistikler -->
+      <div class="flex items-center justify-between px-1">
+        <div>
+          <h3 id="bankTitleDisplay" class="text-sm font-bold text-slate-900 dark:text-slate-100">Genel Soru Havuzu</h3>
+          <p id="bankDescDisplay" class="text-xs text-slate-500 dark:text-slate-400">Tüm branş ve seviyeler için varsayılan soru havuzu.</p>
+        </div>
+        <div class="text-xs text-slate-500">
+          Toplam: <b id="bankQTotal" class="font-bold text-slate-900 dark:text-white">0</b> soru
+        </div>
+      </div>
+
+      <!-- Filtreleme & Arama Çubuğu -->
+      <div class="flex flex-wrap items-center justify-between gap-3 border-y border-slate-100 py-3 dark:border-slate-800">
+        <div class="flex flex-wrap items-center gap-1.5">
+          <span class="text-xs font-medium text-slate-500 mr-1">Seviye:</span>
+          <button type="button" data-bank-filter-level="all" class="rounded-lg border px-2.5 py-1 text-xs font-semibold transition active border-slate-900 bg-slate-900 text-white dark:border-white dark:bg-white dark:text-slate-900">Tümü</button>
+          <button type="button" data-bank-filter-level="kolay" class="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-emerald-700 hover:border-emerald-500 transition dark:border-slate-700 dark:bg-slate-900 dark:text-emerald-400">🟢 Kolay</button>
+          <button type="button" data-bank-filter-level="orta" class="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-amber-700 hover:border-amber-500 transition dark:border-slate-700 dark:bg-slate-900 dark:text-amber-400">🟡 Orta</button>
+          <button type="button" data-bank-filter-level="zor" class="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-rose-700 hover:border-rose-500 transition dark:border-slate-700 dark:bg-slate-900 dark:text-rose-400">🔴 Zor</button>
+        </div>
+
+        <div class="flex items-center gap-2 flex-1 max-w-xs">
+          <input type="text" id="bankSearchInp" placeholder="Soru metni, kök veya etiket ara..." class="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 outline-none focus:border-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
+        </div>
+      </div>
+
+      <!-- Etiketler Çubuğu -->
+      <div class="flex items-center gap-2">
+        <span class="text-[11px] font-semibold text-slate-400 shrink-0">Etiketler:</span>
+        <div id="bankTagPills" class="flex flex-wrap items-center gap-1.5">
+          <!-- Tag chips (JS render) -->
+        </div>
+      </div>
+
+      <!-- Sorular Listesi Konteyneri -->
+      <div id="bankQuestionsList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 min-h-[220px]">
+        <!-- Soru Kartları (JS render) -->
+      </div>
+    </div>
+
+    <!-- Modal Footer -->
+    <div class="flex items-center justify-between border-t border-slate-200 px-6 py-3.5 dark:border-slate-800">
+      <div class="flex items-center gap-2">
+        <button id="bankSelectAllBtn" type="button" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition hover:border-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
+          Tümünü Seç / Kaldır
+        </button>
+        <span class="text-xs text-slate-500"><b id="bankSelectedCount" class="font-bold text-slate-900 dark:text-white">0</b> soru seçildi</span>
+      </div>
+
+      <button id="bankAddSelectedBtn" type="button" class="flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-2 text-xs font-semibold text-white shadow-md transition hover:bg-slate-800 dark:bg-white dark:text-slate-900">
+        <span>✚</span> Seçilenleri Aktif Sınava Ekle
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Geometri Çizim Stüdyosu Modalı -->
+<div id="geoModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 p-3 sm:p-5 backdrop-blur-sm">
+  <div class="fade-in flex max-h-[92vh] w-full max-w-5xl flex-col rounded-2xl bg-white shadow-2xl dark:bg-slate-900 dark:text-slate-100">
+    <!-- Header -->
+    <div class="flex items-center justify-between border-b border-slate-200 px-6 py-3.5 dark:border-slate-800">
+      <div class="flex items-center gap-3">
+        <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600 text-white text-lg shadow-sm">📐</div>
+        <div>
+          <h2 class="text-base font-bold text-slate-900 dark:text-white">Geometri Çizim Stüdyosu</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400">Üçgen, çember, dörtgen veya paralel açılar çizin; soruya yüksek çözünürlükle ekleyin.</p>
+        </div>
+      </div>
+      <button id="geoModalClose" type="button" class="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800">✕</button>
+    </div>
+
+    <!-- Shape Selection Tabs -->
+    <div class="flex items-center gap-2 border-b border-slate-100 bg-slate-50 px-6 py-2.5 dark:border-slate-800 dark:bg-slate-800/40">
+      <button type="button" data-geo-shape="triangle" class="active flex items-center gap-1.5 rounded-lg border px-3.5 py-1.5 text-xs font-semibold transition border-slate-900 bg-slate-900 text-white dark:border-white dark:bg-white dark:text-slate-900">
+        <span>📐</span> Üçgen
+      </button>
+      <button type="button" data-geo-shape="circle" class="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
+        <span>⭕</span> Çember / Daire
+      </button>
+      <button type="button" data-geo-shape="quad" class="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
+        <span>▱</span> Dörtgenler
+      </button>
+      <button type="button" data-geo-shape="parallel" class="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
+        <span>⇶</span> Paralel Doğrular / Açılar
+      </button>
+    </div>
+
+    <!-- Body: Canvas Preview + Controls -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 flex-1 overflow-y-auto p-6 gap-6">
+      <!-- Left: Interactive Vector Canvas -->
+      <div class="lg:col-span-7 flex flex-col items-center justify-center rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-slate-950/50">
+        <canvas id="geoCanvas" width="560" height="380" class="w-full max-w-[560px] rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900"></canvas>
+        <span class="mt-2 text-[11px] text-slate-400">Şekil yüksek netlikte (300 DPI eşdeğeri) vektörel olarak oluşturulur.</span>
+      </div>
+
+      <!-- Right: Shape Parameters Controls -->
+      <div class="lg:col-span-5 space-y-4 overflow-y-auto">
+        <!-- Triangle Controls -->
+        <div id="geoTriControls" class="space-y-3">
+          <div>
+            <label class="lbl">Üçgen Türü</label>
+            <select id="geoTriVariant" class="inp mt-1">
+              <option value="dik">Dik Üçgen</option>
+              <option value="ikizkenar">İkizkenar Üçgen</option>
+              <option value="eskenar">Eşkenar Üçgen</option>
+              <option value="cesitkenar">Çeşitkenar Üçgen</option>
+            </select>
+          </div>
+
+          <div class="grid grid-cols-3 gap-2">
+            <label class="lbl">Köşe A <input id="geoTriVA" class="inp mt-1 font-semibold text-center" value="A"></label>
+            <label class="lbl">Köşe B <input id="geoTriVB" class="inp mt-1 font-semibold text-center" value="B"></label>
+            <label class="lbl">Köşe C <input id="geoTriVC" class="inp mt-1 font-semibold text-center" value="C"></label>
+          </div>
+
+          <div class="grid grid-cols-3 gap-2">
+            <label class="lbl">Kenar c (AB) <input id="geoTriSAB" class="inp mt-1 text-center" value="c"></label>
+            <label class="lbl">Kenar a (BC) <input id="geoTriSBC" class="inp mt-1 text-center" value="a"></label>
+            <label class="lbl">Kenar b (AC) <input id="geoTriSAC" class="inp mt-1 text-center" value="b"></label>
+          </div>
+
+          <div class="grid grid-cols-3 gap-2">
+            <label class="lbl">A Açısı <input id="geoTriAngA" class="inp mt-1 text-center" placeholder=""></label>
+            <label class="lbl">B Açısı <input id="geoTriAngB" class="inp mt-1 text-center" value="90°"></label>
+            <label class="lbl">C Açısı <input id="geoTriAngC" class="inp mt-1 text-center" value="45°"></label>
+          </div>
+
+          <div class="space-y-1.5 pt-2 border-t border-slate-100 dark:border-slate-800">
+            <label class="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
+              <input type="checkbox" id="geoTriAltitude" checked class="rounded" style="accent-color:#4f46e5">
+              <span>Yükseklik Çizgisini Göster (h)</span>
+            </label>
+            <label class="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
+              <input type="checkbox" id="geoTriShade" class="rounded" style="accent-color:#4f46e5">
+              <span>Üçgenin İçini Tara / Gölgelendir</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Circle Controls -->
+        <div id="geoCirControls" class="space-y-3 hidden">
+          <div class="grid grid-cols-2 gap-2">
+            <label class="lbl">Merkez Noktası <input id="geoCirCenter" class="inp mt-1 font-semibold text-center" value="O"></label>
+            <label class="lbl">Yarıçap Etiketi <input id="geoCirRadius" class="inp mt-1 text-center" value="r = 6 cm"></label>
+          </div>
+
+          <div>
+            <div class="flex items-center justify-between">
+              <label class="lbl">Merkez Açı / Dilim</label>
+              <span id="geoCirAngleVal" class="text-xs font-bold text-indigo-600 dark:text-indigo-400">60°</span>
+            </div>
+            <input type="range" id="geoCirAngleRange" min="15" max="360" step="5" value="60" class="mt-1 w-full" style="accent-color:#4f46e5">
+          </div>
+
+          <div>
+            <label class="lbl">Açı Etiket Metni</label>
+            <input id="geoCirAngleLbl" class="inp mt-1 text-center" value="60°">
+          </div>
+
+          <div class="space-y-1.5 pt-2 border-t border-slate-100 dark:border-slate-800">
+            <label class="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
+              <input type="checkbox" id="geoCirSector" checked class="rounded" style="accent-color:#4f46e5">
+              <span>Daire Dilimini Göster</span>
+            </label>
+            <label class="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
+              <input type="checkbox" id="geoCirShade" checked class="rounded" style="accent-color:#4f46e5">
+              <span>Dilim Alanını Tara / Gölgelendir</span>
+            </label>
+            <label class="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
+              <input type="checkbox" id="geoCirChord" class="rounded" style="accent-color:#4f46e5">
+              <span>Kiriş Göster [AB]</span>
+            </label>
+            <label class="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
+              <input type="checkbox" id="geoCirTangent" class="rounded" style="accent-color:#4f46e5">
+              <span>Teğet Doğrusunu Çiz (t)</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Quadrilateral Controls -->
+        <div id="geoQuadControls" class="space-y-3 hidden">
+          <div>
+            <label class="lbl">Dörtgen Türü</label>
+            <select id="geoQuadVariant" class="inp mt-1">
+              <option value="dikdortgen">Dikdörtgen</option>
+              <option value="kare">Kare</option>
+              <option value="paralelkenar">Paralelkenar</option>
+              <option value="yamuk">Yamuk</option>
+            </select>
+          </div>
+
+          <div class="grid grid-cols-4 gap-1.5">
+            <label class="lbl">A <input id="geoQuadVA" class="inp mt-1 font-semibold text-center" value="A"></label>
+            <label class="lbl">B <input id="geoQuadVB" class="inp mt-1 font-semibold text-center" value="B"></label>
+            <label class="lbl">C <input id="geoQuadVC" class="inp mt-1 font-semibold text-center" value="C"></label>
+            <label class="lbl">D <input id="geoQuadVD" class="inp mt-1 font-semibold text-center" value="D"></label>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2">
+            <label class="lbl">Kenar AB <input id="geoQuadSAB" class="inp mt-1 text-center" value="12 cm"></label>
+            <label class="lbl">Kenar BC <input id="geoQuadSBC" class="inp mt-1 text-center" value="5 cm"></label>
+          </div>
+
+          <div class="space-y-1.5 pt-2 border-t border-slate-100 dark:border-slate-800">
+            <label class="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
+              <input type="checkbox" id="geoQuadDiagonals" class="rounded" style="accent-color:#4f46e5">
+              <span>Köşegenleri Çiz [AC] ve [BD]</span>
+            </label>
+            <label class="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
+              <input type="checkbox" id="geoQuadShade" class="rounded" style="accent-color:#4f46e5">
+              <span>İç Alanı Tara / Gölgelendir</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Parallel Lines Controls -->
+        <div id="geoParControls" class="space-y-3 hidden">
+          <div class="grid grid-cols-2 gap-2">
+            <label class="lbl">1. Doğru (d₁) <input id="geoParL1" class="inp mt-1 font-semibold text-center" value="d₁"></label>
+            <label class="lbl">2. Doğru (d₂) <input id="geoParL2" class="inp mt-1 font-semibold text-center" value="d₂"></label>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2">
+            <label class="lbl">1. Açı Değeri <input id="geoParAng1" class="inp mt-1 text-center" value="120°"></label>
+            <label class="lbl">2. Açı (Bilinmeyen) <input id="geoParAng2" class="inp mt-1 text-center font-bold text-indigo-600" value="x"></label>
+          </div>
+
+          <div class="rounded-lg bg-slate-50 p-2.5 text-[11px] text-slate-500 dark:bg-slate-800/60 dark:text-slate-400">
+            💡 d₁ // d₂ paralel doğrularında iç ters (Z) ve karşı konumlu (U) açı ilişkileri gösterilir.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-6 py-3.5 dark:border-slate-800">
+      <button id="geoModalCancel" type="button" class="rounded-lg px-4 py-2 text-xs font-medium text-slate-500 transition hover:bg-slate-100 dark:hover:bg-slate-800">İptal</button>
+      <button id="geoInsertBtn" type="button" class="flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-2 text-xs font-semibold text-white shadow-md transition hover:bg-slate-800 dark:bg-white dark:text-slate-900">
+        <span>✓</span> Şekli Soruya Ekle
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Özel Sınav Şablonu Modalı -->
+<div id="customTplModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 p-3 sm:p-5 backdrop-blur-sm">
+  <div class="fade-in flex max-h-[92vh] w-full max-w-2xl flex-col rounded-2xl bg-white shadow-2xl dark:bg-slate-900 dark:text-slate-100">
+    <!-- Header -->
+    <div class="flex items-center justify-between border-b border-slate-200 px-6 py-3.5 dark:border-slate-800">
+      <div class="flex items-center gap-3">
+        <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 text-lg shadow-sm">📑</div>
+        <div>
+          <h3 id="customTplModalTitle" class="text-base font-bold text-slate-900 dark:text-white">Yeni Sınav Şablonu Oluştur</h3>
+          <p class="text-xs text-slate-500 dark:text-slate-400">Kendi kurumunuza özel başlık, çerçeve ve öğrenci bilgi alanları tanımlayın.</p>
+        </div>
+      </div>
+      <button id="customTplClose" type="button" class="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800">✕</button>
+    </div>
+
+    <!-- Body -->
+    <div class="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+      <!-- Kayıtlı Şablonlar -->
+      <div>
+        <label class="lbl mb-1.5 block">Kayıtlı Özel Şablonlarınız</label>
+        <div id="customTplCardsList" class="space-y-2 max-h-40 overflow-y-auto p-0.5">
+          <!-- JS Render -->
+        </div>
+      </div>
+
+      <div class="border-t border-slate-100 pt-3 dark:border-slate-800 space-y-3">
+        <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400">Şablon Parametreleri</h4>
+
+        <div>
+          <label class="lbl">Şablon Adı <input id="ctplName" class="inp mt-1 font-semibold" placeholder="Örn: Anadolu Lisesi Ortak Sınav Şablonu"></label>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <div>
+            <label class="lbl">Okul / Kurum Adı <input id="ctplSchool" class="inp mt-1" placeholder="Örn: Atatürk Anadolu Lisesi"></label>
+          </div>
+          <div>
+            <label class="lbl">Alt Başlık / Zümre / Yıl <input id="ctplSubHeader" class="inp mt-1" placeholder="Örn: Matematik Zümresi · 2026-2027"></label>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+          <div>
+            <label class="lbl">Sınav Başlığı <input id="ctplExamTitle" class="inp mt-1" placeholder="Örn: 1. Dönem 1. Yazılı Sınavı"></label>
+          </div>
+          <div>
+            <label class="lbl">Şablon Çerçevesi
+              <select id="ctplStyle" class="inp mt-1">
+                <option value="boxed">Kutulu Çerçeve</option>
+                <option value="double_line">Çift Çizgili</option>
+                <option value="minimal">Minimalist</option>
+              </select>
+            </label>
+          </div>
+          <div>
+            <label class="lbl">Logo Konumu
+              <select id="ctplLogoPos" class="inp mt-1">
+                <option value="left">Sol Köşe</option>
+                <option value="right">Sağ Köşe</option>
+                <option value="none">Logo Yok</option>
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <div>
+          <span class="lbl block mb-1.5">Öğrenci Bilgi Alanları</span>
+          <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 rounded-xl bg-slate-50 p-2.5 dark:bg-slate-800/50">
+            <label class="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300 cursor-pointer">
+              <input type="checkbox" id="ctplShowName" checked style="accent-color:#0f172a"> Ad Soyad
+            </label>
+            <label class="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300 cursor-pointer">
+              <input type="checkbox" id="ctplShowClass" checked style="accent-color:#0f172a"> Sınıf/Şube
+            </label>
+            <label class="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300 cursor-pointer">
+              <input type="checkbox" id="ctplShowNo" checked style="accent-color:#0f172a"> Okul No
+            </label>
+            <label class="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300 cursor-pointer">
+              <input type="checkbox" id="ctplShowScore" checked style="accent-color:#0f172a"> Puan
+            </label>
+            <label class="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300 cursor-pointer">
+              <input type="checkbox" id="ctplShowDate" checked style="accent-color:#0f172a"> Tarih
+            </label>
+          </div>
+        </div>
+
+        <div>
+          <label class="lbl">Sınav Yönergesi <textarea id="ctplInstruction" class="inp mt-1 h-14 leading-relaxed" placeholder="Örn: Sınav süresi 40 dakikadır. Başarılar dileriz."></textarea></label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-6 py-3.5 dark:border-slate-800">
+      <button id="customTplSaveBtn" type="button" class="rounded-xl bg-slate-900 px-5 py-2 text-xs font-semibold text-white shadow-md transition hover:bg-slate-800 dark:bg-white dark:text-slate-900">
+        Şablonu Kaydet ve Uygula
+      </button>
+    </div>
+  </div>
+</div>
 <!-- Kullanım Kılavuzu Modalı -->
 <div id="guide" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
   <div class="fade-in flex max-h-[86vh] w-full max-w-2xl flex-col rounded-2xl bg-white shadow-2xl dark:bg-slate-900 dark:text-slate-200">

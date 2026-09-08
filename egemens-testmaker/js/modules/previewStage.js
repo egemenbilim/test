@@ -1,6 +1,6 @@
 import { questions, S } from '../state.js';
-import { $, openModal, closeModal } from '../utils.js';
-import { buildPreviewPages, pageSizeMM, getMebLogoBox, imgCache, fixLogoAspect, calculateQuestionBounds } from './pdfEngine.js';
+import { $ } from '../utils.js';
+import { buildPreviewPages, pageSizeMM, getMebLogoBox, imgCache, fixLogoAspect } from './pdfEngine.js';
 import { openText } from './textModal.js';
 import { render } from './questionManager.js';
 
@@ -139,20 +139,6 @@ export function layoutOverlay() {
   ov.appendChild(snapLine);
   ov.appendChild(marquee);
   
-  if (S.showQuestionAreaGuide) {
-    try {
-      const qb = calculateQuestionBounds();
-      const guideBox = document.createElement('div');
-      guideBox.className = 'pv-qa-guide';
-      guideBox.style.left = (qb.left * k) + 'px';
-      guideBox.style.top = (qb.contentTop * k) + 'px';
-      guideBox.style.width = (qb.width * k) + 'px';
-      guideBox.style.height = (qb.usableH * k) + 'px';
-      guideBox.innerHTML = `<span class="pv-qa-tag">📐 Güvenli Soru Alanı (${Math.round(qb.usableH)} mm)</span>`;
-      ov.appendChild(guideBox);
-    } catch (e) {}
-  }
-  
   (pg.items || []).forEach((it, i) => {
     const chip = document.createElement('div');
     chip.className = 'pvChip';
@@ -275,7 +261,7 @@ function startHeaderDrag(e, startId, k, isLogo, isRz) {
     headerDragState = {
       mode: 'resize_logo',
       sx: e.clientX, sy: e.clientY,
-      w0: S.logoW || 26, h0: S.logoH || 26,
+      w0: S.logoW || 22, h0: S.logoH || 22,
       k, moved: false
     };
     return;

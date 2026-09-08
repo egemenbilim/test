@@ -1,10 +1,8 @@
 import { questions, MAX, LETTERS } from '../state.js';
 import { $, uid, esc, openModal, closeModal, warnText, clearWarn } from '../utils.js';
-import { openGeometryModal } from './geometryDrawer.js';
 
 let editingId = null;
 let questionKind = 'coktan';
-let questionLevel = 'orta';
 let blankItems = [''];
 let blankAnswers = [''];
 let txtImgSrc = null;
@@ -94,20 +92,6 @@ function setBlankImg(src) {
   $('blankImgRemove').classList.toggle('hidden', !src);
 }
 
-export function renderLevelPills() {
-  document.querySelectorAll('#txtLevelGroup .lvl-pill').forEach(btn => {
-    const isAct = btn.dataset.lvl === questionLevel;
-    btn.classList.toggle('active', isAct);
-    if (isAct) {
-      if (questionLevel === 'kolay') btn.className = 'lvl-pill active flex-1 rounded-lg border border-emerald-500 bg-emerald-50 py-1.5 text-[11px] font-semibold text-emerald-800 transition dark:bg-emerald-950/50 dark:text-emerald-300';
-      else if (questionLevel === 'zor') btn.className = 'lvl-pill active flex-1 rounded-lg border border-rose-500 bg-rose-50 py-1.5 text-[11px] font-semibold text-rose-800 transition dark:bg-rose-950/50 dark:text-rose-300';
-      else btn.className = 'lvl-pill active flex-1 rounded-lg border border-amber-500 bg-amber-50 py-1.5 text-[11px] font-semibold text-amber-800 transition dark:bg-amber-950/50 dark:text-amber-300';
-    } else {
-      btn.className = 'lvl-pill flex-1 rounded-lg border border-slate-200 bg-white py-1.5 text-[11px] font-semibold text-slate-600 transition hover:border-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300';
-    }
-  });
-}
-
 export function openText(q) {
   editingId = q ? q.id : null;
   $('txtTitle').textContent = q ? 'Yazılı soruyu düzenle' : 'Yazılı soru ekle';
@@ -115,10 +99,6 @@ export function openText(q) {
   $('txtHasImage').checked = !!(q && q.imgSrc);
   $('imgUploadPanel').classList.toggle('hidden', !(q && q.imgSrc));
   
-  questionLevel = (q && q.level) || 'orta';
-  renderLevelPills();
-  if ($('txtTags')) $('txtTags').value = (q && Array.isArray(q.tags)) ? q.tags.join(', ') : '';
-
   const bImg = q && q.kind === 'bosluk' ? q.imgSrc : null;
   setBlankImg(bImg || null);
   $('blankHasImage').checked = !!bImg;
@@ -261,12 +241,9 @@ function _saveText(keepOpen) {
   }
 
   const options = [0, 1, 2, 3, 4].map((i) => $('opt' + i).value.trim());
-  const tags = $('txtTags') ? $('txtTags').value.split(',').map(t => t.trim()).filter(Boolean) : [];
   const data = {
     type: 'text',
     kind: questionKind,
-    level: questionLevel || 'orta',
-    tags: tags,
     text: preamble,
     root: root,
     imgSrc: $('txtHasImage').checked && txtImgSrc ? txtImgSrc : null,
@@ -437,35 +414,6 @@ export function initTextModal() {
   $('txtCancel').onclick = () => closeModal('textModal');
   $('txtSave').onclick = () => saveText(false);
   $('txtSaveNew').onclick = () => saveText(true);
-
-  document.querySelectorAll('#txtLevelGroup .lvl-pill').forEach((btn) => {
-    btn.onclick = () => {
-      questionLevel = btn.dataset.lvl;
-      renderLevelPills();
-    };
-  });
-
-  const geoBtn = $('txtOpenGeoBtn');
-  if (geoBtn) {
-    geoBtn.onclick = () => {
-      openGeometryModal((dataUrl) => {
-        setTxtImg(dataUrl);
-        $('txtHasImage').checked = true;
-        $('imgUploadPanel').classList.remove('hidden');
-      });
-    };
-  }
-
-  const blankGeoBtn = $('blankOpenGeoBtn');
-  if (blankGeoBtn) {
-    blankGeoBtn.onclick = () => {
-      openGeometryModal((dataUrl) => {
-        setBlankImg(dataUrl);
-        $('blankHasImage').checked = true;
-        $('blankImgPanel').classList.remove('hidden');
-      });
-    };
-  }
 
   $('txtPreamble').addEventListener('paste', () => { setTimeout(() => autoParseQuestion($('txtPreamble').value), 10); });
   $('txtRoot').addEventListener('paste', () => { setTimeout(() => autoParseQuestion($('txtRoot').value), 10); });

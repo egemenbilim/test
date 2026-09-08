@@ -1,6 +1,5 @@
 import { questions, S, LETTERS } from '../state.js';
 import { $, parseTags, booklet, jpegBytes, defaultBaseName, todayStr } from '../utils.js';
-import { drawCustomHeader, getActiveCustomTemplate } from './customTemplate.js';
 
 export const SCALE = 6;
 export const FONT = "'Noto Sans', 'DejaVu Sans', Arial, sans-serif";
@@ -627,7 +626,7 @@ export function activeLogoAspect() {
 
 export function fixLogoAspect(refreshFn) {
   const ar = activeLogoAspect();
-  let h = S.logoH || 26;
+  let h = S.logoH || 22;
   let w = h * ar;
   const maxW = 60;
   if (w > maxW) { w = maxW; h = w / ar; }
@@ -766,29 +765,30 @@ export function getMEBHeaderItems(ctx, PW, PH, M, t, version) {
   const L = M + 2, R = PW - M - 2;
   const logoBox = getMebLogoBox(M);
   const showLogo = logoBox.show;
-  // Başlık metinleri logodan tamamen bağımsız olarak sayfa genişliğinin tam ortasına hizalanır:
+  // Başlık metinleri logodan bağımsızdır ve sayfa merkezine göre ortalanır
   const textCx = (L + R) / 2;
-  let y = M + 3.5;
+  let y = M + 4.5;
   ctx.save();
 
   setFont(ctx, { size: PT(12), bold: true });
   const wYear = ctx.measureText(S.mebYear || '').width / SCALE;
   const defYear = { x: textCx - wYear / 2, y: y, w: wYear, h: 4.8 };
-  y += 6.5;
+  if (S.mebYear) y += 7;
 
   setFont(ctx, { size: PT(12), bold: true });
   const wSchool = ctx.measureText(S.mebSchool || '').width / SCALE;
   const defSchool = { x: textCx - wSchool / 2, y: y, w: wSchool, h: 4.8 };
-  y += 6.5;
+  if (S.mebSchool) y += 7;
 
+  y = Math.max(y + 1, M + 7);
   const dash = (v) => (v && String(v).trim() ? String(v).trim() : '...............');
   const lessonText = dash(S.mebLesson);
   const gradeText = dash(S.mebGrade) + ' Sınıf';
   const examOnly = S.mebExam && String(S.mebExam).trim() ? String(S.mebExam).trim() : '............... Sınavı';
   const examText = gradeText + ' ' + examOnly;
 
-  setFont(ctx, { size: PT(11), bold: true });
-  const gapMM = 2.5;
+  setFont(ctx, { size: PT(12), bold: true });
+  const gapMM = 2.2;
   const wLesson = ctx.measureText(lessonText).width / SCALE;
   const wExam = ctx.measureText(examText).width / SCALE;
   const totalW = wLesson + gapMM + wExam;
@@ -797,15 +797,16 @@ export function getMEBHeaderItems(ctx, PW, PH, M, t, version) {
   const defExam = { x: rowStartX + wLesson + gapMM, y, w: wExam, h: 4.8 };
 
   const dateStr = (S.mebDate || '').trim();
-  setFont(ctx, { size: PT(10.5), bold: true });
+  setFont(ctx, { size: PT(11), bold: true });
   const wDate = dateStr ? ctx.measureText(dateStr).width / SCALE : 18;
   const defDate = { x: R - wDate, y, w: wDate, h: 4.4 };
 
-  // Öğrenci kimlik satırı logonun ASLA üstüne gelmeyecek şekilde logonun bitişinin altına yerleştirilir:
-  const minStudentY = showLogo ? (logoBox.y + logoBox.h + 3.5) : (M + 22);
-  y = Math.max(y + 6.5, minStudentY);
+  const textBottomY = y + 5.2;
+  // Logo sol tarafta ise (öğrenci bilgilerinin olduğu alanda), öğrenci satırı logonun altına yerleştirilmeli
+  const logoBottom = (showLogo && logoBox.x < L + (PW - 2 * M) * 0.35) ? (logoBox.y + logoBox.h) : 0;
+  y = Math.max(textBottomY + 1.5, logoBottom + 2.5);
 
-  setFont(ctx, { size: PT(10.5), bold: true });
+  setFont(ctx, { size: PT(11), bold: true });
   const wName = S.mebNameLbl ? ctx.measureText(S.mebNameLbl).width / SCALE : 20;
   const wClass = S.mebClassLbl ? ctx.measureText(S.mebClassLbl).width / SCALE : 12;
   const wNo = S.mebNoLbl ? ctx.measureText(S.mebNoLbl).width / SCALE : 16;
@@ -823,11 +824,11 @@ export function getMEBHeaderItems(ctx, PW, PH, M, t, version) {
     mebSchool: make('mebSchool', S.mebSchool, 12, true, defSchool),
     mebLesson: make('mebLesson', lessonText, 12, true, defLesson),
     mebExam: make('mebExam', examText, 12, true, defExam),
-    mebDate: make('mebDate', dateStr, 10.5, true, defDate),
-    mebNameLbl: make('mebNameLbl', S.mebNameLbl || 'Adı-Soyadı:', 10.5, true, defName),
-    mebClassLbl: make('mebClassLbl', S.mebClassLbl || 'Sınıfı:', 10.5, true, defClass),
-    mebNoLbl: make('mebNoLbl', S.mebNoLbl || 'Okul No.:', 10.5, true, defNo),
-    mebScoreLbl: make('mebScoreLbl', S.mebScoreLbl || 'Puan:', 10.5, true, defScore),
+    mebDate: make('mebDate', dateStr, 11, true, defDate),
+    mebNameLbl: make('mebNameLbl', S.mebNameLbl || 'Adı-Soyadı:', 11, true, defName),
+    mebClassLbl: make('mebClassLbl', S.mebClassLbl || 'Sınıfı:', 11, true, defClass),
+    mebNoLbl: make('mebNoLbl', S.mebNoLbl || 'Okul No.:', 11, true, defNo),
+    mebScoreLbl: make('mebScoreLbl', S.mebScoreLbl || 'Puan:', 11, true, defScore),
   };
 }
 
@@ -844,6 +845,9 @@ export function drawMEBHeader(ctx, PW, PH, M, t, version, first) {
 
   const labelY = Math.max(items.mebNameLbl.y, items.mebClassLbl.y, items.mebNoLbl.y, items.mebScoreLbl.y);
   let y = labelY + 4.5;
+  if (logoBox.show) {
+    y = Math.max(y, logoBox.y + logoBox.h + 2.5);
+  }
   if (!t.hideVersion && S.groups > 1) {
     drawText(ctx, 'Kitapçık: ' + version, PW - M - 2, y - 6.2, { size: PT(9), bold: true, align: 'right' });
   }
@@ -892,23 +896,6 @@ export function drawHeader(ctx, PW, PH, M, t, version, title, first) {
       return M + 8;
     }
     return drawMEBHeader(ctx, PW, PH, M, t, version, first);
-  }
-  if (S.template === 'custom') {
-    if (!first) {
-      ctx.strokeStyle = '#94a3b8';
-      ctx.lineWidth = Math.max(1, 0.3 * SCALE);
-      ctx.beginPath();
-      ctx.moveTo(PX(M), PX(M + 5));
-      ctx.lineTo(PX(PW - M), PX(M + 5));
-      ctx.stroke();
-      const tpl = getActiveCustomTemplate();
-      drawText(ctx, (tpl ? tpl.school : S.school) || '', M, M + 4, { size: PT(7.5), color: '#475569' });
-      const mid = (tpl ? tpl.examTitle : S.title) || 'Sınav';
-      drawText(ctx, mid, PW / 2, M + 4, { size: PT(8), bold: true, align: 'center' });
-      if (!t.hideVersion && S.groups > 1) drawText(ctx, 'Kitapçık: ' + version, PW - M, M + 4, { size: PT(7.5), align: 'right' });
-      return M + 8;
-    }
-    return drawCustomHeader(ctx, PW, PH, M, t, version, first);
   }
   if (S.testType === 'yazili') {
     if (!first) {
@@ -1655,29 +1642,4 @@ export function initMakePdfButton(collectFn) {
   };
 
   $('resultClose').onclick = () => $('resultModal').classList.replace('flex', 'hidden');
-}
-
-export function calculateQuestionBounds() {
-  const [PW, PH] = pageSizeMM();
-  const M = S.margin || 10;
-  const t = parseTags(S.title || '');
-  const title = t.noUppercase ? t.clean : t.clean.toLocaleUpperCase('tr-TR');
-  const tempCanvas = document.createElement('canvas');
-  tempCanvas.width = PX(PW);
-  tempCanvas.height = PX(PH);
-  const tempCtx = tempCanvas.getContext('2d');
-  const contentTop = drawHeader(tempCtx, PW, PH, M, t, LETTERS[0], title, true);
-  const isMeb = S.template === 'meb';
-  const footerH = t.noPageNumber ? 0 : (!isMeb && S.testType === 'yaprak' ? 10 : 5);
-  const bottomAdj = PH - M - footerH;
-  const usableH = Math.max(20, bottomAdj - contentTop);
-  const numCols = S.columns || 2;
-  const colGap = 8;
-  const colW = (PW - 2 * M - colGap * (numCols - 1)) / numCols;
-  return {
-    PW, PH, M, contentTop, bottomAdj, usableH, numCols, colGap, colW,
-    left: M,
-    right: PW - M,
-    width: PW - 2 * M
-  };
 }

@@ -97,72 +97,35 @@ export function render() {
       }
     };
     d.ondblclick = () => showPreview(q);
-    const lvl = q.level || 'orta';
-    const lvlCfg = {
-      kolay: { label: 'Kolay', cls: 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300' },
-      orta: { label: 'Orta', cls: 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300' },
-      zor: { label: 'Zor', cls: 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-300' }
-    }[lvl] || { label: 'Orta', cls: 'border-slate-200 bg-slate-50 text-slate-700' };
-
-    const qKindLabel = q.type === 'text'
-      ? (q.kind === 'bosluk' ? 'Boşluk' : (q.kind === 'klasik' ? 'Klasik' : 'Test'))
-      : 'Görsel';
-
     d.innerHTML = `
-      <div class="flex items-center justify-between gap-1.5 pb-2 mb-2 border-b border-slate-100 dark:border-slate-800">
-        <div class="flex items-center gap-1.5">
-          <span class="rounded-md bg-slate-900 px-2 py-0.5 text-[11px] font-bold text-white dark:bg-white dark:text-slate-900">#${i + 1}</span>
-          <span class="rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">${qKindLabel}</span>
-          <button type="button" class="btn-lvl-cycle rounded border px-1.5 py-0.2 text-[9px] font-bold transition hover:scale-105 ${lvlCfg.cls}" title="Zorluğu değiştirmek için tıklayın">${lvlCfg.label}</button>
-        </div>
-        <div class="tools flex items-center gap-1">
-          <button class="btn-mini" data-a="prev" title="Önizle">🔍</button>
-          ${q.type === 'text' ? '<button class="btn-mini" data-a="edit" title="Metni Düzenle">✏️</button>' : ''}
-          <button class="btn-mini" data-a="grp" title="Gruplandır">🔗</button>
-          <button class="btn-mini" data-a="up" title="Yukarı">↑</button>
-          <button class="btn-mini" data-a="down" title="Aşağı">↓</button>
-          <button class="btn-mini !text-rose-600 hover:!bg-rose-50 dark:hover:!bg-rose-950/40" data-a="del" title="Sil">✕</button>
-        </div>
+      <div class="absolute left-2 top-2 z-10 rounded-md bg-slate-900 px-1.5 py-0.5 text-[10px] font-semibold text-white">${i + 1}</div>
+      <div class="tools absolute right-1.5 top-1.5 z-10 flex gap-1">
+        <button class="btn-mini" data-a="prev" title="Önizleme">🔍</button>
+        ${q.type === 'text' ? '<button class="btn-mini" data-a="edit" title="Düzenle">✏️</button>' : ''}
+        <button class="btn-mini" data-a="grp" title="Gruplandır">🔗</button>
+        <button class="btn-mini" data-a="up" title="Yukarı">↑</button>
+        <button class="btn-mini" data-a="down" title="Aşağı">↓</button>
+        <button class="btn-mini !text-rose-600" data-a="del" title="Sil">✕</button>
       </div>
-
       ${q.type === 'text'
         ? (q.kind === 'bosluk'
-          ? `<div class="relative h-32 overflow-hidden rounded-lg bg-slate-50 p-2.5 text-left text-[11px] leading-snug dark:bg-slate-800">
-               ${q.imgSrc ? `<span class="absolute right-2 bottom-2 z-10 rounded bg-slate-900/80 px-1.5 py-0.5 text-[9px] font-medium text-white">📷 Görsel</span>` : ''}
-               <div class="text-slate-700 dark:text-slate-300">${esc(q.blankText || '').replace(/(\.\.\.|_{2,})/g, '<span class="text-slate-400">______</span>')}</div>
-               ${(q.wordBank || []).length ? `<div class="mt-1 text-[10px] text-slate-400 font-medium">Havuz: ${esc((q.wordBank || []).join(' · '))}</div>` : ''}
+          ? `<div class="relative h-36 overflow-hidden rounded-lg bg-slate-50 p-2.5 pt-6 text-left text-[11px] leading-snug dark:bg-slate-800">
+               ${q.imgSrc ? `<span class="absolute right-2 bottom-2 z-10 rounded bg-slate-900/75 px-1.5 py-0.5 text-[9px] font-medium text-white">📷 Görsel</span>` : ''}
+               <span class="text-[9px] font-medium uppercase tracking-wide text-slate-400">Boşluk Doldurma</span>
+               <div class="mt-1 text-slate-700 dark:text-slate-300">${esc(q.blankText || '').replace(/(\.\.\.|_{2,})/g, '<span class="text-slate-400">______</span>')}</div>
+               ${(q.wordBank || []).length ? `<div class="mt-1.5 text-[10px] text-slate-400">${esc((q.wordBank || []).join(' · '))}</div>` : ''}
              </div>`
-          : `<div class="relative h-32 overflow-hidden rounded-lg bg-slate-50 p-2.5 text-left text-[11px] leading-snug dark:bg-slate-800">
-                ${q.imgSrc ? `<span class="absolute right-2 bottom-2 z-10 rounded bg-slate-900/80 px-1.5 py-0.5 text-[9px] font-medium text-white">📷 Görsel</span>` : ''}
-                ${q.text ? `<div class="text-slate-500 text-[10px] line-clamp-1">${esc(q.text)}</div>` : ''}
-                ${q.root ? `<div class="mt-0.5 font-semibold text-slate-900 dark:text-slate-100 line-clamp-2">${esc(q.root)}</div>` : ''}
-                <div class="mt-1 ${q.layout === 'h' ? 'flex flex-wrap gap-2' : 'space-y-0.5'} text-slate-600 dark:text-slate-300">${(q.options || []).filter(Boolean)
-                  .map((o, k) => `<div><span class="font-bold text-slate-400">${LETTERS[k]}</span> ${esc(o)}</div>`).join('')}</div>
-                ${q.blank ? `<div class="mt-1 text-[10px] text-slate-400 italic">${q.blank} mm cevap satırı</div>` : ''}
+          : `<div class="relative h-36 overflow-hidden rounded-lg bg-slate-50 p-2.5 pt-6 text-left text-[11px] leading-snug dark:bg-slate-800">
+                ${q.imgSrc ? `<span class="absolute right-2 bottom-2 z-10 rounded bg-slate-900/75 px-1.5 py-0.5 text-[9px] font-medium text-white">📷 Görsel</span>` : ''}
+                 ${q.text ? `<div class="text-slate-500">${esc(q.text)}</div>` : ''}
+                 ${q.root ? `<div class="mt-1 font-semibold text-slate-900 dark:text-slate-100">${esc(q.root)}</div>` : ''}
+                 <div class="mt-1.5 ${q.layout === 'h' ? 'flex flex-wrap gap-2' : 'space-y-0.5'} text-slate-600 dark:text-slate-300">${(q.options || []).filter(Boolean)
+                   .map((o, k) => `<div><span class="font-medium text-slate-400">${LETTERS[k]}</span> ${esc(o)}</div>`).join('')}</div>
+                ${q.blank ? `<div class="mt-1.5 text-[10px] text-slate-300">${q.blank} mm cevap satırı</div>` : ''}
               </div>`)
-        : `<img src="${q.src}" class="h-32 w-full rounded-lg object-contain bg-slate-50 dark:bg-slate-800">`}
-
-      ${(q.tags && q.tags.length) ? `
-        <div class="mt-2 flex flex-wrap gap-1">
-          ${q.tags.map(t => `<span class="rounded bg-slate-100 px-1.5 py-0.2 text-[9px] text-slate-500 dark:bg-slate-800 dark:text-slate-400">#${esc(t)}</span>`).join('')}
-        </div>
-      ` : ''}
-
-      <div class="mt-2.5 flex items-center justify-between border-t border-slate-100 pt-2 dark:border-slate-800">
-        <span class="text-[10px] font-medium text-slate-400">Doğru Şık:</span>
-        <div class="flex gap-1">${LETTERS.map(l =>
-          `<button data-l="${l}" class="h-6 w-6 rounded-md border text-[11px] font-bold transition ${q.answer === l ? 'border-slate-900 bg-slate-900 text-white dark:border-white dark:bg-white dark:text-slate-900 shadow-sm' : 'border-slate-200 text-slate-400 hover:border-slate-400 dark:border-slate-700'}">${l}</button>`).join('')}</div>
-      </div>`;
-
-    const lvlBtn = d.querySelector('.btn-lvl-cycle');
-    if (lvlBtn) {
-      lvlBtn.onclick = (ev) => {
-        ev.stopPropagation();
-        const cycle = { kolay: 'orta', orta: 'zor', zor: 'kolay' };
-        q.level = cycle[q.level || 'orta'] || 'orta';
-        render();
-      };
-    }
+        : `<img src="${q.src}" class="h-36 w-full rounded-lg object-contain">`}
+      <div class="mt-2 flex justify-center gap-1">${LETTERS.map(l =>
+        `<button data-l="${l}" class="h-6 w-6 rounded-md border text-[11px] font-medium transition ${q.answer === l ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 text-slate-400 hover:border-slate-400 dark:border-slate-700'}">${l}</button>`).join('')}</div>`;
 
     d.querySelectorAll('[data-a]').forEach(b => b.onclick = ev => {
       ev.stopPropagation();

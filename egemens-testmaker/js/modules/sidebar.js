@@ -42,12 +42,11 @@ export const GUIDE = [
     ]
   },
   {
-    s: '🏛️ 2. MEB Resmî Şablonu ve Özel Şablon Yönetimi',
+    s: '🏛️ 2. MEB Resmî Şablonu ve Düzen Seçenekleri',
     items: [
       ['MEB Resmî Şablon Düzeni', 'Millî Eğitim Bakanlığı sınav yönergelerine tam uyumludur. Resmî MEB arması sol üst köşede yer alır; okul ve sınav başlığı sayfa genişliğinin tam ortasında bağımsız olarak hizalanır.'],
       ['Öğrenci Bilgi Alanları', 'Adı-Soyadı, Sınıfı, Okul Numarası ve Puan haneleri logonun altına muntazam biçimde dizilir; logo taşınsa veya boyutlandırılsa dahi başlık metinleri sabit kalır.'],
-      ['Kendi Sınav Şablonunu Ekle', 'Okulunuza, kurumunuza veya zümrenize özel kutulu, çift çizgili veya minimalist sınav başlıkları oluşturup kaydedebilirsiniz.'],
-      ['Otomatik Soru Alanı Seçimi', 'Şablon başlığının yüksekliği ve sayfa kenar boşlukları taranarak soruların yerleşeceği güvenli alan otomatik olarak hesaplanır; başlık ve sorular asla üst üste binmez.']
+      ['Otomatik Mizanpaj ve Ayrım', 'Şablon başlığının yüksekliği ve sayfa kenar boşlukları hesaplanarak soruların yerleşeceği güvenli alan otomatik olarak ayrılır; başlık ve sorular asla üst üste binmez.']
     ]
   },
   {
@@ -60,12 +59,12 @@ export const GUIDE = [
     ]
   },
   {
-    s: '📐 4. Yazılı Soru Ekleme ve Geometri Çizim Aracı',
+    s: '📐 4. Yazılı Soru Ekleme ve Geometri Çizim Stüdyosu',
     items: [
       ['Soru Türleri', '<b>Çoktan Seçmeli</b> (A–E seçenekli), <b>Boşluk Doldurma</b> (üç nokta [...] ile otomatik algılanan kelime havuzlu) ve <b>Klasik</b> (açık uçlu, satır boşluklu) soru formatları desteklenir.'],
       ['Öncül ve Soru Kökü Ayrımı', 'Öncül metni standart punto ile, soru kökü ise öğrencinin dikkatini çekecek şekilde <b>kalın (bold)</b> olarak basılır.'],
-      ['Geometri Soruları Çizim Alanı', '<b>Geometri Şekli Çiz</b> butonuna basarak; dik üçgen, ikizkenar/eşkenar üçgen, daire dilimi, dörtgen ve paralel doğruda açılar oluşturabilirsiniz.'],
-      ['Açı, Derece ve Kenar Seçenekleri', 'Şekiller üzerinde köşe adları (A, B, C), kenar uzunlukları, yükseklik (h), açı yayları, derece etiketleri (90°, 60°, α) ve taralı alanlar canlı önizleme ile soruya aktarılır.']
+      ['Geometri Soruları Çizim Stüdyosu', '<b>Yazılı Soru Ekleyin</b> penceresindeki <b>Geometri Sorusu</b> butonuna basarak; Öklid, muhteşem üçlü, 30-60-90, iç açıortay, kenarortay ve benzerlik dahil 12 zengin üçgen türü, çember, dörtgen ve paralel açılar çizebilirsiniz.'],
+      ['Açı, Derece ve Kenar Seçenekleri', 'Şekiller üzerinde köşe adları (A, B, C), kenar uzunlukları, yükseklik (h), açı yayları, derece etiketleri ve taralı alanlar canlı önizleme ile soruya aktarılır.']
     ]
   },
   {

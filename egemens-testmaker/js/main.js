@@ -8,7 +8,7 @@ import { initMakePdfButton, ensureFont } from './modules/pdfEngine.js';
 import { initPreviewStage, schedulePreview, setCollectFn, closePvBig } from './modules/previewStage.js';
 import { scheduleAutosave, offerRestore } from './storage.js';
 import { initQuestionBank } from './modules/questionBank.js';
-import { initGeometryDrawer, openGeometryModal } from './modules/geometryDrawer.js';
+import { initGeometryDrawer } from './modules/geometryDrawer.js';
 import { initCustomTemplateManager } from './modules/customTemplate.js';
 import { $, closeModal } from './utils.js';
 
@@ -36,23 +36,6 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   initGeometryDrawer();
   initCustomTemplateManager();
-
-  const topGeoBtn = $('topbarGeoBtn');
-  if (topGeoBtn) {
-    topGeoBtn.onclick = () => {
-      openGeometryModal((dataUrl) => {
-        openText(null);
-        setTimeout(() => {
-          $('imgPreview').src = dataUrl;
-          $('imgPreview').classList.remove('hidden');
-          $('imgUploadPlaceholder').classList.add('hidden');
-          $('txtImgRemove').classList.remove('hidden');
-          $('txtHasImage').checked = true;
-          $('imgUploadPanel').classList.remove('hidden');
-        }, 100);
-      });
-    };
-  }
 
   initCropTool({
     onQuestionsUpdated: () => {

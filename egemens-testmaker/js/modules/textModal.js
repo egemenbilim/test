@@ -445,6 +445,23 @@ export function initTextModal() {
     };
   });
 
+  const headerGeoBtn = $('modalHeaderGeoBtn');
+  if (headerGeoBtn) {
+    headerGeoBtn.onclick = () => {
+      openGeometryModal((dataUrl) => {
+        if (questionKind === 'bosluk') {
+          setBlankImg(dataUrl);
+          $('blankHasImage').checked = true;
+          $('blankImgPanel').classList.remove('hidden');
+        } else {
+          setTxtImg(dataUrl);
+          $('txtHasImage').checked = true;
+          $('imgUploadPanel').classList.remove('hidden');
+        }
+      });
+    };
+  }
+
   const geoBtn = $('txtOpenGeoBtn');
   if (geoBtn) {
     geoBtn.onclick = () => {

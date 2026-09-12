@@ -371,6 +371,79 @@ export function autoParseQuestion(raw) {
   }
 }
 
+export function handleInsertGeometryQuestion(dataUrl) {
+  if (!dataUrl) return;
+
+  const preamble = $('txtPreamble')?.value.trim() || '';
+  const root = $('txtRoot')?.value.trim() || '';
+  const hasUserText = Boolean(preamble || root);
+
+  const defaultRoot = 'Şekilde verilenlere göre istenen değeri bulunuz.';
+  const qText = hasUserText ? preamble : '';
+  const qRoot = hasUserText ? (root || defaultRoot) : defaultRoot;
+
+  const options = [0, 1, 2, 3, 4].map((i) => $('opt' + i)?.value.trim() || '');
+  const hasOptions = options.some(Boolean);
+
+  const tags = $('txtTags')?.value ? $('txtTags').value.split(',').map((t) => t.trim()).filter(Boolean) : ['geometri'];
+  if (!tags.includes('geometri')) tags.push('geometri');
+
+  if (editingId) {
+    const q = questions.find((x) => x.id === editingId);
+    if (q) {
+      q.imgSrc = dataUrl;
+      if (qText) q.text = qText;
+      if (qRoot) q.root = qRoot;
+      if (hasOptions) q.options = options;
+      if ($('txtAns')?.value) q.answer = $('txtAns').value;
+      if (tags.length) q.tags = tags;
+    }
+  } else {
+    if (questions.length >= MAX) {
+      alert('Bir testte en fazla 100 soru bulundurabilirsiniz.');
+      return;
+    }
+    const newQ = {
+      id: uid(),
+      groupId: null,
+      stem: '',
+      name: 'geometri',
+      type: 'text',
+      kind: questionKind === 'bosluk' ? 'coktan' : questionKind,
+      level: questionLevel || 'orta',
+      tags: tags,
+      text: qText,
+      root: qRoot,
+      imgSrc: dataUrl,
+      blankText: '',
+      blankItems: [],
+      wordBank: [],
+      bankShared: false,
+      options: hasOptions ? options : ['', '', '', '', ''],
+      layout: $('txtLayout')?.value || 'v',
+      blank: 0,
+      answer: $('txtAns')?.value || null,
+    };
+    questions.push(newQ);
+  }
+
+  if (onSaveCallback) onSaveCallback();
+
+  // Form alanlarını sıfırla ve kapat
+  editingId = null;
+  $('txtTitle').textContent = 'Yazılı soru ekle';
+  $('txtPreamble').value = '';
+  $('txtRoot').value = '';
+  setTxtImg(null);
+  $('txtHasImage').checked = false;
+  $('imgUploadPanel').classList.add('hidden');
+  $('txtImgFile').value = '';
+  [0, 1, 2, 3, 4].forEach((i) => ($('opt' + i).value = ''));
+  $('txtAns').value = '';
+  renderOptionAnswer();
+  closeModal('textModal');
+}
+
 export function initTextModal() {
   document.querySelectorAll('.qkind').forEach((b) => (b.onclick = () => setQuestionKind(b.dataset.qk)));
   document.querySelectorAll('[data-opt-answer]').forEach((btn) => {
@@ -448,16 +521,9 @@ export function initTextModal() {
   const headerGeoBtn = $('modalHeaderGeoBtn');
   if (headerGeoBtn) {
     headerGeoBtn.onclick = () => {
+      closeModal('textModal');
       openGeometryModal((dataUrl) => {
-        if (questionKind === 'bosluk') {
-          setBlankImg(dataUrl);
-          $('blankHasImage').checked = true;
-          $('blankImgPanel').classList.remove('hidden');
-        } else {
-          setTxtImg(dataUrl);
-          $('txtHasImage').checked = true;
-          $('imgUploadPanel').classList.remove('hidden');
-        }
+        handleInsertGeometryQuestion(dataUrl);
       });
     };
   }
@@ -465,10 +531,9 @@ export function initTextModal() {
   const geoBtn = $('txtOpenGeoBtn');
   if (geoBtn) {
     geoBtn.onclick = () => {
+      closeModal('textModal');
       openGeometryModal((dataUrl) => {
-        setTxtImg(dataUrl);
-        $('txtHasImage').checked = true;
-        $('imgUploadPanel').classList.remove('hidden');
+        handleInsertGeometryQuestion(dataUrl);
       });
     };
   }
@@ -476,10 +541,18 @@ export function initTextModal() {
   const blankGeoBtn = $('blankOpenGeoBtn');
   if (blankGeoBtn) {
     blankGeoBtn.onclick = () => {
+      closeModal('textModal');
       openGeometryModal((dataUrl) => {
-        setBlankImg(dataUrl);
-        $('blankHasImage').checked = true;
-        $('blankImgPanel').classList.remove('hidden');
+        handleInsertGeometryQuestion(dataUrl);
+      });
+    };
+  }
+
+  const dropzoneGeoBtn = $('dropzoneGeoBtn');
+  if (dropzoneGeoBtn) {
+    dropzoneGeoBtn.onclick = () => {
+      openGeometryModal((dataUrl) => {
+        handleInsertGeometryQuestion(dataUrl);
       });
     };
   }

@@ -35,6 +35,7 @@ let isHistoryUpdating = false;
 let shapePoints = [];
 let shapeTempLine = null;
 let shapeMarkers = [];
+let shapeSegments = [];
 
 // Doğru Çizim Durumu
 let drawingLine = null;
@@ -118,12 +119,18 @@ export function openGeometryModal(callback) {
   if (typeof callback === 'function') {
     onInsertCallback = callback;
   }
+  // Yazılı soru ekle modalı açıksa tuval etkileşimini engellememesi için kapat
+  closeModal('textModal');
   openModal('geoModal');
 
   setTimeout(() => {
     initFabricCanvasIfNeeded();
     resetToolState();
-  }, 50);
+    if (fabricCanvas) {
+      fabricCanvas.calcOffset();
+      fabricCanvas.renderAll();
+    }
+  }, 60);
 }
 
 export function syncControlsFromState() {}
@@ -172,6 +179,11 @@ function initFabricCanvasIfNeeded() {
   fabricCanvas.on('mouse:down', onCanvasMouseDown);
   fabricCanvas.on('mouse:move', onCanvasMouseMove);
   fabricCanvas.on('mouse:up', onCanvasMouseUp);
+  fabricCanvas.on('mouse:dblclick', () => {
+    if (activeTool === 'shape' && shapePoints.length >= 3) {
+      finishShape();
+    }
+  });
 
   window.addEventListener('keydown', onGlobalKeyDown);
 }
@@ -231,17 +243,15 @@ function getAllCanvasVertices() {
       });
     } else if (obj.type === 'group' && Array.isArray(obj._objects)) {
       // Grup içindeki poligonları bul
-      const groupMatrix = obj.calcTransformMatrix();
       obj._objects.forEach((sub) => {
         if (sub.type === 'polygon' && Array.isArray(sub.points)) {
           const subMatrix = sub.calcTransformMatrix();
           sub.points.forEach((pt) => {
-            const localTrans = fabric.util.transformPoint(
+            const trans = fabric.util.transformPoint(
               new fabric.Point(pt.x - sub.pathOffset.x, pt.y - sub.pathOffset.y),
               subMatrix
             );
-            const worldTrans = fabric.util.transformPoint(localTrans, groupMatrix);
-            vertices.push({ x: worldTrans.x, y: worldTrans.y });
+            vertices.push({ x: trans.x, y: trans.y });
           });
         }
       });
@@ -319,15 +329,6 @@ function calculatePolygonAngles(points, arcRadius = 26) {
   const n = points.length;
   if (n < 3) return [];
 
-  // Shoelace signed area ile çokgenin yönü
-  let signedArea = 0;
-  for (let i = 0; i < n; i++) {
-    const p1 = points[i];
-    const p2 = points[(i + 1) % n];
-    signedArea += p1.x * p2.y - p2.x * p1.y;
-  }
-  const isClockwise = signedArea < 0;
-
   const results = [];
 
   for (let i = 0; i < n; i++) {
@@ -343,26 +344,28 @@ function calculatePolygonAngles(points, arcRadius = 26) {
 
     if (lenPrev === 0 || lenNext === 0) continue;
 
-    const thPrev = Math.atan2(vPrev.y, vPrev.x);
-    const thNext = Math.atan2(vNext.y, vNext.x);
+    const u1 = { x: vPrev.x / lenPrev, y: vPrev.y / lenPrev };
+    const u2 = { x: vNext.x / lenNext, y: vNext.y / lenNext };
 
-    let diff = thNext - thPrev;
-    while (diff < 0) diff += 2 * Math.PI;
-    while (diff >= 2 * Math.PI) diff -= 2 * Math.PI;
-
-    let sweepAngle = isClockwise ? 2 * Math.PI - diff : diff;
-    if (sweepAngle < 0) sweepAngle += 2 * Math.PI;
-    if (sweepAngle > 2 * Math.PI) sweepAngle -= 2 * Math.PI;
-
-    const angleDegrees = Math.round((sweepAngle * 180) / Math.PI);
+    const dot = Math.max(-1.0, Math.min(1.0, u1.x * u2.x + u1.y * u2.y));
+    const angleRad = Math.acos(dot);
+    const angleDegrees = Math.round((angleRad * 180) / Math.PI);
     const isRightAngle = Math.abs(angleDegrees - 90) <= 2;
+
+    // u1'den u2'ye dönüş yönü (ekran koordinatlarında cross product)
+    const cp = u1.x * u2.y - u1.y * u2.x;
+    const sweepFlag = cp > 0 ? 1 : 0;
+
+    // Açı ortay birim vektörü (her zaman açının içine doğru yönelir)
+    const bRaw = { x: u1.x + u2.x, y: u1.y + u2.y };
+    const bLen = Math.hypot(bRaw.x, bRaw.y);
+    const uBisector = bLen > 1e-4
+      ? { x: bRaw.x / bLen, y: bRaw.y / bLen }
+      : { x: -u1.y, y: u1.x };
 
     const boxSize = 16;
     if (isRightAngle) {
       // 90° Diklik Sembolü: Köşede kare + nokta
-      const u1 = { x: vPrev.x / lenPrev, y: vPrev.y / lenPrev };
-      const u2 = { x: vNext.x / lenNext, y: vNext.y / lenNext };
-
       const corner1 = { x: pCurr.x + u1.x * boxSize, y: pCurr.y + u1.y * boxSize };
       const corner2 = {
         x: pCurr.x + (u1.x + u2.x) * boxSize,
@@ -384,25 +387,18 @@ function calculatePolygonAngles(points, arcRadius = 26) {
       });
     } else {
       // Standart Açı Yayı ve Derece
-      const startAngle = isClockwise ? thNext : thPrev;
-      const endAngle = isClockwise ? thPrev : thNext;
+      const sX = pCurr.x + u1.x * arcRadius;
+      const sY = pCurr.y + u1.y * arcRadius;
+      const eX = pCurr.x + u2.x * arcRadius;
+      const eY = pCurr.y + u2.y * arcRadius;
 
-      const sX = pCurr.x + arcRadius * Math.cos(startAngle);
-      const sY = pCurr.y + arcRadius * Math.sin(startAngle);
-      const eX = pCurr.x + arcRadius * Math.cos(endAngle);
-      const eY = pCurr.y + arcRadius * Math.sin(endAngle);
+      // İç açı her zaman <= 180° olduğundan large-arc-flag 0'dır
+      const arcPath = `M ${sX.toFixed(1)} ${sY.toFixed(1)} A ${arcRadius} ${arcRadius} 0 0 ${sweepFlag} ${eX.toFixed(1)} ${eY.toFixed(1)}`;
 
-      let aDiff = endAngle - startAngle;
-      while (aDiff < 0) aDiff += 2 * Math.PI;
-      const largeArc = aDiff > Math.PI ? 1 : 0;
-
-      const arcPath = `M ${sX.toFixed(1)} ${sY.toFixed(1)} A ${arcRadius} ${arcRadius} 0 ${largeArc} 1 ${eX.toFixed(1)} ${eY.toFixed(1)}`;
-
-      const bisector = startAngle + sweepAngle / 2;
-      const labelDist = arcRadius + 15;
+      const labelDist = arcRadius + 14;
       const labelPos = {
-        x: pCurr.x + Math.cos(bisector) * labelDist,
-        y: pCurr.y + Math.sin(bisector) * labelDist
+        x: pCurr.x + uBisector.x * labelDist,
+        y: pCurr.y + uBisector.y * labelDist
       };
 
       results.push({
@@ -531,7 +527,21 @@ function onCanvasMouseDown(opt) {
     fabricCanvas.add(marker);
     shapeMarkers.push(marker);
 
-    // Canlı kauçuk bant çizgi
+    // Tıklanan noktaları birleştiren canlı kenar çizgisi
+    if (shapePoints.length >= 2) {
+      const pPrev = shapePoints[shapePoints.length - 2];
+      const segment = new fabric.Line([pPrev.x, pPrev.y, pt.x, pt.y], {
+        stroke: currentStyle.strokeColor,
+        strokeWidth: currentStyle.strokeWidth,
+        strokeDashArray: currentStyle.isDashed ? [6, 6] : null,
+        selectable: false,
+        isHelper: true
+      });
+      fabricCanvas.add(segment);
+      shapeSegments.push(segment);
+    }
+
+    // Canlı kauçuk bant çizgi (fareyi takip eden sonraki kenar)
     if (!shapeTempLine) {
       shapeTempLine = new fabric.Line([pt.x, pt.y, pt.x, pt.y], {
         stroke: currentStyle.strokeColor,
@@ -605,6 +615,16 @@ function onCanvasMouseMove(opt) {
     drawingLine.set({ x2: pt.x, y2: pt.y });
     fabricCanvas.renderAll();
   } else if (activeTool === 'shape' && shapeTempLine) {
+    if (shapePoints.length >= 3) {
+      const firstPt = shapePoints[0];
+      const dist = Math.hypot(pointer.x - firstPt.x, pointer.y - firstPt.y);
+      if (dist < 22) {
+        showSnapIndicator(firstPt.x, firstPt.y);
+        shapeTempLine.set({ x2: firstPt.x, y2: firstPt.y });
+        fabricCanvas.renderAll();
+        return;
+      }
+    }
     shapeTempLine.set({ x2: pt.x, y2: pt.y });
     fabricCanvas.renderAll();
   }
@@ -729,6 +749,8 @@ function cleanupShapeDrawing() {
   }
   shapeMarkers.forEach((m) => fabricCanvas.remove(m));
   shapeMarkers = [];
+  shapeSegments.forEach((s) => fabricCanvas.remove(s));
+  shapeSegments = [];
   shapePoints = [];
   fabricCanvas.renderAll();
 }
@@ -1267,6 +1289,10 @@ function onGlobalKeyDown(e) {
 
   if (e.key === 'Escape') {
     resetToolState();
+  } else if (e.key === 'Enter' && activeTool === 'shape') {
+    if (shapePoints.length >= 3) {
+      finishShape();
+    }
   } else if (e.key === 'Delete' || e.key === 'Backspace') {
     deleteActiveObjects();
   } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
@@ -1290,12 +1316,26 @@ export function exportGeometryAsPNG() {
   if (!fabricCanvas) return null;
   hideSnapIndicator();
   fabricCanvas.discardActiveObject();
+
+  // Izgara desenini geçici kaldırıp temiz beyaz arka planla dışa aktar
+  const prevBg = fabricCanvas.backgroundColor;
+  fabricCanvas.setBackgroundColor('#ffffff', () => {});
   fabricCanvas.renderAll();
 
-  return fabricCanvas.toDataURL({
+  const dataUrl = fabricCanvas.toDataURL({
     format: 'png',
     multiplier: 2
   });
+
+  // Izgarayı geri yükle
+  if (gridEnabled) {
+    updateGridBackground(true);
+  } else {
+    fabricCanvas.setBackgroundColor(prevBg || '#ffffff', () => {});
+    fabricCanvas.renderAll();
+  }
+
+  return dataUrl;
 }
 
 // ============================================================================

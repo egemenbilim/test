@@ -13,6 +13,7 @@
   <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/fabric@5.3.0/dist/fabric.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
@@ -750,293 +751,371 @@
   </div>
 </div>
 
-<!-- Geometri Çizim Stüdyosu Modalı -->
-<div id="geoModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 p-3 sm:p-5 backdrop-blur-sm">
-  <div class="fade-in flex max-h-[92vh] w-full max-w-5xl flex-col rounded-2xl bg-white shadow-2xl dark:bg-slate-900 dark:text-slate-100">
-    <!-- Header -->
-    <div class="flex items-center justify-between border-b border-slate-200 px-6 py-3.5 dark:border-slate-800">
+<!-- Vektörel Geometri & KaTeX Matematik Stüdyosu Modalı -->
+<div id="geoModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/70 p-2 sm:p-4 backdrop-blur-md select-none">
+  <div class="fade-in flex max-h-[94vh] w-full max-w-6xl flex-col rounded-2xl bg-white shadow-2xl dark:bg-slate-900 dark:text-slate-100 overflow-hidden border border-slate-200 dark:border-slate-800">
+    
+    <!-- Modal Header -->
+    <div class="flex items-center justify-between border-b border-slate-200 px-5 py-3 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/80 shrink-0">
       <div class="flex items-center gap-3">
-        <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600 text-white text-lg shadow-sm">📐</div>
+        <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 text-white text-lg shadow-md font-bold">📐</div>
         <div>
-          <h2 class="text-base font-bold text-slate-900 dark:text-white">Geometri Çizim Stüdyosu</h2>
-          <p class="text-xs text-slate-500 dark:text-slate-400">Üçgen, çember, dörtgen veya paralel açılar çizin; soruya yüksek çözünürlükle ekleyin.</p>
+          <h2 class="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            Vektörel Geometri & KaTeX Matematik Tuvali
+            <span class="rounded-md bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-700 dark:bg-blue-900/60 dark:text-blue-300">
+              Fabric.js & KaTeX
+            </span>
+          </h2>
+          <p class="text-[11px] text-slate-500 dark:text-slate-400 hidden sm:block">
+            Vektörel şekiller çizin, 3 nokta ile açı ölçün, LaTeX formülleri ekleyin ve 300 DPI netliğinde soruya aktarın.
+          </p>
         </div>
       </div>
-      <button id="geoModalClose" type="button" class="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800">✕</button>
+      <div class="flex items-center gap-2">
+        <button id="geoModalClose" type="button" class="rounded-xl p-2 text-slate-400 hover:bg-slate-200 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200 transition" title="Kapat (ESC)">✕</button>
+      </div>
     </div>
 
-    <!-- Shape Selection Tabs -->
-    <div class="flex items-center gap-2 border-b border-slate-100 bg-slate-50 px-6 py-2.5 dark:border-slate-800 dark:bg-slate-800/40">
-      <button type="button" data-geo-shape="triangle" class="active flex items-center gap-1.5 rounded-lg border px-3.5 py-1.5 text-xs font-semibold transition border-slate-900 bg-slate-900 text-white dark:border-white dark:bg-white dark:text-slate-900">
-        <span>📐</span> Üçgen
-      </button>
-      <button type="button" data-geo-shape="circle" class="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
-        <span>⭕</span> Çember / Daire
-      </button>
-      <button type="button" data-geo-shape="quad" class="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
-        <span>▱</span> Dörtgenler
-      </button>
-      <button type="button" data-geo-shape="parallel" class="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
-        <span>⇶</span> Paralel Doğrular / Açılar
+    <!-- Üst Bilgi / İpucu Çubuğu (Guidance Toast) -->
+    <div class="flex items-center justify-between border-b border-blue-100 bg-blue-50/70 px-5 py-1.5 text-xs text-blue-900 dark:border-blue-950 dark:bg-blue-950/40 dark:text-blue-200 shrink-0">
+      <div class="flex items-center gap-2">
+        <span class="text-blue-600 dark:text-blue-400 font-bold">💡</span>
+        <span id="geoGuidanceText" class="font-medium">Nesneleri seçmek, taşımak, döndürmek veya boyutlandırmak için tıklayın / sürükleyin.</span>
+      </div>
+      <button id="geoPolygonFinishBtn" type="button" class="hidden items-center gap-1 rounded-md bg-blue-600 px-3 py-1 text-[11px] font-bold text-white hover:bg-blue-700 transition shadow-sm">
+        ✓ Çokgeni Tamamla
       </button>
     </div>
 
-    <!-- Body: Canvas Preview + Controls -->
-    <div class="grid grid-cols-1 lg:grid-cols-12 flex-1 overflow-y-auto p-6 gap-6">
-      <!-- Left: Interactive Vector Canvas -->
-      <div class="lg:col-span-7 flex flex-col items-center justify-center rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-slate-950/50">
-        <canvas id="geoCanvas" width="560" height="380" class="w-full max-w-[560px] rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900"></canvas>
-        <span class="mt-2 text-[11px] text-slate-400">Şekil yüksek netlikte (300 DPI eşdeğeri) vektörel olarak oluşturulur.</span>
+    <!-- Ana Gövde: Sol Araç Çubuğu + Merkezi Tuval + (Opsiyonel) Şablon Paneli -->
+    <div class="relative flex flex-1 overflow-hidden bg-slate-100 dark:bg-slate-950">
+      
+      <!-- Sol Dikey Araç Çubuğu (Toolbox) -->
+      <div class="z-20 flex w-16 flex-col items-center gap-1.5 border-r border-slate-200 bg-white p-2 dark:border-slate-800 dark:bg-slate-900 shadow-sm shrink-0">
+        <!-- 1. Seçim Aracı -->
+        <button type="button" id="geoToolSelect" data-tool="select" title="Seçim Aracı (V)" class="active flex h-11 w-11 flex-col items-center justify-center rounded-xl transition bg-blue-50 text-blue-600 font-bold border border-blue-200 shadow-sm dark:bg-blue-950/50 dark:border-blue-800 dark:text-blue-400">
+          <span class="text-base leading-none">↖</span>
+          <span class="text-[9px] mt-0.5 font-medium">Seç</span>
+        </button>
+
+        <!-- 2. Nokta Aracı -->
+        <button type="button" id="geoToolPoint" data-tool="point" title="Nokta Aracı (P)" class="flex h-11 w-11 flex-col items-center justify-center rounded-xl text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition">
+          <span class="h-2.5 w-2.5 rounded-full bg-current shadow-sm"></span>
+          <span class="text-[9px] mt-1 font-medium">Nokta</span>
+        </button>
+
+        <!-- 3. Doğru Parçası -->
+        <button type="button" id="geoToolLine" data-tool="line" title="Doğru Parçası (L)" class="flex h-11 w-11 flex-col items-center justify-center rounded-xl text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition">
+          <span class="text-sm font-bold leading-none">╱</span>
+          <span class="text-[9px] mt-0.5 font-medium">Doğru</span>
+        </button>
+
+        <!-- 4. Serbest Çokgen Aracı -->
+        <button type="button" id="geoToolPolygon" data-tool="polygon" title="Serbest Çokgen (Üçgen, Dörtgen vb.)" class="flex h-11 w-11 flex-col items-center justify-center rounded-xl text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition">
+          <span class="text-base leading-none">✏️</span>
+          <span class="text-[9px] mt-0.5 font-medium">Çokgen</span>
+        </button>
+
+        <!-- 5. Çember Aracı -->
+        <button type="button" id="geoToolCircle" data-tool="circle" title="Çember / Daire Aracı (C)" class="flex h-11 w-11 flex-col items-center justify-center rounded-xl text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition">
+          <span class="text-base leading-none">⭕</span>
+          <span class="text-[9px] mt-0.5 font-medium">Çember</span>
+        </button>
+
+        <!-- 6. Açı Ölçer / Oluşturucu -->
+        <button type="button" id="geoToolAngle" data-tool="angle" title="3 Noktalı İnteraktif Açı Aracı" class="flex h-11 w-11 flex-col items-center justify-center rounded-xl text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition">
+          <span class="text-base leading-none">📐</span>
+          <span class="text-[9px] mt-0.5 font-medium">Açı</span>
+        </button>
+
+        <!-- 7. Metin Aracı -->
+        <button type="button" id="geoToolText" data-tool="text" title="Metin / Harf Kutusu (T)" class="flex h-11 w-11 flex-col items-center justify-center rounded-xl text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition">
+          <span class="text-base font-serif font-bold leading-none">T</span>
+          <span class="text-[9px] mt-0.5 font-medium">Metin</span>
+        </button>
+
+        <!-- 8. Daha Fazla Şekil & Formül Popover -->
+        <div class="relative mt-auto">
+          <button type="button" id="geoMoreBtn" title="Daha Fazla Şekil & Matematiksel Formül" class="flex h-11 w-11 flex-col items-center justify-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 transition shadow-sm">
+            <span class="text-base leading-none">➕</span>
+            <span class="text-[9px] mt-0.5 font-medium">Daha</span>
+          </button>
+
+          <!-- Popover Menü -->
+          <div id="geoMorePopover" class="absolute bottom-0 left-14 z-40 hidden w-60 rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl dark:border-slate-800 dark:bg-slate-900 animate-in fade-in">
+            <div class="px-2.5 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Özel Araçlar & Şekiller</div>
+            
+            <!-- KaTeX Formül Butonu -->
+            <button type="button" id="geoOpenFormulaBtn" class="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/50 transition">
+              <span>✨</span>
+              <span>Matematiksel Formül (KaTeX)</span>
+            </button>
+
+            <!-- Hazır Şablonlar Butonu -->
+            <button type="button" id="geoToggleTplBtn" class="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-indigo-600 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-950/50 transition">
+              <span>📐</span>
+              <span>Hazır Geometri Şablonları</span>
+            </button>
+
+            <div class="my-1 border-t border-slate-100 dark:border-slate-800"></div>
+
+            <!-- Elips -->
+            <button type="button" id="geoAddEllipseBtn" class="flex w-full items-center gap-2.5 rounded-xl px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 transition">
+              <span class="h-3 w-4 rounded-full border-2 border-current inline-block"></span>
+              <span>Elips Ekle</span>
+            </button>
+
+            <!-- Düzgün Çokgenler -->
+            <button type="button" id="geoAddPentagonBtn" class="flex w-full items-center gap-2.5 rounded-xl px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 transition">
+              <span>⬠</span>
+              <span>Düzgün Beşgen</span>
+            </button>
+            <button type="button" id="geoAddHexagonBtn" class="flex w-full items-center gap-2.5 rounded-xl px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 transition">
+              <span>⬡</span>
+              <span>Düzgün Altıgen</span>
+            </button>
+            <button type="button" id="geoAddOctagonBtn" class="flex w-full items-center gap-2.5 rounded-xl px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 transition">
+              <span>🛑</span>
+              <span>Düzgün Sekizgen</span>
+            </button>
+          </div>
+        </div>
       </div>
 
-      <!-- Right: Shape Parameters Controls -->
-      <div class="lg:col-span-5 space-y-4 overflow-y-auto pr-1">
-        <!-- Triangle Controls -->
-        <div id="geoTriControls" class="space-y-3">
-          <div>
-            <label class="lbl">Üçgen Türü</label>
-            <select id="geoTriVariant" class="inp mt-1 font-semibold text-slate-800 dark:text-slate-100">
-              <option value="dik">1. Standart Dik Üçgen</option>
-              <option value="dik_30_60">2. Özel Dik Üçgen (30° - 60° - 90°)</option>
-              <option value="dik_45_45">3. İkizkenar Dik Üçgen (45° - 45° - 90°)</option>
-              <option value="oklid">4. Öklid Bağıntısı (Hipotenüse İnen Dikme)</option>
-              <option value="muhtesem_uclu">5. Muhteşem Üçlü (Hipotenüs Kenarortayı)</option>
-              <option value="eskenar">6. Eşkenar Üçgen (60° - 60° - 60°)</option>
-              <option value="ikizkenar">7. İkizkenar Üçgen (|AB| = |AC|)</option>
-              <option value="genis">8. Geniş Açılı Üçgen (B > 90°)</option>
-              <option value="cesitkenar">9. Çeşitkenar / Dar Açılı Üçgen</option>
-              <option value="aciortay">10. İç Açıortaylı Üçgen [AN]</option>
-              <option value="kenarortay">11. Kenarortaylı Üçgen [AD] & G</option>
-              <option value="benzerlik">12. Benzerlik / Thales (DE // BC)</option>
-            </select>
-          </div>
+      <!-- Merkezi Tuval Alanı -->
+      <div id="geoCanvasWrapper" class="relative flex flex-1 items-center justify-center overflow-auto p-4">
+        <div id="geoCanvasContainer" class="relative rounded-2xl border border-slate-300 bg-white shadow-xl dark:border-slate-700 overflow-hidden">
+          <canvas id="geoFabricCanvas" width="760" height="490"></canvas>
 
-          <!-- Köşe Noktaları -->
-          <div class="grid grid-cols-3 gap-2" id="triVerticesRow">
-            <label class="lbl">Köşe A <input id="geoTriVA" class="inp mt-1 font-semibold text-center" value="A"></label>
-            <label class="lbl">Köşe B <input id="geoTriVB" class="inp mt-1 font-semibold text-center" value="B"></label>
-            <label class="lbl">Köşe C <input id="geoTriVC" class="inp mt-1 font-semibold text-center" value="C"></label>
-          </div>
-
-          <!-- Standart Kenarlar -->
-          <div class="grid grid-cols-3 gap-2" id="triStandardSides">
-            <label class="lbl">Kenar c (AB) <input id="geoTriSAB" class="inp mt-1 text-center" value="c"></label>
-            <label class="lbl">Kenar a (BC) <input id="geoTriSBC" class="inp mt-1 text-center" value="a"></label>
-            <label class="lbl">Kenar b (AC) <input id="geoTriSAC" class="inp mt-1 text-center" value="b"></label>
-          </div>
-
-          <!-- Öklid Özel Alanları -->
-          <div id="triOklidFields" class="hidden space-y-2 rounded-xl bg-slate-100 p-2.5 dark:bg-slate-800">
-            <span class="lbl font-bold text-slate-700 dark:text-slate-300">Öklid Hipotenüs Parçaları ve Yükseklik</span>
-            <div class="grid grid-cols-3 gap-2">
-              <label class="lbl">Dikme h [AH] <input id="geoTriOklidH" class="inp mt-1 text-center font-bold text-indigo-600" value="h"></label>
-              <label class="lbl">Sol p [BH] <input id="geoTriOklidP" class="inp mt-1 text-center" value="p = 4"></label>
-              <label class="lbl">Sağ k [HC] <input id="geoTriOklidK" class="inp mt-1 text-center" value="k = 9"></label>
+          <!-- Kayan Şekil Biçimlendirme Araç Çubuğu (Floating Toolbar) -->
+          <div id="geoFloatingToolbar" class="absolute z-30 hidden items-center gap-1.5 rounded-xl border border-slate-200 bg-white/95 px-2 py-1.5 shadow-xl backdrop-blur-md dark:border-slate-700 dark:bg-slate-900/95 transition-all select-none">
+            
+            <!-- Çizgi Rengi Seçici -->
+            <div class="relative">
+              <button type="button" id="geoFloatStrokeBtn" title="Çizgi Rengi" class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 p-1 hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800 transition">
+                <span id="geoFloatStrokePreview" class="h-4 w-4 rounded-full border border-black/10 shadow-sm bg-slate-900"></span>
+              </button>
+              <div id="geoFloatStrokePopover" class="absolute left-0 top-10 z-40 hidden w-48 rounded-xl border border-slate-200 bg-white p-3 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+                <div class="mb-2 text-[10px] font-semibold text-slate-500 uppercase">Çizgi Rengi</div>
+                <div class="grid grid-cols-6 gap-2" id="geoStrokeGrid"></div>
+              </div>
             </div>
-            <div class="text-[10px] text-slate-500">Formül: h² = p · k &nbsp;|&nbsp; b² = k · a &nbsp;|&nbsp; c² = p · a</div>
-          </div>
 
-          <!-- Açıortay Özel Alanları -->
-          <div id="triAciortayFields" class="hidden space-y-2 rounded-xl bg-slate-100 p-2.5 dark:bg-slate-800">
-            <span class="lbl font-bold text-slate-700 dark:text-slate-300">İç Açıortay [AN] Parametreleri</span>
-            <div class="grid grid-cols-3 gap-2">
-              <label class="lbl">Açıortay AN <input id="geoTriAciAN" class="inp mt-1 text-center font-bold text-indigo-600" value="n_A"></label>
-              <label class="lbl">Sol Taban [BN] <input id="geoTriAciBN" class="inp mt-1 text-center" value="x"></label>
-              <label class="lbl">Sağ Taban [NC] <input id="geoTriAciNC" class="inp mt-1 text-center" value="6"></label>
+            <!-- Dolgu Rengi Seçici -->
+            <div class="relative">
+              <button type="button" id="geoFloatFillBtn" title="Dolgu Rengi" class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 p-1 hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800 transition">
+                <div class="flex items-center justify-center h-4 w-4 rounded-sm border border-slate-400 relative overflow-hidden">
+                  <span id="geoFloatFillPreview" class="text-[10px] text-red-500 font-bold leading-none">✕</span>
+                </div>
+              </button>
+              <div id="geoFloatFillPopover" class="absolute left-0 top-10 z-40 hidden w-48 rounded-xl border border-slate-200 bg-white p-3 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+                <div class="mb-2 text-[10px] font-semibold text-slate-500 uppercase">Dolgu Rengi</div>
+                <div class="grid grid-cols-6 gap-2" id="geoFillGrid"></div>
+              </div>
             </div>
-          </div>
 
-          <!-- Kenarortay & Ağırlık Merkezi Özel Alanları -->
-          <div id="triKenarortayFields" class="hidden space-y-2 rounded-xl bg-slate-100 p-2.5 dark:bg-slate-800">
-            <span class="lbl font-bold text-slate-700 dark:text-slate-300">Kenarortay [AD] ve G Noktası</span>
-            <div class="grid grid-cols-2 gap-2">
-              <label class="lbl">Kenarortay [AD] <input id="geoTriMedAD" class="inp mt-1 text-center" value="V_a"></label>
-              <label class="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300 pt-5">
-                <input type="checkbox" id="geoTriShowG" checked class="rounded" style="accent-color:#4f46e5">
-                <span>Ağırlık Merkezi G Göster</span>
-              </label>
+            <!-- Kalınlık Seçici -->
+            <div class="relative">
+              <button type="button" id="geoFloatWidthBtn" title="Kalınlık ve Kesikli Çizgi" class="flex h-8 items-center gap-1 rounded-lg border border-slate-200 px-2 text-xs font-semibold hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800 transition">
+                <span id="geoFloatWidthLabel">2px</span>
+              </button>
+              <div id="geoFloatWidthPopover" class="absolute left-0 top-10 z-40 hidden w-44 space-y-2 rounded-xl border border-slate-200 bg-white p-3 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+                <div class="text-[10px] font-semibold text-slate-500 uppercase">Kalınlık</div>
+                <div class="flex items-center justify-between gap-1" id="geoWidthButtons">
+                  <button type="button" data-w="1" class="flex-1 rounded-md py-1 text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800">1px</button>
+                  <button type="button" data-w="2" class="flex-1 rounded-md py-1 text-xs font-bold bg-blue-600 text-white">2px</button>
+                  <button type="button" data-w="3" class="flex-1 rounded-md py-1 text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800">3px</button>
+                  <button type="button" data-w="4" class="flex-1 rounded-md py-1 text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800">4px</button>
+                </div>
+                <div class="border-t border-slate-100 pt-2 dark:border-slate-800">
+                  <label class="flex cursor-pointer items-center justify-between text-xs text-slate-700 dark:text-slate-300">
+                    <span>Kesikli Çizgi</span>
+                    <input type="checkbox" id="geoFloatDashed" class="rounded text-blue-600">
+                  </label>
+                </div>
+              </div>
             </div>
-          </div>
 
-          <!-- Benzerlik (Thales) Özel Alanları -->
-          <div id="triBenzerlikFields" class="hidden space-y-2 rounded-xl bg-slate-100 p-2.5 dark:bg-slate-800">
-            <span class="lbl font-bold text-slate-700 dark:text-slate-300">Paralel Kesen [DE] // [BC]</span>
-            <div class="grid grid-cols-3 gap-2">
-              <label class="lbl">Parça [AD] <input id="geoTriBenAD" class="inp mt-1 text-center" value="4"></label>
-              <label class="lbl">Parça [DB] <input id="geoTriBenDB" class="inp mt-1 text-center" value="2"></label>
-              <label class="lbl">Paralel [DE] <input id="geoTriBenDE" class="inp mt-1 text-center font-bold text-indigo-600" value="x"></label>
-            </div>
-            <div class="grid grid-cols-2 gap-2">
-              <label class="lbl">Parça [AE] <input id="geoTriBenAE" class="inp mt-1 text-center" value=""></label>
-              <label class="lbl">Parça [EC] <input id="geoTriBenEC" class="inp mt-1 text-center" value=""></label>
-            </div>
-          </div>
+            <div class="h-5 w-[1px] bg-slate-200 dark:bg-slate-700 mx-0.5"></div>
 
-          <!-- Açı Alanları -->
-          <div class="grid grid-cols-3 gap-2" id="triAnglesRow">
-            <label class="lbl">A Açısı <input id="geoTriAngA" class="inp mt-1 text-center" placeholder=""></label>
-            <label class="lbl">B Açısı <input id="geoTriAngB" class="inp mt-1 text-center" value="90°"></label>
-            <label class="lbl">C Açısı <input id="geoTriAngC" class="inp mt-1 text-center" value="45°"></label>
-          </div>
+            <!-- Klonla -->
+            <button type="button" id="geoFloatDupBtn" title="Klonla (Ctrl+D)" class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 transition">
+              <span>📋</span>
+            </button>
 
-          <div class="space-y-1.5 pt-2 border-t border-slate-100 dark:border-slate-800">
-            <label class="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300" id="geoTriAltLabel">
-              <input type="checkbox" id="geoTriAltitude" checked class="rounded" style="accent-color:#4f46e5">
-              <span>Yükseklik Çizgisini Göster (h)</span>
-            </label>
-            <label class="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
-              <input type="checkbox" id="geoTriShade" class="rounded" style="accent-color:#4f46e5">
-              <span>Üçgenin İçini Tara / Gölgelendir</span>
-            </label>
-            <label class="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
-              <input type="checkbox" id="geoTriTicks" checked class="rounded" style="accent-color:#4f46e5">
-              <span>Eşitlik / Çentik İşaretlerini Göster</span>
-            </label>
+            <!-- Sil -->
+            <button type="button" id="geoFloatDelBtn" title="Sil (Delete)" class="flex h-8 w-8 items-center justify-center rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition">
+              <span>🗑️</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Açılır / Kapanır Hazır Şablonlar Çekmecesi -->
+      <div id="geoTemplateDrawer" class="hidden w-72 border-l border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 p-4 overflow-y-auto shrink-0 animate-in slide-in-from-right">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200">Hazır Şablonlar</h3>
+          <button id="geoCloseDrawerBtn" type="button" class="text-slate-400 hover:text-slate-600 text-xs">✕</button>
+        </div>
+        <div class="mt-3 space-y-2 text-xs">
+          <div class="font-bold text-slate-500 text-[11px]">ÜÇGEN ŞABLONLARI</div>
+          <button type="button" data-tpl="dik_ucgen" class="w-full text-left rounded-lg p-2 border border-slate-200 hover:border-blue-500 hover:bg-blue-50/50 dark:border-slate-800 dark:hover:bg-slate-800 transition">
+            <div class="font-semibold text-slate-800 dark:text-slate-200">Dik Üçgen (3-4-5)</div>
+            <div class="text-[10px] text-slate-400">90° dik açı işareti ve A-B-C köşeleri</div>
+          </button>
+          <button type="button" data-tpl="ozel_30_60" class="w-full text-left rounded-lg p-2 border border-slate-200 hover:border-blue-500 hover:bg-blue-50/50 dark:border-slate-800 dark:hover:bg-slate-800 transition">
+            <div class="font-semibold text-slate-800 dark:text-slate-200">30° - 60° - 90° Üçgeni</div>
+            <div class="text-[10px] text-slate-400">Açı yayları ve köşe harfleri ile</div>
+          </button>
+          <button type="button" data-tpl="eskenar" class="w-full text-left rounded-lg p-2 border border-slate-200 hover:border-blue-500 hover:bg-blue-50/50 dark:border-slate-800 dark:hover:bg-slate-800 transition">
+            <div class="font-semibold text-slate-800 dark:text-slate-200">Eşkenar Üçgen</div>
+            <div class="text-[10px] text-slate-400">60° açı yayları ve eşitlik çentikleri</div>
+          </button>
+          <button type="button" data-tpl="oklid" class="w-full text-left rounded-lg p-2 border border-slate-200 hover:border-blue-500 hover:bg-blue-50/50 dark:border-slate-800 dark:hover:bg-slate-800 transition">
+            <div class="font-semibold text-slate-800 dark:text-slate-200">Öklid Üçgeni</div>
+            <div class="text-[10px] text-slate-400">Hipotenüse inen dikme [AH] ve p, k, h</div>
+          </button>
+
+          <div class="font-bold text-slate-500 text-[11px] pt-2">ÇEMBER & DÖRTGEN</div>
+          <button type="button" data-tpl="cember_dilim" class="w-full text-left rounded-lg p-2 border border-slate-200 hover:border-blue-500 hover:bg-blue-50/50 dark:border-slate-800 dark:hover:bg-slate-800 transition">
+            <div class="font-semibold text-slate-800 dark:text-slate-200">Merkez Açı & Daire Dilimi</div>
+            <div class="text-[10px] text-slate-400">O merkezli 60° taralı dilim</div>
+          </button>
+          <button type="button" data-tpl="dikdortgen" class="w-full text-left rounded-lg p-2 border border-slate-200 hover:border-blue-500 hover:bg-blue-50/50 dark:border-slate-800 dark:hover:bg-slate-800 transition">
+            <div class="font-semibold text-slate-800 dark:text-slate-200">Dikdörtgen</div>
+            <div class="text-[10px] text-slate-400">A, B, C, D köşeleri ve kenar uzunlukları</div>
+          </button>
+          <button type="button" data-tpl="paralel_z" class="w-full text-left rounded-lg p-2 border border-slate-200 hover:border-blue-500 hover:bg-blue-50/50 dark:border-slate-800 dark:hover:bg-slate-800 transition">
+            <div class="font-semibold text-slate-800 dark:text-slate-200">Paralel Doğrularda Z Açısı</div>
+            <div class="text-[10px] text-slate-400">d₁ // d₂ iç ters açılar</div>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Alt Kontrol Çubuğu -->
+    <div class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-white px-5 py-2.5 dark:border-slate-800 dark:bg-slate-900 shadow-md shrink-0">
+      <!-- Sol: Zoom, Izgara, Snap, Geri Al, Temizle -->
+      <div class="flex items-center gap-2">
+        <!-- Zoom -->
+        <div class="flex items-center rounded-xl border border-slate-200 bg-slate-50 p-0.5 dark:border-slate-800 dark:bg-slate-800/60">
+          <button type="button" id="geoZoomOut" title="Küçült" class="rounded-lg p-1 text-slate-600 hover:bg-white dark:text-slate-400 dark:hover:bg-slate-700 transition">－</button>
+          <span id="geoZoomLabel" class="px-2 text-xs font-bold text-slate-700 dark:text-slate-300">%100</span>
+          <button type="button" id="geoZoomIn" title="Büyüt" class="rounded-lg p-1 text-slate-600 hover:bg-white dark:text-slate-400 dark:hover:bg-slate-700 transition">＋</button>
+        </div>
+
+        <!-- Izgara -->
+        <button type="button" id="geoToggleGrid" class="flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold border-blue-200 bg-blue-50 text-blue-600 dark:border-blue-900 dark:bg-blue-950/60 dark:text-blue-300 transition">
+          <span>▦</span>
+          <span>Izgara</span>
+        </button>
+
+        <!-- Snap to Grid -->
+        <button type="button" id="geoToggleSnap" class="flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold border-blue-200 bg-blue-50 text-blue-600 dark:border-blue-900 dark:bg-blue-950/60 dark:text-blue-300 transition">
+          <span>🧲</span>
+          <span>Snap</span>
+        </button>
+
+        <!-- Geri Al / İleri Al -->
+        <div class="flex items-center gap-1 ml-1 border-l border-slate-200 pl-2 dark:border-slate-800">
+          <button type="button" id="geoBtnUndo" title="Geri Al (Ctrl+Z)" class="flex h-8 w-8 items-center justify-center rounded-xl text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition">↩</button>
+          <button type="button" id="geoBtnRedo" title="İleri Al (Ctrl+Y)" class="flex h-8 w-8 items-center justify-center rounded-xl text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition">↪</button>
+        </div>
+
+        <!-- Temizle -->
+        <button type="button" id="geoBtnClear" title="Tuvali Temizle" class="rounded-xl px-2.5 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition">
+          Temizle
+        </button>
+      </div>
+
+      <!-- Sağ: İptal ve [✓ Şekli Soruya Ekle] -->
+      <div class="flex items-center gap-2">
+        <button id="geoModalCancel" type="button" class="rounded-xl px-4 py-2 text-xs font-semibold text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition">İptal</button>
+        <button id="geoInsertBtn" type="button" class="flex items-center gap-2 rounded-xl bg-slate-900 px-6 py-2 text-xs font-bold text-white shadow-lg hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100 transition active:scale-95">
+          <span>✓</span>
+          <span>Şekli Soruya Ekle</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- KaTeX Formül ve Denklem Editörü Modalı -->
+<div id="geoFormulaModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm select-none">
+  <div class="flex max-h-[90vh] w-full max-w-xl flex-col rounded-2xl bg-white shadow-2xl dark:bg-slate-900 dark:text-slate-100 overflow-hidden border border-slate-200 dark:border-slate-800 animate-in fade-in">
+    <!-- Header -->
+    <div class="flex items-center justify-between border-b border-slate-200 px-5 py-3.5 dark:border-slate-800">
+      <div class="flex items-center gap-2.5">
+        <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white shadow-sm font-bold">✨</div>
+        <div>
+          <h3 class="text-sm font-bold text-slate-900 dark:text-white">Matematiksel Formül (KaTeX) Editörü</h3>
+          <p class="text-[11px] text-slate-500 dark:text-slate-400">Tuval üzerine bağımsız, serbest sürüklenebilir formül ekleyin.</p>
+        </div>
+      </div>
+      <button id="geoFormulaClose" type="button" class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200 transition">✕</button>
+    </div>
+
+    <!-- Body -->
+    <div class="flex-1 overflow-y-auto p-5 space-y-4">
+      <!-- Sekmeler -->
+      <div class="flex items-center gap-1 border-b border-slate-200 pb-2 dark:border-slate-800" id="geoFormulaTabs">
+        <button type="button" data-ftab="basic" class="ftab-btn active rounded-lg px-3 py-1.5 text-xs font-semibold bg-blue-600 text-white shadow-sm">Temel</button>
+        <button type="button" data-ftab="symbols" class="ftab-btn rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800">Semboller & Geometri</button>
+        <button type="button" data-ftab="placeholders" class="ftab-btn rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800">Vektör & Parantez</button>
+        <button type="button" data-ftab="calculus" class="ftab-btn rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800">Calculus</button>
+      </div>
+
+      <!-- Sembol Butonları Izgarası -->
+      <div id="geoFormulaButtonsGrid" class="grid grid-cols-4 sm:grid-cols-6 gap-2"></div>
+
+      <!-- LaTeX Input -->
+      <div class="space-y-1.5">
+        <label class="text-xs font-semibold text-slate-700 dark:text-slate-300">LaTeX Kodu</label>
+        <input type="text" id="geoFormulaInput" value="2\sqrt{3}" placeholder="Örn: 2\sqrt{3} veya \frac{a}{b}" class="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 font-mono text-sm text-slate-800 outline-none ring-offset-1 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100">
+      </div>
+
+      <!-- Canlı Önizleme -->
+      <div class="space-y-1.5">
+        <div class="flex items-center justify-between text-xs font-semibold text-slate-700 dark:text-slate-300">
+          <span class="flex items-center gap-1 font-bold text-blue-600 dark:text-blue-400">👁 Canlı Önizleme</span>
+          <span class="text-[10px] text-slate-400 font-normal">300 DPI eşdeğeri yüksek netlik</span>
+        </div>
+        <div class="flex min-h-[70px] items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50/50 p-4 dark:border-slate-700 dark:bg-slate-950/40">
+          <div id="geoFormulaPreview" class="text-xl"></div>
+        </div>
+      </div>
+
+      <!-- Renk ve Boyut Ayarı -->
+      <div class="flex flex-wrap items-center justify-between gap-4 border-t border-slate-100 pt-3 dark:border-slate-800">
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-slate-600 dark:text-slate-400 font-semibold">Renk:</span>
+          <div class="flex items-center gap-1.5" id="geoFormulaColorOptions">
+            <button type="button" data-color="#0f172a" class="h-5 w-5 rounded-full border border-black/10 bg-slate-900 ring-2 ring-blue-500 ring-offset-1"></button>
+            <button type="button" data-color="#2563eb" class="h-5 w-5 rounded-full border border-black/10 bg-blue-600"></button>
+            <button type="button" data-color="#dc2626" class="h-5 w-5 rounded-full border border-black/10 bg-red-600"></button>
+            <button type="button" data-color="#16a34a" class="h-5 w-5 rounded-full border border-black/10 bg-green-600"></button>
+            <button type="button" data-color="#7c3aed" class="h-5 w-5 rounded-full border border-black/10 bg-purple-600"></button>
           </div>
         </div>
 
-        <!-- Circle Controls -->
-        <div id="geoCirControls" class="space-y-3 hidden">
-          <div>
-            <label class="lbl">Çember Düzeni / Özelliği</label>
-            <select id="geoCirVariant" class="inp mt-1 font-semibold text-slate-800 dark:text-slate-100">
-              <option value="merkez_aci">1. Daire Dilimi ve Merkez Açı</option>
-              <option value="cevre_aci">2. Çevre Açı ve Gördüğü Yay</option>
-              <option value="kiris_teget">3. Kiriş ve Teğet Doğrusu</option>
-              <option value="cap_aci">4. Çapı Gören Çevre Açı (90°)</option>
-            </select>
-          </div>
-
-          <div class="grid grid-cols-2 gap-2">
-            <label class="lbl">Merkez Noktası <input id="geoCirCenter" class="inp mt-1 font-semibold text-center" value="O"></label>
-            <label class="lbl">Yarıçap Etiketi <input id="geoCirRadius" class="inp mt-1 text-center" value="r = 6 cm"></label>
-          </div>
-
-          <div id="cirAngleBlock">
-            <div class="flex items-center justify-between">
-              <label class="lbl">Açı Değeri / Dilim</label>
-              <span id="geoCirAngleVal" class="text-xs font-bold text-indigo-600 dark:text-indigo-400">60°</span>
-            </div>
-            <input type="range" id="geoCirAngleRange" min="15" max="360" step="5" value="60" class="mt-1 w-full" style="accent-color:#4f46e5">
-          </div>
-
-          <div id="cirAngleLabelBlock">
-            <label class="lbl">Açı Etiket Metni</label>
-            <input id="geoCirAngleLbl" class="inp mt-1 text-center" value="60°">
-          </div>
-
-          <div class="space-y-1.5 pt-2 border-t border-slate-100 dark:border-slate-800">
-            <label class="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300" id="cirSectorToggle">
-              <input type="checkbox" id="geoCirSector" checked class="rounded" style="accent-color:#4f46e5">
-              <span>Daire Dilimini Göster</span>
-            </label>
-            <label class="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300" id="cirShadeToggle">
-              <input type="checkbox" id="geoCirShade" checked class="rounded" style="accent-color:#4f46e5">
-              <span>Dilim / İç Alanı Tara</span>
-            </label>
-            <label class="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300" id="cirChordToggle">
-              <input type="checkbox" id="geoCirChord" class="rounded" style="accent-color:#4f46e5">
-              <span>Kiriş Göster [AB]</span>
-            </label>
-            <label class="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300" id="cirTangentToggle">
-              <input type="checkbox" id="geoCirTangent" class="rounded" style="accent-color:#4f46e5">
-              <span>Teğet Doğrusunu Çiz (t)</span>
-            </label>
-          </div>
-        </div>
-
-        <!-- Quadrilateral Controls -->
-        <div id="geoQuadControls" class="space-y-3 hidden">
-          <div>
-            <label class="lbl">Dörtgen Türü</label>
-            <select id="geoQuadVariant" class="inp mt-1 font-semibold text-slate-800 dark:text-slate-100">
-              <option value="dikdortgen">1. Dikdörtgen</option>
-              <option value="kare">2. Kare</option>
-              <option value="paralelkenar">3. Paralelkenar</option>
-              <option value="yamuk">4. Yamuk (Alt/Üst Taban Paralel)</option>
-              <option value="dik_yamuk">5. Dik Yamuk</option>
-              <option value="eskenar_dortgen">6. Eşkenar Dörtgen</option>
-              <option value="deltoid">7. Deltoid</option>
-            </select>
-          </div>
-
-          <div class="grid grid-cols-4 gap-1.5">
-            <label class="lbl">A <input id="geoQuadVA" class="inp mt-1 font-semibold text-center" value="A"></label>
-            <label class="lbl">B <input id="geoQuadVB" class="inp mt-1 font-semibold text-center" value="B"></label>
-            <label class="lbl">C <input id="geoQuadVC" class="inp mt-1 font-semibold text-center" value="C"></label>
-            <label class="lbl">D <input id="geoQuadVD" class="inp mt-1 font-semibold text-center" value="D"></label>
-          </div>
-
-          <div class="grid grid-cols-2 gap-2">
-            <label class="lbl">Kenar AB (Alt / Taban) <input id="geoQuadSAB" class="inp mt-1 text-center" value="12 cm"></label>
-            <label class="lbl">Kenar BC (Yan / Boy) <input id="geoQuadSBC" class="inp mt-1 text-center" value="5 cm"></label>
-          </div>
-
-          <div class="grid grid-cols-2 gap-2" id="quadExtraSides">
-            <label class="lbl">Üst Kenar (CD) <input id="geoQuadSCD" class="inp mt-1 text-center" value=""></label>
-            <label class="lbl">Sol Yan (DA) <input id="geoQuadSDA" class="inp mt-1 text-center" value=""></label>
-          </div>
-
-          <div class="space-y-1.5 pt-2 border-t border-slate-100 dark:border-slate-800">
-            <label class="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
-              <input type="checkbox" id="geoQuadDiagonals" class="rounded" style="accent-color:#4f46e5">
-              <span>Köşegenleri Çiz [AC] ve [BD]</span>
-            </label>
-            <label class="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
-              <input type="checkbox" id="geoQuadShade" class="rounded" style="accent-color:#4f46e5">
-              <span>İç Alanı Tara / Gölgelendir</span>
-            </label>
-            <label class="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300" id="quadAltitudeToggle">
-              <input type="checkbox" id="geoQuadAltitude" class="rounded" style="accent-color:#4f46e5">
-              <span>Yükseklik Çizgisini Göster (h)</span>
-            </label>
-          </div>
-        </div>
-
-        <!-- Parallel Lines Controls -->
-        <div id="geoParControls" class="space-y-3 hidden">
-          <div>
-            <label class="lbl">Kural / Açı Bağıntısı</label>
-            <select id="geoParVariant" class="inp mt-1 font-semibold text-slate-800 dark:text-slate-100">
-              <option value="z_kurali">1. Z Kuralı (İç Ters Açılar)</option>
-              <option value="u_kurali">2. U Kuralı (Karşı Durumlu Açılar: 180°)</option>
-              <option value="m_kurali">3. M Kuralı (Roket / Zigzag Açılar)</option>
-              <option value="yondes">4. Yöndeş Açılar</option>
-            </select>
-          </div>
-
-          <div class="grid grid-cols-2 gap-2">
-            <label class="lbl">1. Doğru (d₁) <input id="geoParL1" class="inp mt-1 font-semibold text-center" value="d₁"></label>
-            <label class="lbl">2. Doğru (d₂) <input id="geoParL2" class="inp mt-1 font-semibold text-center" value="d₂"></label>
-          </div>
-
-          <div class="grid grid-cols-2 gap-2" id="parTwoAngles">
-            <label class="lbl">1. Açı Değeri <input id="geoParAng1" class="inp mt-1 text-center" value="120°"></label>
-            <label class="lbl">2. Açı (Bilinmeyen) <input id="geoParAng2" class="inp mt-1 text-center font-bold text-indigo-600" value="x"></label>
-          </div>
-
-          <div id="parMFields" class="hidden space-y-2 rounded-xl bg-slate-100 p-2.5 dark:bg-slate-800">
-            <span class="lbl font-bold text-slate-700 dark:text-slate-300">M Kuralı Açıları</span>
-            <div class="grid grid-cols-3 gap-2">
-              <label class="lbl">Üst Açı a <input id="geoParMAngA" class="inp mt-1 text-center" value="40°"></label>
-              <label class="lbl">Orta Tepe x <input id="geoParMAngX" class="inp mt-1 text-center font-bold text-indigo-600" value="x"></label>
-              <label class="lbl">Alt Açı b <input id="geoParMAngB" class="inp mt-1 text-center" value="35°"></label>
-            </div>
-            <div class="text-[10px] text-slate-500">Sağa bakan = Sola bakan (x = a + b)</div>
-          </div>
-
-          <div class="rounded-lg bg-slate-50 p-2.5 text-[11px] text-slate-500 dark:bg-slate-800/60 dark:text-slate-400" id="parTipText">
-            💡 d₁ // d₂ paralel doğrularında iç ters (Z) ve karşı konumlu (U) açı ilişkileri gösterilir.
-          </div>
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-slate-600 dark:text-slate-400 font-semibold">Boyut:</span>
+          <select id="geoFormulaSize" class="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-800 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 font-semibold">
+            <option value="20">20px (Küçük)</option>
+            <option value="26" selected>26px (Standart)</option>
+            <option value="34">34px (Büyük)</option>
+            <option value="42">42px (Ekstra Büyük)</option>
+          </select>
         </div>
       </div>
     </div>
 
     <!-- Footer -->
-    <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-6 py-3.5 dark:border-slate-800">
-      <button id="geoModalCancel" type="button" class="rounded-lg px-4 py-2 text-xs font-medium text-slate-500 transition hover:bg-slate-100 dark:hover:bg-slate-800">İptal</button>
-      <button id="geoInsertBtn" type="button" class="flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-2 text-xs font-semibold text-white shadow-md transition hover:bg-slate-800 dark:bg-white dark:text-slate-900">
-        <span>✓</span> Şekli Soruya Ekle
+    <div class="flex items-center justify-end gap-2 border-t border-slate-200 bg-slate-50/50 px-5 py-3 dark:border-slate-800 dark:bg-slate-800/30">
+      <button id="geoFormulaCancel" type="button" class="rounded-xl px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-200 dark:text-slate-300 dark:hover:bg-slate-800 transition">İptal</button>
+      <button id="geoFormulaInsertBtn" type="button" class="flex items-center gap-1.5 rounded-xl bg-blue-600 px-5 py-2 text-xs font-semibold text-white shadow-md hover:bg-blue-700 transition active:scale-95">
+        <span>＋</span>
+        <span>Tuvale Ekle</span>
       </button>
     </div>
   </div>

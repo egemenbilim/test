@@ -1,81 +1,116 @@
 import { $, openModal, closeModal } from '../utils.js';
 
-let activeShape = 'triangle';
+/**
+ * Vektörel Geometri Çizim Aracı ve KaTeX Denklem Tuvali (Geometry & Math Canvas Component)
+ * Motor: Fabric.js v5/v6 + KaTeX
+ */
+
+let fabricCanvas = null;
 let onInsertCallback = null;
+let activeTool = 'select';
 
-// Geometry configuration state
-const G = {
-  // Triangle (12 variants)
-  triangleVariant: 'dik',
-  triVertexA: 'A',
-  triVertexB: 'B',
-  triVertexC: 'C',
-  triSideAB: 'c',
-  triSideBC: 'a',
-  triSideAC: 'b',
-  triAngleA: '',
-  triAngleB: '90°',
-  triAngleC: '45°',
-  triAltitude: true,
-  triShade: false,
-  triTicks: true,
-
-  // Öklid fields
-  oklidH: 'h',
-  oklidP: 'p = 4',
-  oklidK: 'k = 9',
-
-  // Açıortay fields
-  aciAN: 'n_A',
-  aciBN: 'x',
-  aciNC: '6',
-
-  // Kenarortay fields
-  medAD: 'V_a',
-  showG: true,
-
-  // Benzerlik fields
-  benAD: '4',
-  benDB: '2',
-  benDE: 'x',
-  benAE: '',
-  benEC: '',
-
-  // Circle
-  circleVariant: 'merkez_aci',
-  circleCenter: 'O',
-  circleRadius: 'r = 6 cm',
-  circleAngle: 60,
-  circleAngleLabel: '60°',
-  circleSector: true,
-  circleShade: true,
-  circleChord: false,
-  circleTangent: false,
-
-  // Quadrilateral
-  quadVariant: 'dikdortgen',
-  quadVertexA: 'A',
-  quadVertexB: 'B',
-  quadVertexC: 'C',
-  quadVertexD: 'D',
-  quadSideAB: '12 cm',
-  quadSideBC: '5 cm',
-  quadSideCD: '',
-  quadSideDA: '',
-  quadDiagonals: false,
-  quadShade: false,
-  quadAltitude: false,
-
-  // Parallel lines & angles
-  parVariant: 'z_kurali',
-  parAngle1: '120°',
-  parAngle2: 'x',
-  parMAngA: '40°',
-  parMAngX: 'x',
-  parMAngB: '35°',
-  parLine1: 'd₁',
-  parLine2: 'd₂'
+// Çizim & Stil Durumu
+const currentStyle = {
+  strokeColor: '#0f172a',
+  fillColor: 'transparent',
+  strokeWidth: 2,
+  isDashed: false,
+  fontSize: 20
 };
+
+let gridEnabled = true;
+let snapEnabled = true;
+let zoomLevel = 100;
+
+// Geri Al / İleri Al Yığını
+const historyStack = [];
+let historyIndex = -1;
+let isHistoryUpdating = false;
+
+// Çokgen Çizim Durumu
+let polygonPoints = [];
+let polygonTempLine = null;
+let polygonMarkers = [];
+
+// Doğru Çizim Durumu
+let drawingLine = null;
+let isDrawingLine = false;
+
+// 3 Noktalı Açı Çizim Durumu
+const angleState = {
+  step: 1,
+  p1: null,
+  p2: null, // Vertex (Köşe)
+  p3: null,
+  tempMarkers: []
+};
+
+// Renk Paletleri
+const STROKE_COLORS = [
+  '#0f172a', '#475569', '#94a3b8', '#1e3a8a',
+  '#2563eb', '#0284c7', '#16a34a', '#059669',
+  '#ca8a04', '#ea580c', '#dc2626', '#7c3aed'
+];
+
+const FILL_COLORS = [
+  'transparent', '#ffffff', '#f8fafc', '#fef3c7',
+  '#dbeafe', '#dcfce7', '#fee2e2', '#f3e8ff',
+  '#ffedd5', '#cffafe', '#f1f5f9', '#e2e8f0'
+];
+
+// KaTeX Formül Sekmeleri
+const FORMULA_TABS = {
+  basic: [
+    { latex: '\\sqrt{x}', display: '√x' },
+    { latex: '\\sqrt[n]{x}', display: 'ⁿ√x' },
+    { latex: '\\frac{a}{b}', display: 'a/b' },
+    { latex: 'x^{2}', display: 'x²' },
+    { latex: 'x_{1}', display: 'x₁' },
+    { latex: 'x^{n}', display: 'xⁿ' },
+    { latex: '\\pm', display: '±' },
+    { latex: '\\cdot', display: '·' },
+    { latex: '2\\sqrt{3}', display: '2√3' },
+    { latex: 'x = \\frac{-b \\pm \\sqrt{\\Delta}}{2a}', display: 'Kök Formülü' }
+  ],
+  symbols: [
+    { latex: '\\pi', display: 'π' },
+    { latex: '\\alpha', display: 'α' },
+    { latex: '\\beta', display: 'β' },
+    { latex: '\\theta', display: 'θ' },
+    { latex: '\\Delta', display: 'Δ' },
+    { latex: '60^\\circ', display: '60°' },
+    { latex: '90^\\circ', display: '90°' },
+    { latex: '\\perp', display: '⊥' },
+    { latex: '\\parallel', display: '∥' },
+    { latex: '\\le', display: '≤' },
+    { latex: '\\ge', display: '≥' },
+    { latex: '\\ne', display: '≠' },
+    { latex: '\\approx', display: '≈' },
+    { latex: '\\infty', display: '∞' }
+  ],
+  placeholders: [
+    { latex: '\\vec{v}', display: 'v⃗' },
+    { latex: '|x|', display: '|x|' },
+    { latex: '\\overline{AB}', display: 'AB̄' },
+    { latex: '\\widehat{ABC}', display: 'ABĈ' },
+    { latex: '\\left( \\frac{a}{b} \\right)', display: '(a/b)' }
+  ],
+  calculus: [
+    { latex: '\\int f(x) dx', display: '∫ f(x)dx' },
+    { latex: '\\int_{a}^{b} f(x) dx', display: '∫ₐᵇ f(x)dx' },
+    { latex: '\\sum_{i=1}^{n} x_i', display: '∑ xᵢ' },
+    { latex: '\\lim_{x \\to \\infty}', display: 'lim x→∞' },
+    { latex: '\\frac{dy}{dx}', display: 'dy/dx' }
+  ]
+};
+
+let activeFormulaTab = 'basic';
+let formulaColor = '#0f172a';
+let formulaSize = 26;
+
+// ============================================================================
+// MODAL AÇILIŞ VE DIŞA AKTARIM FONKSİYONLARI
+// ============================================================================
 
 export function setOnGeometryInsertCallback(fn) {
   onInsertCallback = fn;
@@ -85,1208 +120,1255 @@ export function openGeometryModal(callback) {
   if (typeof callback === 'function') {
     onInsertCallback = callback;
   }
-  syncControlsFromState();
-  renderGeometryCanvas();
   openModal('geoModal');
+
+  // Canvas'ı gecikmeli başlat
+  setTimeout(() => {
+    initFabricCanvasIfNeeded();
+    resetToolState();
+  }, 50);
 }
 
 export function syncControlsFromState() {
-  // Shape tab selection buttons
-  document.querySelectorAll('[data-geo-shape]').forEach(btn => {
-    const isAct = btn.dataset.geoShape === activeShape;
-    btn.classList.toggle('active', isAct);
+  // Uyumluluk için boş tutuldu
+}
+
+// ============================================================================
+// FABRIC.JS TUVAL BAŞLATMA VE YÖNETİMİ
+// ============================================================================
+
+function initFabricCanvasIfNeeded() {
+  const canvasEl = $('geoFabricCanvas');
+  if (!canvasEl) return;
+
+  const fabric = window.fabric;
+  if (!fabric) {
+    console.error('Fabric.js kütüphanesi yüklenemedi!');
+    return;
+  }
+
+  if (fabricCanvas) {
+    fabricCanvas.calcOffset();
+    return;
+  }
+
+  fabricCanvas = new fabric.Canvas('geoFabricCanvas', {
+    width: 760,
+    height: 490,
+    selection: true,
+    preserveObjectStacking: true,
+    fireRightClick: true,
+    stopContextMenu: true
+  });
+
+  updateGridBackground(gridEnabled);
+  saveHistoryState();
+
+  // Olay Dinleyicileri
+  fabricCanvas.on('selection:created', (e) => onObjectSelected(e.selected ? e.selected[0] : null));
+  fabricCanvas.on('selection:updated', (e) => onObjectSelected(e.selected ? e.selected[0] : null));
+  fabricCanvas.on('selection:cleared', () => onObjectSelected(null));
+  fabricCanvas.on('object:modified', () => {
+    onObjectSelected(fabricCanvas.getActiveObject());
+    saveHistoryState();
+  });
+
+  // Fare Olayları
+  fabricCanvas.on('mouse:down', onCanvasMouseDown);
+  fabricCanvas.on('mouse:move', onCanvasMouseMove);
+  fabricCanvas.on('mouse:up', onCanvasMouseUp);
+
+  // Pencere / Klavye Dinleyicileri
+  window.addEventListener('keydown', onGlobalKeyDown);
+}
+
+function updateGridBackground(enabled) {
+  if (!fabricCanvas) return;
+  const fabric = window.fabric;
+  if (!fabric) return;
+
+  if (!enabled) {
+    fabricCanvas.setBackgroundColor('#ffffff', fabricCanvas.renderAll.bind(fabricCanvas));
+    return;
+  }
+
+  const gridSize = 20;
+  const patternCanvas = document.createElement('canvas');
+  patternCanvas.width = gridSize;
+  patternCanvas.height = gridSize;
+  const pctx = patternCanvas.getContext('2d');
+  if (pctx) {
+    pctx.strokeStyle = '#e2e8f0';
+    pctx.lineWidth = 0.8;
+    pctx.beginPath();
+    pctx.moveTo(gridSize, 0);
+    pctx.lineTo(gridSize, gridSize);
+    pctx.lineTo(0, gridSize);
+    pctx.stroke();
+  }
+
+  const pattern = new fabric.Pattern({
+    source: patternCanvas,
+    repeat: 'repeat'
+  });
+  fabricCanvas.setBackgroundColor(pattern, fabricCanvas.renderAll.bind(fabricCanvas));
+}
+
+function snap(val, step = 10) {
+  if (!snapEnabled) return val;
+  return Math.round(val / step) * step;
+}
+
+// ============================================================================
+// ARAÇ YÖNETİMİ & REHBER METİNLERİ
+// ============================================================================
+
+function setTool(tool) {
+  activeTool = tool;
+
+  // Buton aktiflik sınıfları
+  document.querySelectorAll('[data-tool]').forEach((btn) => {
+    const isAct = btn.dataset.tool === tool;
     if (isAct) {
-      btn.className = 'active flex items-center gap-1.5 rounded-lg border px-3.5 py-1.5 text-xs font-semibold transition border-slate-900 bg-slate-900 text-white dark:border-white dark:bg-white dark:text-slate-900 shadow-sm';
+      btn.className = 'active flex h-11 w-11 flex-col items-center justify-center rounded-xl transition bg-blue-50 text-blue-600 font-bold border border-blue-200 shadow-sm dark:bg-blue-950/50 dark:border-blue-800 dark:text-blue-400';
     } else {
-      btn.className = 'flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200';
+      btn.className = 'flex h-11 w-11 flex-col items-center justify-center rounded-xl text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition';
     }
   });
 
-  // Shape container panels - only the selected shape panel is displayed!
-  const panels = {
-    triangle: $('geoTriControls'),
-    circle: $('geoCirControls'),
-    quad: $('geoQuadControls'),
-    parallel: $('geoParControls')
-  };
-  Object.keys(panels).forEach(k => {
-    if (panels[k]) {
-      panels[k].classList.toggle('hidden', k !== activeShape);
+  // İpucu Toast Metni
+  const guidanceEl = $('geoGuidanceText');
+  const polygonBtn = $('geoPolygonFinishBtn');
+
+  if (polygonBtn) {
+    polygonBtn.classList.toggle('hidden', tool !== 'polygon');
+    polygonBtn.classList.toggle('flex', tool === 'polygon');
+  }
+
+  if (guidanceEl) {
+    switch (tool) {
+      case 'select':
+        guidanceEl.textContent = 'Nesneleri seçmek, taşımak, döndürmek veya boyutlandırmak için tıklayın / sürükleyin.';
+        break;
+      case 'point':
+        guidanceEl.textContent = 'Tuvalde nokta eklemek istediğiniz yere tıklayın.';
+        break;
+      case 'line':
+        guidanceEl.textContent = 'Doğru parçasını oluşturmak için başlangıç noktasından bitişe doğru sürükleyin.';
+        break;
+      case 'polygon':
+        guidanceEl.textContent = 'Çokgenin köşelerine sırayla tıklayın. Kapatmak için ilk noktaya tıklayın veya [Çokgeni Tamamla] butonuna basın.';
+        break;
+      case 'circle':
+        guidanceEl.textContent = 'Merkez noktasını belirleyip sürükleyerek çember oluşturun.';
+        break;
+      case 'angle':
+        guidanceEl.textContent = 'Açıyı oluşturmak için sırayla 3 nokta seçin: 1. Kol Noktası ➔ 2. Köşe (Vertex) ➔ 3. Kol Noktası.';
+        break;
+      case 'text':
+        guidanceEl.textContent = 'Metin veya köşe harfi (A, B, C) eklemek istediğiniz konuma tıklayın.';
+        break;
+      default:
+        guidanceEl.textContent = 'Vektörel çizim aracını kullanmaya hazırsınız.';
     }
-  });
-
-  // Dynamic Sub-Settings for Triangle
-  if (activeShape === 'triangle') {
-    const tv = G.triangleVariant;
-    if ($('geoTriVariant')) $('geoTriVariant').value = tv;
-
-    const isOklid = tv === 'oklid';
-    const isAciortay = tv === 'aciortay';
-    const isKenarortay = tv === 'kenarortay';
-    const isBenzerlik = tv === 'benzerlik';
-
-    if ($('triOklidFields')) $('triOklidFields').classList.toggle('hidden', !isOklid);
-    if ($('triAciortayFields')) $('triAciortayFields').classList.toggle('hidden', !isAciortay);
-    if ($('triKenarortayFields')) $('triKenarortayFields').classList.toggle('hidden', !isKenarortay);
-    if ($('triBenzerlikFields')) $('triBenzerlikFields').classList.toggle('hidden', !isBenzerlik);
-
-    if ($('triStandardSides')) $('triStandardSides').classList.toggle('hidden', isBenzerlik);
-    if ($('triAnglesRow')) $('triAnglesRow').classList.toggle('hidden', isOklid || isBenzerlik || isKenarortay);
-
-    if ($('geoTriAltLabel')) {
-      const showAlt = ['dik', 'ikizkenar', 'eskenar', 'cesitkenar', 'genis'].includes(tv);
-      $('geoTriAltLabel').classList.toggle('hidden', !showAlt);
-    }
-
-    if ($('geoTriVA')) $('geoTriVA').value = G.triVertexA;
-    if ($('geoTriVB')) $('geoTriVB').value = G.triVertexB;
-    if ($('geoTriVC')) $('geoTriVC').value = G.triVertexC;
-    if ($('geoTriSAB')) $('geoTriSAB').value = G.triSideAB;
-    if ($('geoTriSBC')) $('geoTriSBC').value = G.triSideBC;
-    if ($('geoTriSAC')) $('geoTriSAC').value = G.triSideAC;
-    if ($('geoTriAngA')) $('geoTriAngA').value = G.triAngleA;
-    if ($('geoTriAngB')) $('geoTriAngB').value = G.triAngleB;
-    if ($('geoTriAngC')) $('geoTriAngC').value = G.triAngleC;
-    if ($('geoTriAltitude')) $('geoTriAltitude').checked = G.triAltitude;
-    if ($('geoTriShade')) $('geoTriShade').checked = G.triShade;
-    if ($('geoTriTicks')) $('geoTriTicks').checked = G.triTicks;
-
-    if ($('geoTriOklidH')) $('geoTriOklidH').value = G.oklidH;
-    if ($('geoTriOklidP')) $('geoTriOklidP').value = G.oklidP;
-    if ($('geoTriOklidK')) $('geoTriOklidK').value = G.oklidK;
-
-    if ($('geoTriAciAN')) $('geoTriAciAN').value = G.aciAN;
-    if ($('geoTriAciBN')) $('geoTriAciBN').value = G.aciBN;
-    if ($('geoTriAciNC')) $('geoTriAciNC').value = G.aciNC;
-
-    if ($('geoTriMedAD')) $('geoTriMedAD').value = G.medAD;
-    if ($('geoTriShowG')) $('geoTriShowG').checked = G.showG;
-
-    if ($('geoTriBenAD')) $('geoTriBenAD').value = G.benAD;
-    if ($('geoTriBenDB')) $('geoTriBenDB').value = G.benDB;
-    if ($('geoTriBenDE')) $('geoTriBenDE').value = G.benDE;
-    if ($('geoTriBenAE')) $('geoTriBenAE').value = G.benAE;
-    if ($('geoTriBenEC')) $('geoTriBenEC').value = G.benEC;
   }
 
-  // Dynamic Sub-Settings for Circle
-  if (activeShape === 'circle') {
-    const cv = G.circleVariant;
-    if ($('geoCirVariant')) $('geoCirVariant').value = cv;
-
-    const isSector = cv === 'merkez_aci';
-    const isCevre = cv === 'cevre_aci';
-    const isKirisTeget = cv === 'kiris_teget';
-    const isCap = cv === 'cap_aci';
-
-    if ($('cirAngleBlock')) $('cirAngleBlock').classList.toggle('hidden', !isSector && !isCevre);
-    if ($('cirAngleLabelBlock')) $('cirAngleLabelBlock').classList.toggle('hidden', isCap);
-    if ($('cirSectorToggle')) $('cirSectorToggle').classList.toggle('hidden', !isSector);
-    if ($('cirShadeToggle')) $('cirShadeToggle').classList.toggle('hidden', !isSector && !isCevre);
-    if ($('cirChordToggle')) $('cirChordToggle').classList.toggle('hidden', !isKirisTeget);
-    if ($('cirTangentToggle')) $('cirTangentToggle').classList.toggle('hidden', !isKirisTeget);
-
-    if ($('geoCirCenter')) $('geoCirCenter').value = G.circleCenter;
-    if ($('geoCirRadius')) $('geoCirRadius').value = G.circleRadius;
-    if ($('geoCirAngleRange')) $('geoCirAngleRange').value = G.circleAngle;
-    if ($('geoCirAngleVal')) $('geoCirAngleVal').textContent = G.circleAngle + '°';
-    if ($('geoCirAngleLbl')) $('geoCirAngleLbl').value = G.circleAngleLabel;
-    if ($('geoCirSector')) $('geoCirSector').checked = G.circleSector;
-    if ($('geoCirShade')) $('geoCirShade').checked = G.circleShade;
-    if ($('geoCirChord')) $('geoCirChord').checked = G.circleChord;
-    if ($('geoCirTangent')) $('geoCirTangent').checked = G.circleTangent;
-  }
-
-  // Dynamic Sub-Settings for Quadrilateral
-  if (activeShape === 'quad') {
-    const qv = G.quadVariant;
-    if ($('geoQuadVariant')) $('geoQuadVariant').value = qv;
-
-    const hasExtraSides = ['yamuk', 'dik_yamuk', 'deltoid'].includes(qv);
-    const hasAlt = ['paralelkenar', 'yamuk', 'dik_yamuk'].includes(qv);
-
-    if ($('quadExtraSides')) $('quadExtraSides').classList.toggle('hidden', !hasExtraSides);
-    if ($('quadAltitudeToggle')) $('quadAltitudeToggle').classList.toggle('hidden', !hasAlt);
-
-    if ($('geoQuadVA')) $('geoQuadVA').value = G.quadVertexA;
-    if ($('geoQuadVB')) $('geoQuadVB').value = G.quadVertexB;
-    if ($('geoQuadVC')) $('geoQuadVC').value = G.quadVertexC;
-    if ($('geoQuadVD')) $('geoQuadVD').value = G.quadVertexD;
-    if ($('geoQuadSAB')) $('geoQuadSAB').value = G.quadSideAB;
-    if ($('geoQuadSBC')) $('geoQuadSBC').value = G.quadSideBC;
-    if ($('geoQuadSCD')) $('geoQuadSCD').value = G.quadSideCD;
-    if ($('geoQuadSDA')) $('geoQuadSDA').value = G.quadSideDA;
-    if ($('geoQuadDiagonals')) $('geoQuadDiagonals').checked = G.quadDiagonals;
-    if ($('geoQuadShade')) $('geoQuadShade').checked = G.quadShade;
-    if ($('geoQuadAltitude')) $('geoQuadAltitude').checked = G.quadAltitude;
-  }
-
-  // Dynamic Sub-Settings for Parallel Lines
-  if (activeShape === 'parallel') {
-    const pv = G.parVariant;
-    if ($('geoParVariant')) $('geoParVariant').value = pv;
-
-    const isM = pv === 'm_kurali';
-    if ($('parTwoAngles')) $('parTwoAngles').classList.toggle('hidden', isM);
-    if ($('parMFields')) $('parMFields').classList.toggle('hidden', !isM);
-
-    if ($('geoParL1')) $('geoParL1').value = G.parLine1;
-    if ($('geoParL2')) $('geoParL2').value = G.parLine2;
-    if ($('geoParAng1')) $('geoParAng1').value = G.parAngle1;
-    if ($('geoParAng2')) $('geoParAng2').value = G.parAngle2;
-    if ($('geoParMAngA')) $('geoParMAngA').value = G.parMAngA;
-    if ($('geoParMAngX')) $('geoParMAngX').value = G.parMAngX;
-    if ($('geoParMAngB')) $('geoParMAngB').value = G.parMAngB;
-
-    if ($('parTipText')) {
-      if (pv === 'z_kurali') $('parTipText').textContent = '💡 Z Kuralı: d₁ // d₂ doğrularında iç ters açılar birbirine eşittir (a = b).';
-      else if (pv === 'u_kurali') $('parTipText').textContent = '💡 U Kuralı: Karşı durumlu açıların toplamı 180° dir (a + b = 180°).';
-      else if (pv === 'm_kurali') $('parTipText').textContent = '💡 M Kuralı: Sağa bakan açıların toplamı sola bakan açıya eşittir (x = a + b).';
-      else if (pv === 'yondes') $('parTipText').textContent = '💡 Yöndeş Açılar: Aynı yöne bakan açılar eşittir.';
+  // Fabric canvas cursor & selection
+  if (fabricCanvas) {
+    if (tool === 'select') {
+      fabricCanvas.selection = true;
+      fabricCanvas.defaultCursor = 'default';
+      fabricCanvas.forEachObject((obj) => {
+        obj.selectable = true;
+        obj.evented = true;
+      });
+    } else {
+      fabricCanvas.selection = false;
+      fabricCanvas.defaultCursor = 'crosshair';
+      fabricCanvas.discardActiveObject();
+      fabricCanvas.renderAll();
     }
   }
 }
 
-export function renderGeometryCanvas() {
-  const canvas = $('geoCanvas');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  const dpr = window.devicePixelRatio || 2;
-  const width = 560;
-  const height = 380;
-
-  canvas.width = width * dpr;
-  canvas.height = height * dpr;
-  canvas.style.width = width + 'px';
-  canvas.style.height = height + 'px';
-
-  ctx.save();
-  ctx.scale(dpr, dpr);
-  ctx.clearRect(0, 0, width, height);
-
-  // Background
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, width, height);
-
-  // Styling constants
-  const strokeColor = '#0f172a';
-  const fillColor = 'rgba(15, 23, 42, 0.08)';
-  const arcColor = '#475569';
-  const labelColor = '#0f172a';
-  ctx.strokeStyle = strokeColor;
-  ctx.lineWidth = 2.4;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-
-  if (activeShape === 'triangle') {
-    drawTriangle(ctx, width, height, strokeColor, fillColor, arcColor, labelColor);
-  } else if (activeShape === 'circle') {
-    drawCircle(ctx, width, height, strokeColor, fillColor, arcColor, labelColor);
-  } else if (activeShape === 'quad') {
-    drawQuad(ctx, width, height, strokeColor, fillColor, arcColor, labelColor);
-  } else if (activeShape === 'parallel') {
-    drawParallel(ctx, width, height, strokeColor, fillColor, arcColor, labelColor);
-  }
-
-  ctx.restore();
+function resetToolState() {
+  cleanupPolygonDrawing();
+  cleanupAngleDrawing();
+  setTool('select');
+  hideFloatingToolbar();
 }
 
-function drawTriangle(ctx, W, H, strokeColor, fillColor, arcColor, labelColor) {
-  const v = G.triangleVariant;
-  let A, B, C;
+// ============================================================================
+// ÇİZİM ETKİLEŞİMLERİ (CANVAS MOUSE EVENTS)
+// ============================================================================
 
-  if (v === 'dik') {
-    // 1. Standart Dik Üçgen (B=90°)
-    B = { x: 100, y: 285 };
-    C = { x: 450, y: 285 };
-    A = { x: 100, y: 80 };
-  } else if (v === 'dik_30_60') {
-    // 2. 30-60-90 Özel Dik Üçgen (A=30°, B=90°, C=60°)
-    B = { x: 130, y: 285 };
-    C = { x: 420, y: 285 };
-    A = { x: 130, y: 80 };
-  } else if (v === 'dik_45_45') {
-    // 3. 45-45-90 İkizkenar Dik Üçgen
-    B = { x: 150, y: 285 };
-    C = { x: 410, y: 285 };
-    A = { x: 150, y: 75 };
-  } else if (v === 'oklid') {
-    // 4. Öklid Bağıntısı (Tepede A=90°, taban BC hipotenüs)
-    A = { x: 260, y: 80 };
-    B = { x: 90, y: 285 };
-    C = { x: 470, y: 285 };
-  } else if (v === 'muhtesem_uclu') {
-    // 5. Muhteşem Üçlü (B=90°, hipotenüse inen kenarortay)
-    B = { x: 110, y: 285 };
-    C = { x: 460, y: 285 };
-    A = { x: 110, y: 85 };
-  } else if (v === 'eskenar') {
-    // 6. Eşkenar Üçgen (60°-60°-60°)
-    A = { x: 280, y: 70 };
-    B = { x: 110, y: 290 };
-    C = { x: 450, y: 290 };
-  } else if (v === 'ikizkenar') {
-    // 7. İkizkenar Üçgen (|AB| = |AC|)
-    A = { x: 280, y: 75 };
-    B = { x: 95, y: 285 };
-    C = { x: 465, y: 285 };
-  } else if (v === 'genis') {
-    // 8. Geniş Açılı Üçgen (B açısı geniş açı, dış yükseklik)
-    A = { x: 120, y: 80 };
-    B = { x: 255, y: 280 };
-    C = { x: 460, y: 280 };
-  } else if (v === 'cesitkenar') {
-    // 9. Çeşitkenar / Dar Açılı
-    A = { x: 230, y: 75 };
-    B = { x: 90, y: 285 };
-    C = { x: 465, y: 265 };
-  } else if (v === 'aciortay') {
-    // 10. İç Açıortaylı Üçgen
-    A = { x: 250, y: 75 };
-    B = { x: 90, y: 285 };
-    C = { x: 465, y: 285 };
-  } else if (v === 'kenarortay') {
-    // 11. Kenarortaylı Üçgen
-    A = { x: 270, y: 75 };
-    B = { x: 95, y: 285 };
-    C = { x: 465, y: 285 };
-  } else if (v === 'benzerlik') {
-    // 12. Benzerlik / Thales (DE // BC)
-    A = { x: 280, y: 70 };
-    B = { x: 95, y: 290 };
-    C = { x: 465, y: 290 };
+function onCanvasMouseDown(opt) {
+  if (!fabricCanvas) return;
+  const fabric = window.fabric;
+  const pointer = fabricCanvas.getPointer(opt.e);
+  const pt = { x: snap(pointer.x), y: snap(pointer.y) };
+
+  if (activeTool === 'point') {
+    const point = new fabric.Circle({
+      left: pt.x,
+      top: pt.y,
+      radius: 4,
+      fill: currentStyle.strokeColor,
+      originX: 'center',
+      originY: 'center',
+      selectable: true,
+      cornerColor: '#2563eb',
+      cornerSize: 8,
+      transparentCorners: false
+    });
+    fabricCanvas.add(point);
+    fabricCanvas.renderAll();
+    saveHistoryState();
+  } else if (activeTool === 'line') {
+    isDrawingLine = true;
+    drawingLine = new fabric.Line([pt.x, pt.y, pt.x, pt.y], {
+      stroke: currentStyle.strokeColor,
+      strokeWidth: currentStyle.strokeWidth,
+      strokeDashArray: currentStyle.isDashed ? [6, 6] : null,
+      selectable: true,
+      cornerColor: '#2563eb',
+      cornerSize: 8,
+      transparentCorners: false
+    });
+    fabricCanvas.add(drawingLine);
+  } else if (activeTool === 'polygon') {
+    // İlk noktaya yakın tıklandıysa bitir
+    if (polygonPoints.length >= 3) {
+      const firstPt = polygonPoints[0];
+      const dist = Math.hypot(pt.x - firstPt.x, pt.y - firstPt.y);
+      if (dist < 15) {
+        finishPolygon();
+        return;
+      }
+    }
+
+    polygonPoints.push(pt);
+
+    // Kırmızı köşe işareti
+    const marker = new fabric.Circle({
+      left: pt.x,
+      top: pt.y,
+      radius: 4,
+      fill: '#ef4444',
+      stroke: '#ffffff',
+      strokeWidth: 1.5,
+      originX: 'center',
+      originY: 'center',
+      selectable: false
+    });
+    fabricCanvas.add(marker);
+    polygonMarkers.push(marker);
+
+    // Kauçuk kılavuz çizgi
+    if (!polygonTempLine) {
+      polygonTempLine = new fabric.Line([pt.x, pt.y, pt.x, pt.y], {
+        stroke: currentStyle.strokeColor,
+        strokeWidth: currentStyle.strokeWidth,
+        strokeDashArray: [4, 4],
+        selectable: false
+      });
+      fabricCanvas.add(polygonTempLine);
+    } else {
+      polygonTempLine.set({ x1: pt.x, y1: pt.y, x2: pt.x, y2: pt.y });
+    }
+    fabricCanvas.renderAll();
+  } else if (activeTool === 'circle') {
+    const circle = new fabric.Circle({
+      left: pt.x,
+      top: pt.y,
+      radius: 45,
+      fill: currentStyle.fillColor,
+      stroke: currentStyle.strokeColor,
+      strokeWidth: currentStyle.strokeWidth,
+      strokeDashArray: currentStyle.isDashed ? [6, 6] : null,
+      originX: 'center',
+      originY: 'center',
+      selectable: true,
+      cornerColor: '#2563eb',
+      cornerSize: 8,
+      transparentCorners: false
+    });
+    fabricCanvas.add(circle);
+    fabricCanvas.setActiveObject(circle);
+    fabricCanvas.renderAll();
+    saveHistoryState();
+    setTool('select');
+  } else if (activeTool === 'angle') {
+    // 3 Noktalı İnteraktif Açı Aracı
+    const marker = new fabric.Circle({
+      left: pt.x,
+      top: pt.y,
+      radius: 5,
+      fill: angleState.step === 2 ? '#2563eb' : '#dc2626',
+      stroke: '#ffffff',
+      strokeWidth: 1.5,
+      originX: 'center',
+      originY: 'center',
+      selectable: false
+    });
+    fabricCanvas.add(marker);
+    angleState.tempMarkers.push(marker);
+
+    if (angleState.step === 1) {
+      angleState.p1 = pt;
+      angleState.step = 2;
+    } else if (angleState.step === 2) {
+      angleState.p2 = pt; // Vertex (Köşe)
+      angleState.step = 3;
+    } else if (angleState.step === 3) {
+      angleState.p3 = pt;
+      // Hesapla ve oluştur
+      createAngleObject(angleState.p1, angleState.p2, angleState.p3);
+    }
+  } else if (activeTool === 'text') {
+    const text = new fabric.IText('A', {
+      left: pt.x,
+      top: pt.y,
+      fontSize: currentStyle.fontSize,
+      fontFamily: 'Noto Sans, sans-serif',
+      fontWeight: 'bold',
+      fill: currentStyle.strokeColor,
+      selectable: true
+    });
+    fabricCanvas.add(text);
+    fabricCanvas.setActiveObject(text);
+    text.enterEditing();
+    fabricCanvas.renderAll();
+    saveHistoryState();
+    setTool('select');
+  }
+}
+
+function onCanvasMouseMove(opt) {
+  if (!fabricCanvas) return;
+  const pointer = fabricCanvas.getPointer(opt.e);
+  const pt = { x: snap(pointer.x), y: snap(pointer.y) };
+
+  if (isDrawingLine && drawingLine) {
+    drawingLine.set({ x2: pt.x, y2: pt.y });
+    fabricCanvas.renderAll();
+  } else if (activeTool === 'polygon' && polygonTempLine) {
+    polygonTempLine.set({ x2: pt.x, y2: pt.y });
+    fabricCanvas.renderAll();
+  }
+}
+
+function onCanvasMouseUp() {
+  if (isDrawingLine && drawingLine) {
+    isDrawingLine = false;
+    drawingLine.setCoords();
+    fabricCanvas.setActiveObject(drawingLine);
+    fabricCanvas.renderAll();
+    saveHistoryState();
+    setTool('select');
+    drawingLine = null;
+  }
+}
+
+// ============================================================================
+// ÇOKGEN & AÇI BİTİRME MEKANİZMALARI
+// ============================================================================
+
+function finishPolygon() {
+  if (!fabricCanvas || polygonPoints.length < 3) {
+    cleanupPolygonDrawing();
+    return;
   }
 
-  // Shading if enabled
-  if (G.triShade) {
-    ctx.beginPath();
-    ctx.moveTo(A.x, A.y);
-    ctx.lineTo(B.x, B.y);
-    ctx.lineTo(C.x, C.y);
-    ctx.closePath();
-    ctx.fillStyle = fillColor;
-    ctx.fill();
+  const fabric = window.fabric;
+  const pts = [...polygonPoints];
+  cleanupPolygonDrawing();
+
+  const poly = new fabric.Polygon(pts, {
+    fill: currentStyle.fillColor,
+    stroke: currentStyle.strokeColor,
+    strokeWidth: currentStyle.strokeWidth,
+    strokeDashArray: currentStyle.isDashed ? [6, 6] : null,
+    selectable: true,
+    cornerColor: '#2563eb',
+    cornerSize: 8,
+    transparentCorners: false
+  });
+
+  fabricCanvas.add(poly);
+  fabricCanvas.setActiveObject(poly);
+  fabricCanvas.renderAll();
+  saveHistoryState();
+  setTool('select');
+}
+
+function cleanupPolygonDrawing() {
+  if (!fabricCanvas) return;
+  if (polygonTempLine) {
+    fabricCanvas.remove(polygonTempLine);
+    polygonTempLine = null;
+  }
+  polygonMarkers.forEach((m) => fabricCanvas.remove(m));
+  polygonMarkers = [];
+  polygonPoints = [];
+  fabricCanvas.renderAll();
+}
+
+function createAngleObject(p1, p2, p3) {
+  const fabric = window.fabric;
+  if (!fabric || !fabricCanvas) return;
+
+  const v1x = p1.x - p2.x;
+  const v1y = p1.y - p2.y;
+  const v2x = p3.x - p2.x;
+  const v2y = p3.y - p2.y;
+
+  let theta1 = Math.atan2(v1y, v1x);
+  let theta2 = Math.atan2(v2y, v2x);
+
+  let diff = theta2 - theta1;
+  while (diff < 0) diff += 2 * Math.PI;
+  while (diff >= 2 * Math.PI) diff -= 2 * Math.PI;
+
+  let startAngle = theta1;
+  let sweepAngle = diff;
+  let isClockwise = true;
+
+  if (diff > Math.PI) {
+    startAngle = theta2;
+    sweepAngle = 2 * Math.PI - diff;
+    isClockwise = false;
   }
 
-  // Draw main triangle lines
-  ctx.beginPath();
-  ctx.moveTo(A.x, A.y);
-  ctx.lineTo(B.x, B.y);
-  ctx.lineTo(C.x, C.y);
-  ctx.closePath();
-  ctx.stroke();
+  const angleDegrees = Math.round((sweepAngle * 180) / Math.PI);
+  const arcR = 30;
 
-  // 1 & 2 & 3: Standard Right Triangles at B
-  if (v === 'dik' || v === 'dik_30_60' || v === 'dik_45_45') {
-    drawRightAngleSquare(ctx, B.x, B.y, 16, -16);
+  // Arc path üretimi
+  const sX = p2.x + arcR * Math.cos(startAngle);
+  const sY = p2.y + arcR * Math.sin(startAngle);
+  const endAngle = isClockwise ? startAngle + sweepAngle : startAngle - sweepAngle;
+  const eX = p2.x + arcR * Math.cos(endAngle);
+  const eY = p2.y + arcR * Math.sin(endAngle);
 
-    if (v === 'dik_30_60') {
-      drawAngleArc(ctx, A, B, C, 32, '30°');
-      drawAngleArc(ctx, C, B, A, 32, '60°');
-    } else if (v === 'dik_45_45') {
-      drawAngleArc(ctx, A, B, C, 30, '45°');
-      drawAngleArc(ctx, C, B, A, 30, '45°');
-      if (G.triTicks) {
-        drawTickMark(ctx, (A.x + B.x) / 2, (A.y + B.y) / 2, 9);
-        drawTickMark(ctx, (B.x + C.x) / 2, (B.y + C.y) / 2, 9);
+  const pathStr = `M ${sX.toFixed(1)} ${sY.toFixed(1)} A ${arcR} ${arcR} 0 0 1 ${eX.toFixed(1)} ${eY.toFixed(1)}`;
+
+  const arcPath = new fabric.Path(pathStr, {
+    stroke: currentStyle.strokeColor,
+    strokeWidth: currentStyle.strokeWidth,
+    fill: 'transparent',
+    selectable: true
+  });
+
+  // Açıortay yönünde etiket konumu
+  const bisectorAngle = isClockwise ? startAngle + sweepAngle / 2 : startAngle - sweepAngle / 2;
+  const labelDist = arcR + 18;
+  const lblX = p2.x + Math.cos(bisectorAngle) * labelDist;
+  const lblY = p2.y + Math.sin(bisectorAngle) * labelDist;
+
+  const angleLabel = new fabric.IText(`${angleDegrees}°`, {
+    left: lblX,
+    top: lblY,
+    fontSize: 16,
+    fontFamily: 'Noto Sans, sans-serif',
+    fontWeight: 'bold',
+    fill: currentStyle.strokeColor,
+    originX: 'center',
+    originY: 'center',
+    selectable: true
+  });
+
+  const group = new fabric.Group([arcPath, angleLabel], {
+    selectable: true,
+    cornerColor: '#2563eb',
+    cornerSize: 8,
+    transparentCorners: false
+  });
+
+  cleanupAngleDrawing();
+  fabricCanvas.add(group);
+  fabricCanvas.setActiveObject(group);
+  fabricCanvas.renderAll();
+  saveHistoryState();
+  setTool('select');
+}
+
+function cleanupAngleDrawing() {
+  if (!fabricCanvas) return;
+  angleState.tempMarkers.forEach((m) => fabricCanvas.remove(m));
+  angleState.tempMarkers = [];
+  angleState.step = 1;
+  angleState.p1 = null;
+  angleState.p2 = null;
+  angleState.p3 = null;
+  fabricCanvas.renderAll();
+}
+
+// ============================================================================
+// KAYAN ŞEKİL BİÇİMLENDİRME ARAÇ ÇUBUĞU (FLOATING TOOLBAR)
+// ============================================================================
+
+function onObjectSelected(target) {
+  const toolbar = $('geoFloatingToolbar');
+  if (!toolbar) return;
+
+  if (!target) {
+    hideFloatingToolbar();
+    return;
+  }
+
+  // Toolbar konumu
+  const bound = target.getBoundingRect(true);
+  const container = $('geoCanvasContainer');
+  if (!container) return;
+
+  const top = Math.max(10, bound.top - 48);
+  const left = Math.max(10, bound.left + bound.width / 2);
+
+  toolbar.style.top = `${top}px`;
+  toolbar.style.left = `${left}px`;
+  toolbar.style.transform = 'translateX(-50%)';
+  toolbar.classList.remove('hidden');
+  toolbar.classList.add('flex');
+
+  // Preview güncelle
+  const strokeColor = target.stroke || currentStyle.strokeColor;
+  const fillColor = target.fill || currentStyle.fillColor;
+  const strokeW = target.strokeWidth || currentStyle.strokeWidth;
+  const isDashed = Array.isArray(target.strokeDashArray) && target.strokeDashArray.length > 0;
+
+  const strokePreview = $('geoFloatStrokePreview');
+  if (strokePreview) strokePreview.style.backgroundColor = strokeColor;
+
+  const fillPreview = $('geoFloatFillPreview');
+  if (fillPreview) {
+    if (fillColor === 'transparent') {
+      fillPreview.textContent = '✕';
+      fillPreview.parentElement.style.backgroundColor = 'transparent';
+    } else {
+      fillPreview.textContent = '';
+      fillPreview.parentElement.style.backgroundColor = fillColor;
+    }
+  }
+
+  const widthLabel = $('geoFloatWidthLabel');
+  if (widthLabel) widthLabel.textContent = `${strokeW}px`;
+
+  const dashedCheck = $('geoFloatDashed');
+  if (dashedCheck) dashedCheck.checked = isDashed;
+}
+
+function hideFloatingToolbar() {
+  const toolbar = $('geoFloatingToolbar');
+  if (toolbar) {
+    toolbar.classList.add('hidden');
+    toolbar.classList.remove('flex');
+  }
+  closeAllFloatingPopovers();
+}
+
+function closeAllFloatingPopovers() {
+  const p1 = $('geoFloatStrokePopover');
+  const p2 = $('geoFloatFillPopover');
+  const p3 = $('geoFloatWidthPopover');
+  if (p1) p1.classList.add('hidden');
+  if (p2) p2.classList.add('hidden');
+  if (p3) p3.classList.add('hidden');
+}
+
+function updateActiveObjectStyle(updates) {
+  if (!fabricCanvas) return;
+  const activeObjs = fabricCanvas.getActiveObjects();
+  if (!activeObjs || activeObjs.length === 0) return;
+
+  activeObjs.forEach((obj) => {
+    if (updates.stroke !== undefined) obj.set('stroke', updates.stroke);
+    if (updates.fill !== undefined) obj.set('fill', updates.fill);
+    if (updates.strokeWidth !== undefined) obj.set('strokeWidth', updates.strokeWidth);
+    if (updates.strokeDashArray !== undefined) obj.set('strokeDashArray', updates.strokeDashArray);
+    obj.setCoords();
+  });
+
+  fabricCanvas.renderAll();
+  saveHistoryState();
+  onObjectSelected(fabricCanvas.getActiveObject());
+}
+
+function duplicateActiveObject() {
+  if (!fabricCanvas) return;
+  const active = fabricCanvas.getActiveObject();
+  if (!active) return;
+
+  active.clone((cloned) => {
+    fabricCanvas.discardActiveObject();
+    cloned.set({
+      left: cloned.left + 20,
+      top: cloned.top + 20,
+      evented: true
+    });
+    if (cloned.type === 'activeSelection') {
+      cloned.canvas = fabricCanvas;
+      cloned.forEachObject((obj) => fabricCanvas.add(obj));
+      cloned.setCoords();
+    } else {
+      fabricCanvas.add(cloned);
+    }
+    fabricCanvas.setActiveObject(cloned);
+    fabricCanvas.renderAll();
+    saveHistoryState();
+  });
+}
+
+function deleteActiveObjects() {
+  if (!fabricCanvas) return;
+  const activeObjs = fabricCanvas.getActiveObjects();
+  if (!activeObjs || activeObjs.length === 0) return;
+
+  activeObjs.forEach((obj) => fabricCanvas.remove(obj));
+  fabricCanvas.discardActiveObject();
+  fabricCanvas.renderAll();
+  saveHistoryState();
+  hideFloatingToolbar();
+}
+
+// ============================================================================
+// DÜZGÜN ÇOKGEN, ELİPS VE ŞABLONLAR
+// ============================================================================
+
+function addEllipse() {
+  const fabric = window.fabric;
+  if (!fabric || !fabricCanvas) return;
+
+  const ellipse = new fabric.Ellipse({
+    left: 380,
+    top: 245,
+    rx: 80,
+    ry: 50,
+    fill: currentStyle.fillColor,
+    stroke: currentStyle.strokeColor,
+    strokeWidth: currentStyle.strokeWidth,
+    strokeDashArray: currentStyle.isDashed ? [6, 6] : null,
+    originX: 'center',
+    originY: 'center',
+    selectable: true,
+    cornerColor: '#2563eb',
+    cornerSize: 8,
+    transparentCorners: false
+  });
+
+  fabricCanvas.add(ellipse);
+  fabricCanvas.setActiveObject(ellipse);
+  fabricCanvas.renderAll();
+  saveHistoryState();
+  setTool('select');
+}
+
+function addRegularPolygon(sides) {
+  const fabric = window.fabric;
+  if (!fabric || !fabricCanvas) return;
+
+  const center = { x: 380, y: 245 };
+  const radius = 70;
+  const points = [];
+  const angleStep = (2 * Math.PI) / sides;
+  const startOffset = -Math.PI / 2;
+
+  for (let i = 0; i < sides; i++) {
+    const ang = startOffset + i * angleStep;
+    points.push({
+      x: center.x + radius * Math.cos(ang),
+      y: center.y + radius * Math.sin(ang)
+    });
+  }
+
+  const poly = new fabric.Polygon(points, {
+    fill: currentStyle.fillColor,
+    stroke: currentStyle.strokeColor,
+    strokeWidth: currentStyle.strokeWidth,
+    strokeDashArray: currentStyle.isDashed ? [6, 6] : null,
+    selectable: true,
+    cornerColor: '#2563eb',
+    cornerSize: 8,
+    transparentCorners: false
+  });
+
+  fabricCanvas.add(poly);
+  fabricCanvas.setActiveObject(poly);
+  fabricCanvas.renderAll();
+  saveHistoryState();
+  setTool('select');
+}
+
+function insertTemplate(tplName) {
+  const fabric = window.fabric;
+  if (!fabric || !fabricCanvas) return;
+
+  if (tplName === 'dik_ucgen') {
+    // 3-4-5 Dik üçgen
+    const pA = { x: 260, y: 150 };
+    const pB = { x: 260, y: 350 };
+    const pC = { x: 520, y: 350 };
+
+    const triangle = new fabric.Polygon([pA, pB, pC], {
+      fill: 'transparent',
+      stroke: '#0f172a',
+      strokeWidth: 2,
+      selectable: true
+    });
+
+    // 90° Diklik kutusu
+    const rightAngleBox = new fabric.Polyline([
+      { x: pB.x, y: pB.y - 18 },
+      { x: pB.x + 18, y: pB.y - 18 },
+      { x: pB.x + 18, y: pB.y }
+    ], {
+      fill: 'transparent',
+      stroke: '#0f172a',
+      strokeWidth: 1.5,
+      selectable: false
+    });
+
+    const dot = new fabric.Circle({
+      left: pB.x + 9,
+      top: pB.y - 9,
+      radius: 2,
+      fill: '#0f172a',
+      originX: 'center',
+      originY: 'center',
+      selectable: false
+    });
+
+    const lblA = new fabric.IText('A', { left: pA.x - 12, top: pA.y - 25, fontSize: 18, fontWeight: 'bold' });
+    const lblB = new fabric.IText('B', { left: pB.x - 22, top: pB.y + 4, fontSize: 18, fontWeight: 'bold' });
+    const lblC = new fabric.IText('C', { left: pC.x + 8, top: pC.y + 4, fontSize: 18, fontWeight: 'bold' });
+
+    const group = new fabric.Group([triangle, rightAngleBox, dot, lblA, lblB, lblC], {
+      left: 240,
+      top: 130,
+      selectable: true,
+      cornerColor: '#2563eb',
+      cornerSize: 8,
+      transparentCorners: false
+    });
+
+    fabricCanvas.add(group);
+    fabricCanvas.setActiveObject(group);
+  } else if (tplName === 'eskenar') {
+    const pA = { x: 380, y: 140 };
+    const pB = { x: 240, y: 360 };
+    const pC = { x: 520, y: 360 };
+
+    const triangle = new fabric.Polygon([pA, pB, pC], {
+      fill: 'transparent',
+      stroke: '#0f172a',
+      strokeWidth: 2
+    });
+
+    const lblA = new fabric.IText('A', { left: pA.x - 6, top: pA.y - 24, fontSize: 18, fontWeight: 'bold' });
+    const lblB = new fabric.IText('B', { left: pB.x - 20, top: pB.y + 2, fontSize: 18, fontWeight: 'bold' });
+    const lblC = new fabric.IText('C', { left: pC.x + 8, top: pC.y + 2, fontSize: 18, fontWeight: 'bold' });
+
+    const group = new fabric.Group([triangle, lblA, lblB, lblC], {
+      left: 220,
+      top: 120,
+      selectable: true
+    });
+    fabricCanvas.add(group);
+    fabricCanvas.setActiveObject(group);
+  } else if (tplName === 'cember_dilim') {
+    const circle = new fabric.Circle({
+      left: 380,
+      top: 240,
+      radius: 90,
+      fill: 'transparent',
+      stroke: '#0f172a',
+      strokeWidth: 2,
+      originX: 'center',
+      originY: 'center'
+    });
+
+    const centerPoint = new fabric.Circle({
+      left: 380,
+      top: 240,
+      radius: 3.5,
+      fill: '#0f172a',
+      originX: 'center',
+      originY: 'center'
+    });
+
+    const centerLbl = new fabric.IText('O', { left: 365, top: 245, fontSize: 16, fontWeight: 'bold' });
+
+    const radiusLine1 = new fabric.Line([380, 240, 470, 240], { stroke: '#0f172a', strokeWidth: 1.8 });
+    const radiusLine2 = new fabric.Line([380, 240, 425, 162], { stroke: '#0f172a', strokeWidth: 1.8 });
+
+    const group = new fabric.Group([circle, centerPoint, centerLbl, radiusLine1, radiusLine2], {
+      left: 280,
+      top: 140,
+      selectable: true
+    });
+    fabricCanvas.add(group);
+    fabricCanvas.setActiveObject(group);
+  } else if (tplName === 'dikdortgen') {
+    const rect = new fabric.Rect({
+      left: 240,
+      top: 160,
+      width: 280,
+      height: 160,
+      fill: 'transparent',
+      stroke: '#0f172a',
+      strokeWidth: 2,
+      selectable: true
+    });
+    fabricCanvas.add(rect);
+    fabricCanvas.setActiveObject(rect);
+  } else {
+    // Genel üçgen şablonu
+    addRegularPolygon(3);
+  }
+
+  fabricCanvas.renderAll();
+  saveHistoryState();
+  setTool('select');
+  $('geoTemplateDrawer').classList.add('hidden');
+}
+
+// ============================================================================
+// KATEX DENKLEM MODÜLÜ ENTEGRASYONU
+// ============================================================================
+
+function setupKatexFormulaModule() {
+  const tabsContainer = $('geoFormulaTabs');
+  const buttonsGrid = $('geoFormulaButtonsGrid');
+  const inputEl = $('geoFormulaInput');
+  const previewEl = $('geoFormulaPreview');
+  const sizeSelect = $('geoFormulaSize');
+
+  if (!tabsContainer || !buttonsGrid || !inputEl || !previewEl) return;
+
+  // Sekme değiştirme
+  tabsContainer.querySelectorAll('[data-ftab]').forEach((btn) => {
+    btn.onclick = () => {
+      activeFormulaTab = btn.dataset.ftab;
+      tabsContainer.querySelectorAll('[data-ftab]').forEach((b) => {
+        b.className = 'ftab-btn rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800';
+      });
+      btn.className = 'ftab-btn active rounded-lg px-3 py-1.5 text-xs font-semibold bg-blue-600 text-white shadow-sm';
+      renderFormulaButtons();
+    };
+  });
+
+  // Sembol butonlarını render et
+  function renderFormulaButtons() {
+    buttonsGrid.innerHTML = '';
+    const items = FORMULA_TABS[activeFormulaTab] || [];
+    items.forEach((item) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-slate-50/80 px-2 text-xs font-semibold text-slate-800 hover:border-blue-400 hover:bg-blue-50/50 hover:text-blue-600 dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-200 dark:hover:border-blue-500 dark:hover:bg-slate-800 transition shadow-sm active:scale-95';
+      b.textContent = item.display;
+      b.onclick = () => {
+        const val = inputEl.value;
+        inputEl.value = val ? `${val} ${item.latex}` : item.latex;
+        updateFormulaPreview();
+        inputEl.focus();
+      };
+      buttonsGrid.appendChild(b);
+    });
+  }
+
+  // Canlı KaTeX Önizleme
+  function updateFormulaPreview() {
+    const latex = inputEl.value.trim() || ' ';
+    const katex = window.katex;
+    if (katex) {
+      try {
+        katex.render(latex, previewEl, {
+          displayMode: true,
+          throwOnError: false
+        });
+      } catch (err) {
+        previewEl.innerText = latex;
       }
     } else {
-      if (G.triAngleC) drawAngleArc(ctx, C, B, A, 30, G.triAngleC);
-      if (G.triAngleA) drawAngleArc(ctx, A, B, C, 30, G.triAngleA);
+      previewEl.innerText = latex;
     }
+    previewEl.style.color = formulaColor;
   }
 
-  // 4: Öklid (Right angle at A, altitude [AH] to hypotenuse BC)
-  if (v === 'oklid') {
-    drawRightAngleSquareAtAngle(ctx, A, B, C, 15);
+  inputEl.oninput = updateFormulaPreview;
 
-    const Hpt = { x: A.x, y: 285 };
-
-    ctx.save();
-    ctx.setLineDash([4, 4]);
-    ctx.beginPath();
-    ctx.moveTo(A.x, A.y);
-    ctx.lineTo(Hpt.x, Hpt.y);
-    ctx.stroke();
-    ctx.restore();
-
-    drawRightAngleSquare(ctx, Hpt.x, Hpt.y, -14, -14);
-    drawMathText(ctx, 'H', Hpt.x, Hpt.y + 18, 14, true);
-
-    drawMathText(ctx, G.oklidH || 'h', Hpt.x + 14, (A.y + Hpt.y) / 2, 13, true, true);
-    drawMathText(ctx, G.oklidP || 'p', (B.x + Hpt.x) / 2, Hpt.y + 18, 12, false, true);
-    drawMathText(ctx, G.oklidK || 'k', (Hpt.x + C.x) / 2, Hpt.y + 18, 12, false, true);
+  // Renk seçenekleri
+  const colorOptions = $('geoFormulaColorOptions');
+  if (colorOptions) {
+    colorOptions.querySelectorAll('[data-color]').forEach((btn) => {
+      btn.onclick = () => {
+        formulaColor = btn.dataset.color;
+        colorOptions.querySelectorAll('[data-color]').forEach((b) => b.classList.remove('ring-2', 'ring-blue-500', 'ring-offset-1'));
+        btn.classList.add('ring-2', 'ring-blue-500', 'ring-offset-1');
+        updateFormulaPreview();
+      };
+    });
   }
 
-  // 5: Muhteşem Üçlü (Right angle at B, median [BD] to AC)
-  if (v === 'muhtesem_uclu') {
-    drawRightAngleSquare(ctx, B.x, B.y, 16, -16);
-    const D = { x: (A.x + C.x) / 2, y: (A.y + C.y) / 2 };
+  // Boyut seçimi
+  if (sizeSelect) {
+    sizeSelect.onchange = (e) => {
+      formulaSize = parseInt(e.target.value, 10) || 26;
+    };
+  }
 
-    ctx.beginPath();
-    ctx.moveTo(B.x, B.y);
-    ctx.lineTo(D.x, D.y);
-    ctx.stroke();
+  // Kapatma
+  const closeBtn = $('geoFormulaClose');
+  const cancelBtn = $('geoFormulaCancel');
+  if (closeBtn) closeBtn.onclick = () => closeModal('geoFormulaModal');
+  if (cancelBtn) cancelBtn.onclick = () => closeModal('geoFormulaModal');
 
-    drawMathText(ctx, 'D', D.x + 14, D.y - 10, 14, true);
+  // Tuvale Ekle Butonu
+  const insertBtn = $('geoFormulaInsertBtn');
+  if (insertBtn) {
+    insertBtn.onclick = async () => {
+      const latex = inputEl.value.trim();
+      if (!latex) return;
+      await addKatexFormulaToCanvas(latex, formulaColor, formulaSize);
+      closeModal('geoFormulaModal');
+    };
+  }
 
-    if (G.triTicks) {
-      drawTickMark(ctx, (A.x + D.x) / 2, (A.y + D.y) / 2, 9);
-      drawTickMark(ctx, (C.x + D.x) / 2, (C.y + D.y) / 2, 9);
-      drawTickMark(ctx, (B.x + D.x) / 2, (B.y + D.y) / 2, 9);
+  renderFormulaButtons();
+  updateFormulaPreview();
+}
+
+async function addKatexFormulaToCanvas(latex, color = '#0f172a', fontSize = 26) {
+  const fabric = window.fabric;
+  const katex = window.katex;
+  if (!fabric || !fabricCanvas || !katex) return;
+
+  try {
+    const htmlString = katex.renderToString(latex, {
+      displayMode: true,
+      throwOnError: false
+    });
+
+    const wrapper = document.createElement('div');
+    wrapper.style.display = 'inline-block';
+    wrapper.style.fontSize = `${fontSize}px`;
+    wrapper.style.color = color;
+    wrapper.style.fontFamily = 'KaTeX_Main, Times New Roman, serif';
+    wrapper.style.padding = '8px 12px';
+    wrapper.style.position = 'absolute';
+    wrapper.style.left = '-9999px';
+    wrapper.style.top = '-9999px';
+    wrapper.innerHTML = htmlString;
+    document.body.appendChild(wrapper);
+
+    const rect = wrapper.getBoundingClientRect();
+    const width = Math.max(Math.ceil(rect.width) + 8, 30);
+    const height = Math.max(Math.ceil(rect.height) + 8, 24);
+    document.body.removeChild(wrapper);
+
+    const scale = 2; // Retina 2x
+    const svg = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="${width * scale}" height="${height * scale}" viewBox="0 0 ${width} ${height}">
+        <foreignObject width="100%" height="100%">
+          <div xmlns="http://www.w3.org/1999/xhtml" style="font-size:${fontSize}px; color:${color}; font-family: KaTeX_Main, Times New Roman, serif; display:flex; align-items:center; justify-content:center; height:100%;">
+            ${htmlString}
+          </div>
+        </foreignObject>
+      </svg>
+    `;
+
+    const svgDataUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+
+    const imgEl = new Image();
+    imgEl.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = width * scale;
+      c.height = height * scale;
+      const ctx = c.getContext('2d');
+      ctx.drawImage(imgEl, 0, 0);
+      const pngUrl = c.toDataURL('image/png');
+
+      fabric.Image.fromURL(pngUrl, (fImg) => {
+        fImg.set({
+          left: 380,
+          top: 240,
+          originX: 'center',
+          originY: 'center',
+          selectable: true,
+          hasControls: true,
+          hasBorders: true,
+          transparentCorners: false,
+          cornerColor: '#2563eb',
+          cornerSize: 8,
+          scaleX: 0.5,
+          scaleY: 0.5
+        });
+        fabricCanvas.add(fImg);
+        fabricCanvas.setActiveObject(fImg);
+        fabricCanvas.renderAll();
+        saveHistoryState();
+        setTool('select');
+      });
+    };
+    imgEl.src = svgDataUrl;
+  } catch (err) {
+    console.error('KaTeX to Canvas hatası:', err);
+  }
+}
+
+// ============================================================================
+// TARİHÇE (UNDO / REDO) VE KLAVYE KISAYOLLARI
+// ============================================================================
+
+function saveHistoryState() {
+  if (!fabricCanvas || isHistoryUpdating) return;
+  const json = JSON.stringify(fabricCanvas.toJSON());
+  if (historyIndex < historyStack.length - 1) {
+    historyStack.splice(historyIndex + 1);
+  }
+  historyStack.push(json);
+  historyIndex++;
+}
+
+function handleUndo() {
+  if (!fabricCanvas || historyIndex <= 0) return;
+  isHistoryUpdating = true;
+  historyIndex--;
+  fabricCanvas.loadFromJSON(historyStack[historyIndex], () => {
+    fabricCanvas.renderAll();
+    isHistoryUpdating = false;
+    hideFloatingToolbar();
+  });
+}
+
+function handleRedo() {
+  if (!fabricCanvas || historyIndex >= historyStack.length - 1) return;
+  isHistoryUpdating = true;
+  historyIndex++;
+  fabricCanvas.loadFromJSON(historyStack[historyIndex], () => {
+    fabricCanvas.renderAll();
+    isHistoryUpdating = false;
+    hideFloatingToolbar();
+  });
+}
+
+function onGlobalKeyDown(e) {
+  const modal = $('geoModal');
+  if (!modal || modal.classList.contains('hidden')) return;
+  if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+  if (e.key === 'Escape') {
+    resetToolState();
+  } else if (e.key === 'Delete' || e.key === 'Backspace') {
+    deleteActiveObjects();
+  } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+    if (e.shiftKey) {
+      handleRedo();
+    } else {
+      handleUndo();
     }
-  }
-
-  // 6: Eşkenar Üçgen (60°-60°-60°)
-  if (v === 'eskenar') {
-    drawAngleArc(ctx, A, B, C, 28, '60°');
-    drawAngleArc(ctx, B, A, C, 28, '60°');
-    drawAngleArc(ctx, C, B, A, 28, '60°');
-    if (G.triTicks) {
-      drawTickMark(ctx, (A.x + B.x) / 2, (A.y + B.y) / 2, 9);
-      drawTickMark(ctx, (A.x + C.x) / 2, (A.y + C.y) / 2, 9);
-      drawTickMark(ctx, (B.x + C.x) / 2, (B.y + C.y) / 2, 9);
-    }
-  }
-
-  // 7: İkizkenar Üçgen
-  if (v === 'ikizkenar') {
-    if (G.triTicks) {
-      drawDoubleTickMark(ctx, (A.x + B.x) / 2, (A.y + B.y) / 2, 8);
-      drawDoubleTickMark(ctx, (A.x + C.x) / 2, (A.y + C.y) / 2, 8);
-    }
-    if (G.triAngleB) drawAngleArc(ctx, B, A, C, 28, G.triAngleB);
-    if (G.triAngleC) drawAngleArc(ctx, C, B, A, 28, G.triAngleC);
-  }
-
-  // 8: Geniş Açılı Üçgen (Dış yükseklik)
-  if (v === 'genis') {
-    drawAngleArc(ctx, B, C, A, 28, G.triAngleB || '120°');
-
-    if (G.triAltitude) {
-      const Hpt = { x: A.x, y: B.y };
-      ctx.save();
-      ctx.setLineDash([4, 4]);
-      ctx.beginPath();
-      ctx.moveTo(B.x, B.y);
-      ctx.lineTo(Hpt.x, Hpt.y);
-      ctx.moveTo(A.x, A.y);
-      ctx.lineTo(Hpt.x, Hpt.y);
-      ctx.stroke();
-      ctx.restore();
-
-      drawRightAngleSquare(ctx, Hpt.x, Hpt.y, 14, -14);
-      drawMathText(ctx, 'H', Hpt.x - 14, Hpt.y + 14, 14, true);
-      drawMathText(ctx, 'h', Hpt.x - 14, (A.y + Hpt.y) / 2, 13, false, true);
-    }
-  }
-
-  // 10: İç Açıortaylı Üçgen
-  if (v === 'aciortay') {
-    const cLen = Math.hypot(B.x - A.x, B.y - A.y);
-    const bLen = Math.hypot(C.x - A.x, C.y - A.y);
-    const ratio = cLen / (cLen + bLen);
-    const N = { x: B.x + (C.x - B.x) * ratio, y: 285 };
-
-    ctx.beginPath();
-    ctx.moveTo(A.x, A.y);
-    ctx.lineTo(N.x, N.y);
-    ctx.stroke();
-
-    drawMathText(ctx, 'N', N.x, N.y + 18, 14, true);
-
-    drawAngleArcDot(ctx, A, B, N, 30);
-    drawAngleArcDot(ctx, A, N, C, 30);
-
-    drawMathText(ctx, G.aciAN || 'n_A', (A.x + N.x) / 2 + 16, (A.y + N.y) / 2, 12, false, true);
-    drawMathText(ctx, G.aciBN || 'x', (B.x + N.x) / 2, N.y + 16, 12, false, true);
-    drawMathText(ctx, G.aciNC || 'y', (N.x + C.x) / 2, N.y + 16, 12, false, true);
-  }
-
-  // 11: Kenarortaylı Üçgen & G
-  if (v === 'kenarortay') {
-    const D = { x: (B.x + C.x) / 2, y: 285 };
-
-    ctx.beginPath();
-    ctx.moveTo(A.x, A.y);
-    ctx.lineTo(D.x, D.y);
-    ctx.stroke();
-
-    drawMathText(ctx, 'D', D.x, D.y + 18, 14, true);
-
-    drawTickMark(ctx, (B.x + D.x) / 2, D.y, 8);
-    drawTickMark(ctx, (D.x + C.x) / 2, D.y, 8);
-
-    if (G.showG) {
-      const Gpt = { x: A.x + (D.x - A.x) * (2 / 3), y: A.y + (D.y - A.y) * (2 / 3) };
-      ctx.beginPath();
-      ctx.arc(Gpt.x, Gpt.y, 4, 0, Math.PI * 2);
-      ctx.fillStyle = '#4f46e5';
-      ctx.fill();
-      drawMathText(ctx, 'G', Gpt.x + 16, Gpt.y - 6, 14, true);
-    }
-  }
-
-  // 12: Benzerlik / Thales (DE // BC)
-  if (v === 'benzerlik') {
-    const r = 0.55;
-    const D = { x: A.x + (B.x - A.x) * r, y: A.y + (B.y - A.y) * r };
-    const E = { x: A.x + (C.x - A.x) * r, y: A.y + (C.y - A.y) * r };
-
-    ctx.beginPath();
-    ctx.moveTo(D.x, D.y);
-    ctx.lineTo(E.x, E.y);
-    ctx.stroke();
-
-    drawParallelArrow(ctx, (D.x + E.x) / 2, D.y, 1);
-    drawParallelArrow(ctx, (B.x + C.x) / 2, B.y, 1);
-
-    drawMathText(ctx, 'D', D.x - 16, D.y, 14, true);
-    drawMathText(ctx, 'E', E.x + 16, E.y, 14, true);
-
-    if (G.benAD) drawMathText(ctx, G.benAD, (A.x + D.x) / 2 - 16, (A.y + D.y) / 2, 12, false, true);
-    if (G.benDB) drawMathText(ctx, G.benDB, (D.x + B.x) / 2 - 16, (D.y + B.y) / 2, 12, false, true);
-    if (G.benDE) drawMathText(ctx, G.benDE, (D.x + E.x) / 2, D.y - 12, 13, true, true);
-    if (G.benAE) drawMathText(ctx, G.benAE, (A.x + E.x) / 2 + 16, (A.y + E.y) / 2, 12, false, true);
-    if (G.benEC) drawMathText(ctx, G.benEC, (E.x + C.x) / 2 + 16, (E.y + C.y) / 2, 12, false, true);
-  }
-
-  // Standard Altitude for other triangles if enabled
-  if (G.triAltitude && ['ikizkenar', 'eskenar', 'cesitkenar'].includes(v)) {
-    const Hpt = { x: A.x, y: 285 };
-    ctx.save();
-    ctx.setLineDash([4, 4]);
-    ctx.beginPath();
-    ctx.moveTo(A.x, A.y);
-    ctx.lineTo(Hpt.x, Hpt.y);
-    ctx.stroke();
-    ctx.restore();
-
-    drawRightAngleSquare(ctx, Hpt.x, Hpt.y, -14, -14);
-    drawMathText(ctx, 'H', Hpt.x, Hpt.y + 18, 14, true);
-    drawMathText(ctx, 'h', Hpt.x + 12, (A.y + Hpt.y) / 2, 13, false, true);
-  }
-
-  // Vertex Labels A, B, C
-  drawMathText(ctx, G.triVertexA, A.x, A.y - 14, 16, true);
-  drawMathText(ctx, G.triVertexB, B.x - 18, B.y + 14, 16, true);
-  drawMathText(ctx, G.triVertexC, C.x + 18, C.y + 14, 16, true);
-
-  // Standard Side Labels if applicable
-  if (!['oklid', 'benzerlik'].includes(v)) {
-    if (G.triSideAB) {
-      const midAB = { x: (A.x + B.x) / 2 - 20, y: (A.y + B.y) / 2 };
-      drawMathText(ctx, G.triSideAB, midAB.x, midAB.y, 13, false, true);
-    }
-    if (G.triSideBC) {
-      const midBC = { x: (B.x + C.x) / 2, y: B.y + 22 };
-      drawMathText(ctx, G.triSideBC, midBC.x, midBC.y, 13, false, true);
-    }
-    if (G.triSideAC) {
-      const midAC = { x: (A.x + C.x) / 2 + 18, y: (A.y + C.y) / 2 };
-      drawMathText(ctx, G.triSideAC, midAC.x, midAC.y, 13, false, true);
-    }
+    e.preventDefault();
+  } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
+    handleRedo();
+    e.preventDefault();
+  } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
+    duplicateActiveObject();
+    e.preventDefault();
   }
 }
 
-function drawCircle(ctx, W, H, strokeColor, fillColor, arcColor, labelColor) {
-  const O = { x: W / 2, y: H / 2 };
-  const R = 120;
-  const cv = G.circleVariant;
-  const angRad = (G.circleAngle * Math.PI) / 180;
-
-  if (cv === 'merkez_aci') {
-    if (G.circleShade) {
-      ctx.beginPath();
-      ctx.moveTo(O.x, O.y);
-      ctx.arc(O.x, O.y, R, 0, -angRad, true);
-      ctx.closePath();
-      ctx.fillStyle = fillColor;
-      ctx.fill();
-    }
-
-    ctx.beginPath();
-    ctx.arc(O.x, O.y, R, 0, Math.PI * 2);
-    ctx.stroke();
-
-    drawDot(ctx, O.x, O.y);
-    drawMathText(ctx, G.circleCenter, O.x - 18, O.y - 10, 15, true);
-
-    const ptA = { x: O.x + R, y: O.y };
-    const ptB = { x: O.x + R * Math.cos(-angRad), y: O.y + R * Math.sin(-angRad) };
-
-    ctx.beginPath();
-    ctx.moveTo(O.x, O.y);
-    ctx.lineTo(ptA.x, ptA.y);
-    ctx.moveTo(O.x, O.y);
-    ctx.lineTo(ptB.x, ptB.y);
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.arc(O.x, O.y, 36, 0, -angRad, true);
-    ctx.strokeStyle = arcColor;
-    ctx.lineWidth = 1.8;
-    ctx.stroke();
-    ctx.strokeStyle = strokeColor;
-    ctx.lineWidth = 2.4;
-
-    const midAng = -angRad / 2;
-    const lx = O.x + 54 * Math.cos(midAng);
-    const ly = O.y + 54 * Math.sin(midAng);
-    drawMathText(ctx, G.circleAngleLabel || (G.circleAngle + '°'), lx, ly, 13, false, true);
-
-    drawMathText(ctx, 'A', ptA.x + 14, ptA.y, 14, true);
-    drawMathText(ctx, 'B', ptB.x + 12 * Math.cos(-angRad), ptB.y + 12 * Math.sin(-angRad), 14, true);
-
-    if (G.circleRadius) drawMathText(ctx, G.circleRadius, O.x + R / 2, O.y + 18, 12, false, true);
-  } else if (cv === 'cevre_aci') {
-    ctx.beginPath();
-    ctx.arc(O.x, O.y, R, 0, Math.PI * 2);
-    ctx.stroke();
-
-    drawDot(ctx, O.x, O.y);
-    drawMathText(ctx, G.circleCenter, O.x - 14, O.y + 16, 14, true);
-
-    const pAng = Math.PI * 0.85;
-    const P = { x: O.x + R * Math.cos(pAng), y: O.y - R * Math.sin(pAng) };
-    const A = { x: O.x + R * Math.cos(0.15), y: O.y - R * Math.sin(0.15) };
-    const B = { x: O.x + R * Math.cos(-0.65), y: O.y - R * Math.sin(-0.65) };
-
-    ctx.beginPath();
-    ctx.moveTo(A.x, A.y);
-    ctx.lineTo(P.x, P.y);
-    ctx.lineTo(B.x, B.y);
-    ctx.stroke();
-
-    ctx.save();
-    ctx.strokeStyle = '#4f46e5';
-    ctx.lineWidth = 3.5;
-    ctx.beginPath();
-    ctx.arc(O.x, O.y, R, -0.15, 0.65, false);
-    ctx.stroke();
-    ctx.restore();
-
-    drawAngleArc(ctx, P, A, B, 32, G.circleAngleLabel || '35°');
-    drawMathText(ctx, 'P', P.x - 16, P.y - 12, 14, true);
-    drawMathText(ctx, 'A', A.x + 14, A.y, 14, true);
-    drawMathText(ctx, 'B', B.x + 14, B.y + 10, 14, true);
-    drawMathText(ctx, 'Yay: 2α', O.x + R + 24, O.y, 12, true, true);
-  } else if (cv === 'kiris_teget') {
-    ctx.beginPath();
-    ctx.arc(O.x, O.y, R, 0, Math.PI * 2);
-    ctx.stroke();
-
-    drawDot(ctx, O.x, O.y);
-    drawMathText(ctx, G.circleCenter, O.x - 14, O.y - 12, 14, true);
-
-    const T = { x: O.x, y: O.y + R };
-    ctx.save();
-    ctx.setLineDash([4, 4]);
-    ctx.beginPath();
-    ctx.moveTo(O.x, O.y);
-    ctx.lineTo(T.x, T.y);
-    ctx.stroke();
-    ctx.restore();
-
-    drawRightAngleSquare(ctx, T.x, T.y, 14, -14);
-
-    ctx.beginPath();
-    ctx.moveTo(T.x - 130, T.y);
-    ctx.lineTo(T.x + 130, T.y);
-    ctx.stroke();
-    drawMathText(ctx, 't (teğet)', T.x + 150, T.y + 5, 12, true);
-    drawMathText(ctx, 'T', T.x - 14, T.y + 16, 14, true);
-
-    const A = { x: O.x - R * 0.8, y: O.y - R * 0.6 };
-    const B = { x: O.x + R * 0.8, y: O.y - R * 0.6 };
-    ctx.beginPath();
-    ctx.moveTo(A.x, A.y);
-    ctx.lineTo(B.x, B.y);
-    ctx.stroke();
-
-    drawMathText(ctx, 'A', A.x - 16, A.y - 10, 14, true);
-    drawMathText(ctx, 'B', B.x + 16, B.y - 10, 14, true);
-    drawMathText(ctx, '[AB] kirişi', O.x, A.y - 14, 12, false, true);
-  } else if (cv === 'cap_aci') {
-    ctx.beginPath();
-    ctx.arc(O.x, O.y, R, 0, Math.PI * 2);
-    ctx.stroke();
-
-    const A = { x: O.x - R, y: O.y };
-    const B = { x: O.x + R, y: O.y };
-
-    ctx.beginPath();
-    ctx.moveTo(A.x, A.y);
-    ctx.lineTo(B.x, B.y);
-    ctx.stroke();
-
-    drawDot(ctx, O.x, O.y);
-    drawMathText(ctx, 'O', O.x, O.y + 16, 14, true);
-
-    const C = { x: O.x + R * Math.cos(Math.PI * 0.65), y: O.y - R * Math.sin(Math.PI * 0.65) };
-
-    ctx.beginPath();
-    ctx.moveTo(A.x, A.y);
-    ctx.lineTo(C.x, C.y);
-    ctx.lineTo(B.x, B.y);
-    ctx.stroke();
-
-    drawRightAngleSquareAtAngle(ctx, C, A, B, 14);
-
-    drawMathText(ctx, 'A', A.x - 16, A.y, 14, true);
-    drawMathText(ctx, 'B', B.x + 16, B.y, 14, true);
-    drawMathText(ctx, 'C', C.x, C.y - 16, 14, true);
-    drawMathText(ctx, 'Çapı gören çevre açı 90°', W / 2, 35, 13, true, true);
-  }
-}
-
-function drawQuad(ctx, W, H, strokeColor, fillColor, arcColor, labelColor) {
-  const v = G.quadVariant;
-  let A, B, C, D;
-
-  if (v === 'kare') {
-    const s = 190;
-    A = { x: (W - s) / 2, y: (H - s) / 2 };
-    B = { x: (W - s) / 2, y: (H + s) / 2 };
-    C = { x: (W + s) / 2, y: (H + s) / 2 };
-    D = { x: (W + s) / 2, y: (H - s) / 2 };
-  } else if (v === 'dikdortgen') {
-    const w = 300, h = 180;
-    A = { x: (W - w) / 2, y: (H - h) / 2 };
-    B = { x: (W - w) / 2, y: (H + h) / 2 };
-    C = { x: (W + w) / 2, y: (H + h) / 2 };
-    D = { x: (W + w) / 2, y: (H - h) / 2 };
-  } else if (v === 'paralelkenar') {
-    A = { x: 170, y: 95 };
-    B = { x: 100, y: 285 };
-    C = { x: 410, y: 285 };
-    D = { x: 480, y: 95 };
-  } else if (v === 'yamuk') {
-    A = { x: 180, y: 95 };
-    B = { x: 90, y: 285 };
-    C = { x: 470, y: 285 };
-    D = { x: 380, y: 95 };
-  } else if (v === 'dik_yamuk') {
-    A = { x: 120, y: 95 };
-    B = { x: 120, y: 285 };
-    C = { x: 460, y: 285 };
-    D = { x: 370, y: 95 };
-  } else if (v === 'eskenar_dortgen') {
-    A = { x: W / 2, y: 75 };
-    B = { x: 110, y: H / 2 };
-    C = { x: W / 2, y: 305 };
-    D = { x: 450, y: H / 2 };
-  } else if (v === 'deltoid') {
-    A = { x: W / 2, y: 70 };
-    B = { x: 130, y: 190 };
-    C = { x: W / 2, y: 310 };
-    D = { x: 430, y: 190 };
-  }
-
-  if (G.quadShade) {
-    ctx.beginPath();
-    ctx.moveTo(A.x, A.y);
-    ctx.lineTo(B.x, B.y);
-    ctx.lineTo(C.x, C.y);
-    ctx.lineTo(D.x, D.y);
-    ctx.closePath();
-    ctx.fillStyle = fillColor;
-    ctx.fill();
-  }
-
-  ctx.beginPath();
-  ctx.moveTo(A.x, A.y);
-  ctx.lineTo(B.x, B.y);
-  ctx.lineTo(C.x, C.y);
-  ctx.lineTo(D.x, D.y);
-  ctx.closePath();
-  ctx.stroke();
-
-  if (v === 'dikdortgen' || v === 'kare') {
-    drawRightAngleSquare(ctx, A.x, A.y, 14, 14);
-    drawRightAngleSquare(ctx, B.x, B.y, 14, -14);
-    drawRightAngleSquare(ctx, C.x, C.y, -14, -14);
-    drawRightAngleSquare(ctx, D.x, D.y, -14, 14);
-  } else if (v === 'dik_yamuk') {
-    drawRightAngleSquare(ctx, A.x, A.y, 14, 14);
-    drawRightAngleSquare(ctx, B.x, B.y, 14, -14);
-  }
-
-  if (v === 'eskenar_dortgen' || v === 'deltoid') {
-    ctx.save();
-    ctx.setLineDash([4, 4]);
-    ctx.beginPath();
-    ctx.moveTo(A.x, A.y);
-    ctx.lineTo(C.x, C.y);
-    ctx.moveTo(B.x, B.y);
-    ctx.lineTo(D.x, D.y);
-    ctx.stroke();
-    ctx.restore();
-    drawRightAngleSquare(ctx, W / 2, (v === 'deltoid' ? 190 : H / 2), 12, 12);
-  }
-
-  if (G.quadDiagonals && v !== 'eskenar_dortgen' && v !== 'deltoid') {
-    ctx.save();
-    ctx.setLineDash([4, 4]);
-    ctx.beginPath();
-    ctx.moveTo(A.x, A.y);
-    ctx.lineTo(C.x, C.y);
-    ctx.moveTo(B.x, B.y);
-    ctx.lineTo(D.x, D.y);
-    ctx.stroke();
-    ctx.restore();
-  }
-
-  drawMathText(ctx, G.quadVertexA, A.x - 16, A.y - 12, 15, true);
-  drawMathText(ctx, G.quadVertexB, B.x - 16, B.y + 16, 15, true);
-  drawMathText(ctx, G.quadVertexC, C.x + 16, C.y + 16, 15, true);
-  drawMathText(ctx, G.quadVertexD, D.x + 16, D.y - 12, 15, true);
-
-  if (G.quadSideAB) drawMathText(ctx, G.quadSideAB, (A.x + B.x) / 2 - 24, (A.y + B.y) / 2, 13, false, true);
-  if (G.quadSideBC) drawMathText(ctx, G.quadSideBC, (B.x + C.x) / 2, B.y + 20, 13, false, true);
-  if (G.quadSideCD) drawMathText(ctx, G.quadSideCD, (C.x + D.x) / 2 + 24, (C.y + D.y) / 2, 13, false, true);
-  if (G.quadSideDA) drawMathText(ctx, G.quadSideDA, (D.x + A.x) / 2, A.y - 16, 13, false, true);
-}
-
-function drawParallel(ctx, W, H, strokeColor, fillColor, arcColor, labelColor) {
-  const pv = G.parVariant;
-  const y1 = 120;
-  const y2 = 260;
-  const xLeft = 60;
-  const xRight = 480;
-
-  if (pv === 'z_kurali') {
-    ctx.beginPath();
-    ctx.moveTo(xLeft, y1);
-    ctx.lineTo(xRight, y1);
-    ctx.stroke();
-    drawParallelArrow(ctx, xRight - 40, y1, 1);
-    drawMathText(ctx, G.parLine1, xRight + 16, y1 + 4, 14, true);
-
-    ctx.beginPath();
-    ctx.moveTo(xLeft, y2);
-    ctx.lineTo(xRight, y2);
-    ctx.stroke();
-    drawParallelArrow(ctx, xRight - 40, y2, 1);
-    drawMathText(ctx, G.parLine2, xRight + 16, y2 + 4, 14, true);
-
-    const tA = { x: 180, y: y1 };
-    const tB = { x: 360, y: y2 };
-    ctx.beginPath();
-    ctx.moveTo(tA.x, tA.y);
-    ctx.lineTo(tB.x, tB.y);
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.arc(tA.x, tA.y, 32, 0, Math.atan2(tB.y - tA.y, tB.x - tA.x), false);
-    ctx.strokeStyle = arcColor;
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    ctx.strokeStyle = strokeColor;
-    ctx.lineWidth = 2.4;
-    drawMathText(ctx, G.parAngle1 || 'α', tA.x + 44, tA.y + 16, 13, true, true);
-
-    ctx.beginPath();
-    ctx.arc(tB.x, tB.y, 32, Math.PI, Math.PI + Math.atan2(tA.y - tB.y, tA.x - tB.x), false);
-    ctx.strokeStyle = arcColor;
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    ctx.strokeStyle = strokeColor;
-    ctx.lineWidth = 2.4;
-    drawMathText(ctx, G.parAngle2 || 'x', tB.x - 44, tB.y - 16, 13, true, true);
-
-    drawMathText(ctx, `${G.parLine1} // ${G.parLine2} (İç Ters Açılar: α = x)`, W / 2, 45, 13, true, true);
-  } else if (pv === 'u_kurali') {
-    ctx.beginPath();
-    ctx.moveTo(xLeft, y1);
-    ctx.lineTo(xRight, y1);
-    ctx.moveTo(xLeft, y2);
-    ctx.lineTo(xRight, y2);
-    ctx.stroke();
-
-    drawParallelArrow(ctx, xRight - 40, y1, 1);
-    drawParallelArrow(ctx, xRight - 40, y2, 1);
-    drawMathText(ctx, G.parLine1, xRight + 16, y1 + 4, 14, true);
-    drawMathText(ctx, G.parLine2, xRight + 16, y2 + 4, 14, true);
-
-    const tA = { x: 260, y: y1 };
-    const tB = { x: 260, y: y2 };
-    ctx.beginPath();
-    ctx.moveTo(tA.x, tA.y);
-    ctx.lineTo(tB.x, tB.y);
-    ctx.stroke();
-
-    drawAngleArc(ctx, tA, { x: tA.x + 60, y: tA.y }, tB, 30, G.parAngle1 || '120°');
-    drawAngleArc(ctx, tB, tA, { x: tB.x + 60, y: tB.y }, 30, G.parAngle2 || 'x');
-
-    drawMathText(ctx, `${G.parLine1} // ${G.parLine2} (U Kuralı: a + b = 180°)`, W / 2, 45, 13, true, true);
-  } else if (pv === 'm_kurali') {
-    ctx.beginPath();
-    ctx.moveTo(xLeft, y1);
-    ctx.lineTo(xRight, y1);
-    ctx.moveTo(xLeft, y2);
-    ctx.lineTo(xRight, y2);
-    ctx.stroke();
-
-    drawParallelArrow(ctx, xRight - 40, y1, 1);
-    drawParallelArrow(ctx, xRight - 40, y2, 1);
-    drawMathText(ctx, G.parLine1, xRight + 16, y1 + 4, 14, true);
-    drawMathText(ctx, G.parLine2, xRight + 16, y2 + 4, 14, true);
-
-    const P1 = { x: 160, y: y1 };
-    const V = { x: 330, y: (y1 + y2) / 2 };
-    const P2 = { x: 160, y: y2 };
-
-    ctx.beginPath();
-    ctx.moveTo(P1.x, P1.y);
-    ctx.lineTo(V.x, V.y);
-    ctx.lineTo(P2.x, P2.y);
-    ctx.stroke();
-
-    drawAngleArc(ctx, P1, { x: P1.x + 60, y: y1 }, V, 30, G.parMAngA || '40°');
-    drawAngleArc(ctx, P2, V, { x: P2.x + 60, y: y2 }, 30, G.parMAngB || '35°');
-    drawAngleArc(ctx, V, P2, P1, 32, G.parMAngX || 'x');
-
-    drawMathText(ctx, `${G.parLine1} // ${G.parLine2} (M Kuralı: x = a + b)`, W / 2, 45, 13, true, true);
-  } else if (pv === 'yondes') {
-    ctx.beginPath();
-    ctx.moveTo(xLeft, y1);
-    ctx.lineTo(xRight, y1);
-    ctx.moveTo(xLeft, y2);
-    ctx.lineTo(xRight, y2);
-    ctx.stroke();
-
-    drawParallelArrow(ctx, xRight - 40, y1, 1);
-    drawParallelArrow(ctx, xRight - 40, y2, 1);
-    drawMathText(ctx, G.parLine1, xRight + 16, y1 + 4, 14, true);
-    drawMathText(ctx, G.parLine2, xRight + 16, y2 + 4, 14, true);
-
-    ctx.beginPath();
-    ctx.moveTo(150, 60);
-    ctx.lineTo(380, 320);
-    ctx.stroke();
-
-    const t1 = { x: 150 + (230 * (y1 - 60)) / 260, y: y1 };
-    const t2 = { x: 150 + (230 * (y2 - 60)) / 260, y: y2 };
-
-    drawAngleArc(ctx, t1, { x: t1.x + 60, y: y1 }, { x: 380, y: 320 }, 30, G.parAngle1 || '65°');
-    drawAngleArc(ctx, t2, { x: t2.x + 60, y: y2 }, { x: 380, y: 320 }, 30, G.parAngle2 || 'x');
-
-    drawMathText(ctx, `${G.parLine1} // ${G.parLine2} (Yöndeş Açılar: a = b)`, W / 2, 35, 13, true, true);
-  }
-}
-
-function drawDot(ctx, x, y, r = 3.5) {
-  ctx.beginPath();
-  ctx.arc(x, y, r, 0, Math.PI * 2);
-  ctx.fillStyle = ctx.strokeStyle;
-  ctx.fill();
-}
-
-function drawRightAngleSquare(ctx, x, y, dx, dy) {
-  ctx.save();
-  ctx.lineWidth = 1.8;
-  ctx.beginPath();
-  ctx.moveTo(x + dx, y);
-  ctx.lineTo(x + dx, y + dy);
-  ctx.lineTo(x, y + dy);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.arc(x + dx / 2, y + dy / 2, 1.8, 0, Math.PI * 2);
-  ctx.fillStyle = ctx.strokeStyle;
-  ctx.fill();
-  ctx.restore();
-}
-
-function drawRightAngleSquareAtAngle(ctx, V, P1, P2, s = 14) {
-  const a1 = Math.atan2(P1.y - V.y, P1.x - V.x);
-  const a2 = Math.atan2(P2.y - V.y, P2.x - V.x);
-  const v1 = { x: Math.cos(a1) * s, y: Math.sin(a1) * s };
-  const v2 = { x: Math.cos(a2) * s, y: Math.sin(a2) * s };
-
-  ctx.save();
-  ctx.lineWidth = 1.8;
-  ctx.beginPath();
-  ctx.moveTo(V.x + v1.x, V.y + v1.y);
-  ctx.lineTo(V.x + v1.x + v2.x, V.y + v1.y + v2.y);
-  ctx.lineTo(V.x + v2.x, V.y + v2.y);
-  ctx.stroke();
-
-  ctx.beginPath();
-  ctx.arc(V.x + (v1.x + v2.x) / 2, V.y + (v1.y + v2.y) / 2, 1.8, 0, Math.PI * 2);
-  ctx.fillStyle = ctx.strokeStyle;
-  ctx.fill();
-  ctx.restore();
-}
-
-function drawAngleArc(ctx, V, P1, P2, r, label) {
-  const ang1 = Math.atan2(P1.y - V.y, P1.x - V.x);
-  const ang2 = Math.atan2(P2.y - V.y, P2.x - V.x);
-  let diff = ang2 - ang1;
-  while (diff < -Math.PI) diff += Math.PI * 2;
-  while (diff > Math.PI) diff -= Math.PI * 2;
-
-  ctx.save();
-  ctx.beginPath();
-  ctx.strokeStyle = '#475569';
-  ctx.lineWidth = 1.8;
-  ctx.arc(V.x, V.y, r, ang1, ang1 + diff, diff < 0);
-  ctx.stroke();
-
-  if (label) {
-    const midAng = ang1 + diff / 2;
-    const lx = V.x + (r + 14) * Math.cos(midAng);
-    const ly = V.y + (r + 14) * Math.sin(midAng);
-    drawMathText(ctx, label, lx, ly, 12, false, true);
-  }
-  ctx.restore();
-}
-
-function drawAngleArcDot(ctx, V, P1, P2, r) {
-  const ang1 = Math.atan2(P1.y - V.y, P1.x - V.x);
-  const ang2 = Math.atan2(P2.y - V.y, P2.x - V.x);
-  let diff = ang2 - ang1;
-  while (diff < -Math.PI) diff += Math.PI * 2;
-  while (diff > Math.PI) diff -= Math.PI * 2;
-
-  ctx.save();
-  ctx.beginPath();
-  ctx.strokeStyle = '#475569';
-  ctx.lineWidth = 1.8;
-  ctx.arc(V.x, V.y, r, ang1, ang1 + diff, diff < 0);
-  ctx.stroke();
-
-  const midAng = ang1 + diff / 2;
-  const lx = V.x + (r - 10) * Math.cos(midAng);
-  const ly = V.y + (r - 10) * Math.sin(midAng);
-  ctx.beginPath();
-  ctx.arc(lx, ly, 2.2, 0, Math.PI * 2);
-  ctx.fillStyle = '#0f172a';
-  ctx.fill();
-  ctx.restore();
-}
-
-function drawTickMark(ctx, x, y, len) {
-  ctx.save();
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(x - len / 2, y - len / 2);
-  ctx.lineTo(x + len / 2, y + len / 2);
-  ctx.stroke();
-  ctx.restore();
-}
-
-function drawDoubleTickMark(ctx, x, y, len) {
-  ctx.save();
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(x - len / 2 - 2, y - len / 2);
-  ctx.lineTo(x + len / 2 - 2, y + len / 2);
-  ctx.moveTo(x - len / 2 + 2, y - len / 2);
-  ctx.lineTo(x + len / 2 + 2, y + len / 2);
-  ctx.stroke();
-  ctx.restore();
-}
-
-function drawParallelArrow(ctx, x, y, dir = 1) {
-  ctx.save();
-  ctx.fillStyle = ctx.strokeStyle;
-  ctx.beginPath();
-  ctx.moveTo(x, y);
-  ctx.lineTo(x - 7 * dir, y - 5);
-  ctx.lineTo(x - 7 * dir, y + 5);
-  ctx.closePath();
-  ctx.fill();
-  ctx.restore();
-}
-
-function drawMathText(ctx, text, x, y, size = 14, isBold = false, isItalic = false) {
-  if (!text) return;
-  ctx.save();
-  let fontStr = '';
-  if (isItalic) fontStr += 'italic ';
-  if (isBold) fontStr += 'bold ';
-  fontStr += `${size}px "Noto Sans", "Times New Roman", serif`;
-  ctx.font = fontStr;
-  ctx.fillStyle = '#0f172a';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(text, x, y);
-  ctx.restore();
-}
+// ============================================================================
+// DIŞA AKTARMA (2X RETINA PNG EXPORT)
+// ============================================================================
 
 export function exportGeometryAsPNG() {
-  const canvas = $('geoCanvas');
-  if (!canvas) return null;
-  return canvas.toDataURL('image/png');
+  if (!fabricCanvas) return null;
+  fabricCanvas.discardActiveObject();
+  fabricCanvas.renderAll();
+
+  return fabricCanvas.toDataURL({
+    format: 'png',
+    multiplier: 2 // 2x Retina Yüksek Çözünürlük
+  });
 }
 
-export function initGeometryDrawer() {
-  document.querySelectorAll('[data-geo-shape]').forEach(btn => {
-    btn.onclick = () => {
-      activeShape = btn.dataset.geoShape;
-      syncControlsFromState();
-      renderGeometryCanvas();
-    };
-  });
+// ============================================================================
+// TÜM ARAYÜZ ETKİNLİK DİNLEYİCİLERİNİ BAĞLAMA (SETUP)
+// ============================================================================
 
-  const triVar = $('geoTriVariant');
-  if (triVar) {
-    triVar.onchange = (e) => {
-      G.triangleVariant = e.target.value;
-      if (G.triangleVariant === 'dik_30_60') {
-        G.triAngleA = '30°'; G.triAngleB = '90°'; G.triAngleC = '60°';
-      } else if (G.triangleVariant === 'dik_45_45') {
-        G.triAngleA = '45°'; G.triAngleB = '90°'; G.triAngleC = '45°';
-      } else if (G.triangleVariant === 'eskenar') {
-        G.triAngleA = '60°'; G.triAngleB = '60°'; G.triAngleC = '60°';
-      } else if (G.triangleVariant === 'genis') {
-        G.triAngleB = '120°';
-      }
-      syncControlsFromState();
-      renderGeometryCanvas();
-    };
-  }
-
-  const triInputs = [
-    'geoTriVA', 'geoTriVB', 'geoTriVC', 'geoTriSAB', 'geoTriSBC', 'geoTriSAC',
-    'geoTriAngA', 'geoTriAngB', 'geoTriAngC', 'geoTriOklidH', 'geoTriOklidP',
-    'geoTriOklidK', 'geoTriAciAN', 'geoTriAciBN', 'geoTriAciNC', 'geoTriMedAD',
-    'geoTriBenAD', 'geoTriBenDB', 'geoTriBenDE', 'geoTriBenAE', 'geoTriBenEC'
+export function setupGeometryEventListeners() {
+  // Sol Dikey Araç Çubuğu Butonları
+  const toolBtns = [
+    { id: 'geoToolSelect', tool: 'select' },
+    { id: 'geoToolPoint', tool: 'point' },
+    { id: 'geoToolLine', tool: 'line' },
+    { id: 'geoToolPolygon', tool: 'polygon' },
+    { id: 'geoToolCircle', tool: 'circle' },
+    { id: 'geoToolAngle', tool: 'angle' },
+    { id: 'geoToolText', tool: 'text' }
   ];
-  triInputs.forEach(id => {
-    const el = $(id);
-    if (el) {
-      el.oninput = () => {
-        G.triVertexA = $('geoTriVA') ? $('geoTriVA').value : 'A';
-        G.triVertexB = $('geoTriVB') ? $('geoTriVB').value : 'B';
-        G.triVertexC = $('geoTriVC') ? $('geoTriVC').value : 'C';
-        G.triSideAB = $('geoTriSAB') ? $('geoTriSAB').value : '';
-        G.triSideBC = $('geoTriSBC') ? $('geoTriSBC').value : '';
-        G.triSideAC = $('geoTriSAC') ? $('geoTriSAC').value : '';
-        G.triAngleA = $('geoTriAngA') ? $('geoTriAngA').value : '';
-        G.triAngleB = $('geoTriAngB') ? $('geoTriAngB').value : '';
-        G.triAngleC = $('geoTriAngC') ? $('geoTriAngC').value : '';
-        G.oklidH = $('geoTriOklidH') ? $('geoTriOklidH').value : '';
-        G.oklidP = $('geoTriOklidP') ? $('geoTriOklidP').value : '';
-        G.oklidK = $('geoTriOklidK') ? $('geoTriOklidK').value : '';
-        G.aciAN = $('geoTriAciAN') ? $('geoTriAciAN').value : '';
-        G.aciBN = $('geoTriAciBN') ? $('geoTriAciBN').value : '';
-        G.aciNC = $('geoTriAciNC') ? $('geoTriAciNC').value : '';
-        G.medAD = $('geoTriMedAD') ? $('geoTriMedAD').value : '';
-        G.benAD = $('geoTriBenAD') ? $('geoTriBenAD').value : '';
-        G.benDB = $('geoTriBenDB') ? $('geoTriBenDB').value : '';
-        G.benDE = $('geoTriBenDE') ? $('geoTriBenDE').value : '';
-        G.benAE = $('geoTriBenAE') ? $('geoTriBenAE').value : '';
-        G.benEC = $('geoTriBenEC') ? $('geoTriBenEC').value : '';
-        renderGeometryCanvas();
+
+  toolBtns.forEach(({ id, tool }) => {
+    const btn = $(id);
+    if (btn) {
+      btn.onclick = () => {
+        closeMorePopover();
+        setTool(tool);
       };
     }
   });
 
-  if ($('geoTriAltitude')) $('geoTriAltitude').onchange = (e) => { G.triAltitude = e.target.checked; renderGeometryCanvas(); };
-  if ($('geoTriShade')) $('geoTriShade').onchange = (e) => { G.triShade = e.target.checked; renderGeometryCanvas(); };
-  if ($('geoTriTicks')) $('geoTriTicks').onchange = (e) => { G.triTicks = e.target.checked; renderGeometryCanvas(); };
-  if ($('geoTriShowG')) $('geoTriShowG').onchange = (e) => { G.showG = e.target.checked; renderGeometryCanvas(); };
+  // Çokgeni Tamamla Butonu
+  const polyFinishBtn = $('geoPolygonFinishBtn');
+  if (polyFinishBtn) {
+    polyFinishBtn.onclick = () => finishPolygon();
+  }
 
-  const cirVar = $('geoCirVariant');
-  if (cirVar) {
-    cirVar.onchange = (e) => {
-      G.circleVariant = e.target.value;
-      syncControlsFromState();
-      renderGeometryCanvas();
+  // Daha Fazla Şekil & Formül Popover
+  const moreBtn = $('geoMoreBtn');
+  const morePopover = $('geoMorePopover');
+  if (moreBtn && morePopover) {
+    moreBtn.onclick = (e) => {
+      e.stopPropagation();
+      morePopover.classList.toggle('hidden');
     };
   }
 
-  ['geoCirCenter', 'geoCirRadius', 'geoCirAngleLbl'].forEach(id => {
-    const el = $(id);
-    if (el) {
-      el.oninput = () => {
-        G.circleCenter = $('geoCirCenter').value;
-        G.circleRadius = $('geoCirRadius').value;
-        G.circleAngleLabel = $('geoCirAngleLbl').value;
-        renderGeometryCanvas();
-      };
-    }
-  });
-
-  const cirAngle = $('geoCirAngleRange');
-  if (cirAngle) {
-    cirAngle.oninput = (e) => {
-      G.circleAngle = parseInt(e.target.value, 10);
-      if ($('geoCirAngleVal')) $('geoCirAngleVal').textContent = G.circleAngle + '°';
-      if (!G.circleAngleLabel || G.circleAngleLabel.endsWith('°')) {
-        G.circleAngleLabel = G.circleAngle + '°';
-        if ($('geoCirAngleLbl')) $('geoCirAngleLbl').value = G.circleAngleLabel;
-      }
-      renderGeometryCanvas();
-    };
+  function closeMorePopover() {
+    if (morePopover) morePopover.classList.add('hidden');
   }
-  if ($('geoCirSector')) $('geoCirSector').onchange = (e) => { G.circleSector = e.target.checked; renderGeometryCanvas(); };
-  if ($('geoCirShade')) $('geoCirShade').onchange = (e) => { G.circleShade = e.target.checked; renderGeometryCanvas(); };
-  if ($('geoCirChord')) $('geoCirChord').onchange = (e) => { G.circleChord = e.target.checked; renderGeometryCanvas(); };
-  if ($('geoCirTangent')) $('geoCirTangent').onchange = (e) => { G.circleTangent = e.target.checked; renderGeometryCanvas(); };
 
-  const quadVar = $('geoQuadVariant');
-  if (quadVar) {
-    quadVar.onchange = (e) => {
-      G.quadVariant = e.target.value;
-      syncControlsFromState();
-      renderGeometryCanvas();
+  // KaTeX Aç Butonu
+  const openFormulaBtn = $('geoOpenFormulaBtn');
+  if (openFormulaBtn) {
+    openFormulaBtn.onclick = () => {
+      closeMorePopover();
+      openModal('geoFormulaModal');
     };
   }
 
-  ['geoQuadVA', 'geoQuadVB', 'geoQuadVC', 'geoQuadVD', 'geoQuadSAB', 'geoQuadSBC', 'geoQuadSCD', 'geoQuadSDA'].forEach(id => {
-    const el = $(id);
-    if (el) {
-      el.oninput = () => {
-        G.quadVertexA = $('geoQuadVA').value;
-        G.quadVertexB = $('geoQuadVB').value;
-        G.quadVertexC = $('geoQuadVC').value;
-        G.quadVertexD = $('geoQuadVD').value;
-        G.quadSideAB = $('geoQuadSAB').value;
-        G.quadSideBC = $('geoQuadSBC').value;
-        G.quadSideCD = $('geoQuadSCD') ? $('geoQuadSCD').value : '';
-        G.quadSideDA = $('geoQuadSDA') ? $('geoQuadSDA').value : '';
-        renderGeometryCanvas();
-      };
-    }
-  });
+  // Hazır Şablonlar Çekmecesini Aç/Kapat
+  const toggleTplBtn = $('geoToggleTplBtn');
+  const tplDrawer = $('geoTemplateDrawer');
+  const closeDrawerBtn = $('geoCloseDrawerBtn');
+  if (toggleTplBtn && tplDrawer) {
+    toggleTplBtn.onclick = () => {
+      closeMorePopover();
+      tplDrawer.classList.toggle('hidden');
+    };
+  }
+  if (closeDrawerBtn && tplDrawer) {
+    closeDrawerBtn.onclick = () => tplDrawer.classList.add('hidden');
+  }
 
-  if ($('geoQuadDiagonals')) $('geoQuadDiagonals').onchange = (e) => { G.quadDiagonals = e.target.checked; renderGeometryCanvas(); };
-  if ($('geoQuadShade')) $('geoQuadShade').onchange = (e) => { G.quadShade = e.target.checked; renderGeometryCanvas(); };
-  if ($('geoQuadAltitude')) $('geoQuadAltitude').onchange = (e) => { G.quadAltitude = e.target.checked; renderGeometryCanvas(); };
+  // Şablon Tıklamaları
+  if (tplDrawer) {
+    tplDrawer.querySelectorAll('[data-tpl]').forEach((btn) => {
+      btn.onclick = () => insertTemplate(btn.dataset.tpl);
+    });
+  }
 
-  const parVar = $('geoParVariant');
-  if (parVar) {
-    parVar.onchange = (e) => {
-      G.parVariant = e.target.value;
-      syncControlsFromState();
-      renderGeometryCanvas();
+  // Elips ve Çokgen Ekle Butonları
+  const addEllipseBtn = $('geoAddEllipseBtn');
+  if (addEllipseBtn) {
+    addEllipseBtn.onclick = () => {
+      closeMorePopover();
+      addEllipse();
     };
   }
 
-  ['geoParAng1', 'geoParAng2', 'geoParL1', 'geoParL2', 'geoParMAngA', 'geoParMAngX', 'geoParMAngB'].forEach(id => {
-    const el = $(id);
-    if (el) {
-      el.oninput = () => {
-        G.parAngle1 = $('geoParAng1').value;
-        G.parAngle2 = $('geoParAng2').value;
-        G.parLine1 = $('geoParL1').value;
-        G.parLine2 = $('geoParL2').value;
-        G.parMAngA = $('geoParMAngA') ? $('geoParMAngA').value : '40°';
-        G.parMAngX = $('geoParMAngX') ? $('geoParMAngX').value : 'x';
-        G.parMAngB = $('geoParMAngB') ? $('geoParMAngB').value : '35°';
-        renderGeometryCanvas();
-      };
-    }
-  });
+  const addPentagonBtn = $('geoAddPentagonBtn');
+  if (addPentagonBtn) {
+    addPentagonBtn.onclick = () => {
+      closeMorePopover();
+      addRegularPolygon(5);
+    };
+  }
 
+  const addHexagonBtn = $('geoAddHexagonBtn');
+  if (addHexagonBtn) {
+    addHexagonBtn.onclick = () => {
+      closeMorePopover();
+      addRegularPolygon(6);
+    };
+  }
+
+  const addOctagonBtn = $('geoAddOctagonBtn');
+  if (addOctagonBtn) {
+    addOctagonBtn.onclick = () => {
+      closeMorePopover();
+      addRegularPolygon(8);
+    };
+  }
+
+  // Kayan Toolbar Paletleri (Floating Style Toolbar)
+  setupFloatingToolbarPalettes();
+
+  // Alt Kontrol Çubuğu: Zoom
+  const zoomIn = $('geoZoomIn');
+  const zoomOut = $('geoZoomOut');
+  const zoomLbl = $('geoZoomLabel');
+  if (zoomIn && zoomOut) {
+    zoomIn.onclick = () => {
+      if (!fabricCanvas) return;
+      zoomLevel = Math.min(200, zoomLevel + 10);
+      fabricCanvas.setZoom(zoomLevel / 100);
+      fabricCanvas.renderAll();
+      if (zoomLbl) zoomLbl.textContent = `%${zoomLevel}`;
+    };
+    zoomOut.onclick = () => {
+      if (!fabricCanvas) return;
+      zoomLevel = Math.max(50, zoomLevel - 10);
+      fabricCanvas.setZoom(zoomLevel / 100);
+      fabricCanvas.renderAll();
+      if (zoomLbl) zoomLbl.textContent = `%${zoomLevel}`;
+    };
+  }
+
+  // Izgara & Snap Butonları
+  const toggleGridBtn = $('geoToggleGrid');
+  if (toggleGridBtn) {
+    toggleGridBtn.onclick = () => {
+      gridEnabled = !gridEnabled;
+      updateGridBackground(gridEnabled);
+      toggleGridBtn.className = gridEnabled
+        ? 'flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold border-blue-200 bg-blue-50 text-blue-600 dark:border-blue-900 dark:bg-blue-950/60 dark:text-blue-300 transition'
+        : 'flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold border-slate-200 text-slate-600 hover:bg-slate-100 dark:border-slate-800 dark:text-slate-400 transition';
+    };
+  }
+
+  const toggleSnapBtn = $('geoToggleSnap');
+  if (toggleSnapBtn) {
+    toggleSnapBtn.onclick = () => {
+      snapEnabled = !snapEnabled;
+      toggleSnapBtn.className = snapEnabled
+        ? 'flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold border-blue-200 bg-blue-50 text-blue-600 dark:border-blue-900 dark:bg-blue-950/60 dark:text-blue-300 transition'
+        : 'flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold border-slate-200 text-slate-600 hover:bg-slate-100 dark:border-slate-800 dark:text-slate-400 transition';
+    };
+  }
+
+  // Geri Al / İleri Al / Temizle
+  const undoBtn = $('geoBtnUndo');
+  const redoBtn = $('geoBtnRedo');
+  const clearBtn = $('geoBtnClear');
+  if (undoBtn) undoBtn.onclick = handleUndo;
+  if (redoBtn) redoBtn.onclick = handleRedo;
+  if (clearBtn) {
+    clearBtn.onclick = () => {
+      if (!fabricCanvas) return;
+      fabricCanvas.clear();
+      updateGridBackground(gridEnabled);
+      saveHistoryState();
+      hideFloatingToolbar();
+    };
+  }
+
+  // Kapatma & İptal
   const closeBtn = $('geoModalClose');
-  if (closeBtn) closeBtn.onclick = () => closeModal('geoModal');
   const cancelBtn = $('geoModalCancel');
+  if (closeBtn) closeBtn.onclick = () => closeModal('geoModal');
   if (cancelBtn) cancelBtn.onclick = () => closeModal('geoModal');
 
+  // Soruya Ekle Butonu
   const insertBtn = $('geoInsertBtn');
   if (insertBtn) {
     insertBtn.onclick = () => {
@@ -1297,4 +1379,122 @@ export function initGeometryDrawer() {
       closeModal('geoModal');
     };
   }
+
+  // KaTeX Formül Modülü Başlatma
+  setupKatexFormulaModule();
 }
+
+function setupFloatingToolbarPalettes() {
+  const strokeBtn = $('geoFloatStrokeBtn');
+  const strokePop = $('geoFloatStrokePopover');
+  const strokeGrid = $('geoStrokeGrid');
+
+  const fillBtn = $('geoFloatFillBtn');
+  const fillPop = $('geoFloatFillPopover');
+  const fillGrid = $('geoFillGrid');
+
+  const widthBtn = $('geoFloatWidthBtn');
+  const widthPop = $('geoFloatWidthPopover');
+  const dashedCheck = $('geoFloatDashed');
+
+  const dupBtn = $('geoFloatDupBtn');
+  const delBtn = $('geoFloatDelBtn');
+
+  // Çizgi Rengi Grid Doldur
+  if (strokeGrid) {
+    strokeGrid.innerHTML = '';
+    STROKE_COLORS.forEach((color) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'h-5 w-5 rounded-full border border-black/10 transition hover:scale-125';
+      b.style.backgroundColor = color;
+      b.onclick = () => {
+        currentStyle.strokeColor = color;
+        updateActiveObjectStyle({ stroke: color });
+        strokePop.classList.add('hidden');
+      };
+      strokeGrid.appendChild(b);
+    });
+  }
+
+  // Dolgu Rengi Grid Doldur
+  if (fillGrid) {
+    fillGrid.innerHTML = '';
+    FILL_COLORS.forEach((color) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'h-5 w-5 rounded-full border border-slate-300 transition hover:scale-125 relative flex items-center justify-center';
+      b.style.backgroundColor = color === 'transparent' ? '#ffffff' : color;
+      if (color === 'transparent') {
+        b.innerHTML = '<span class="text-[10px] text-red-500 font-bold">✕</span>';
+      }
+      b.onclick = () => {
+        currentStyle.fillColor = color;
+        updateActiveObjectStyle({ fill: color });
+        fillPop.classList.add('hidden');
+      };
+      fillGrid.appendChild(b);
+    });
+  }
+
+  // Popover Aç/Kapa
+  if (strokeBtn && strokePop) {
+    strokeBtn.onclick = (e) => {
+      e.stopPropagation();
+      strokePop.classList.toggle('hidden');
+      if (fillPop) fillPop.classList.add('hidden');
+      if (widthPop) widthPop.classList.add('hidden');
+    };
+  }
+
+  if (fillBtn && fillPop) {
+    fillBtn.onclick = (e) => {
+      e.stopPropagation();
+      fillPop.classList.toggle('hidden');
+      if (strokePop) strokePop.classList.add('hidden');
+      if (widthPop) widthPop.classList.add('hidden');
+    };
+  }
+
+  if (widthBtn && widthPop) {
+    widthBtn.onclick = (e) => {
+      e.stopPropagation();
+      widthPop.classList.toggle('hidden');
+      if (strokePop) strokePop.classList.add('hidden');
+      if (fillPop) fillPop.classList.add('hidden');
+    };
+  }
+
+  // Kalınlık Butonları
+  const widthContainer = $('geoWidthButtons');
+  if (widthContainer) {
+    widthContainer.querySelectorAll('[data-w]').forEach((btn) => {
+      btn.onclick = () => {
+        const w = parseInt(btn.dataset.w, 10);
+        currentStyle.strokeWidth = w;
+        updateActiveObjectStyle({ strokeWidth: w });
+        widthContainer.querySelectorAll('[data-w]').forEach((b) => {
+          b.className = 'flex-1 rounded-md py-1 text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800';
+        });
+        btn.className = 'flex-1 rounded-md py-1 text-xs font-bold bg-blue-600 text-white';
+      };
+    });
+  }
+
+  // Kesikli Çizgi
+  if (dashedCheck) {
+    dashedCheck.onchange = (e) => {
+      currentStyle.isDashed = e.target.checked;
+      updateActiveObjectStyle({
+        strokeDashArray: e.target.checked ? [6, 6] : null
+      });
+    };
+  }
+
+  // Klonla & Sil
+  if (dupBtn) dupBtn.onclick = duplicateActiveObject;
+  if (delBtn) delBtn.onclick = deleteActiveObjects;
+}
+
+export const initGeometryDrawer = setupGeometryEventListeners;
+

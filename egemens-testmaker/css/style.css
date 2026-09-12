@@ -1407,11 +1407,23 @@ html.dark .bank-q-card:hover {
 }
 
 /* ==========================================================================
-   Geometri Çizim Tuvali (.geo-canvas)
+   Vektörel Geometri Çizim Tuvali & Fabric.js Kayan Araç Çubuğu
    ========================================================================== */
-#geoCanvas {
+#geoCanvas,
+#geoFabricCanvas {
   touch-action: none;
   image-rendering: -webkit-optimize-contrast;
   image-rendering: crisp-edges;
 }
+
+.canvas-container {
+  margin: 0 auto;
+  border-radius: 1rem;
+  overflow: hidden;
+}
+
+#geoFloatingToolbar {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
 

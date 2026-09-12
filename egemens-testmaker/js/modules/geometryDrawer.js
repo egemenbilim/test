@@ -1,8 +1,11 @@
 import { $, openModal, closeModal } from '../utils.js';
 
 /**
- * Vektörel Geometri Çizim Aracı ve KaTeX Denklem Tuvali (Geometry & Math Canvas Component)
- * Motor: Fabric.js v5/v6 + KaTeX
+ * Vektörel Geometri Çizim Aracı ve KaTeX Denklem Tuvali
+ * - 'Şekil Çiz' (Otomatik Açı Tespiti & $90^\circ$ Diklik Sembolü)
+ * - Açı Yazılarını Açma / Kapatma (Sadece Yay Gösterme Modu)
+ * - Şekil Üstüne Çizim & Manyetik Köşe/Kenar Yakalama (Vertex Snap)
+ * - KaTeX Formül Tuvali & 2x Retina PNG Export
  */
 
 let fabricCanvas = null;
@@ -15,7 +18,8 @@ const currentStyle = {
   fillColor: 'transparent',
   strokeWidth: 2,
   isDashed: false,
-  fontSize: 20
+  fontSize: 20,
+  angleDisplayMode: 'all' // 'all' | 'arc_only' | 'hidden'
 };
 
 let gridEnabled = true;
@@ -27,23 +31,17 @@ const historyStack = [];
 let historyIndex = -1;
 let isHistoryUpdating = false;
 
-// Çokgen Çizim Durumu
-let polygonPoints = [];
-let polygonTempLine = null;
-let polygonMarkers = [];
+// Şekil Çiz (Shape / Polygon) Durumu
+let shapePoints = [];
+let shapeTempLine = null;
+let shapeMarkers = [];
 
 // Doğru Çizim Durumu
 let drawingLine = null;
 let isDrawingLine = false;
 
-// 3 Noktalı Açı Çizim Durumu
-const angleState = {
-  step: 1,
-  p1: null,
-  p2: null, // Vertex (Köşe)
-  p3: null,
-  tempMarkers: []
-};
+// Manyetik Kilitlenme Göstergesi
+let snapIndicator = null;
 
 // Renk Paletleri
 const STROKE_COLORS = [
@@ -122,16 +120,13 @@ export function openGeometryModal(callback) {
   }
   openModal('geoModal');
 
-  // Canvas'ı gecikmeli başlat
   setTimeout(() => {
     initFabricCanvasIfNeeded();
     resetToolState();
   }, 50);
 }
 
-export function syncControlsFromState() {
-  // Uyumluluk için boş tutuldu
-}
+export function syncControlsFromState() {}
 
 // ============================================================================
 // FABRIC.JS TUVAL BAŞLATMA VE YÖNETİMİ
@@ -164,7 +159,7 @@ function initFabricCanvasIfNeeded() {
   updateGridBackground(gridEnabled);
   saveHistoryState();
 
-  // Olay Dinleyicileri
+  // Seçim Olayları
   fabricCanvas.on('selection:created', (e) => onObjectSelected(e.selected ? e.selected[0] : null));
   fabricCanvas.on('selection:updated', (e) => onObjectSelected(e.selected ? e.selected[0] : null));
   fabricCanvas.on('selection:cleared', () => onObjectSelected(null));
@@ -178,7 +173,6 @@ function initFabricCanvasIfNeeded() {
   fabricCanvas.on('mouse:move', onCanvasMouseMove);
   fabricCanvas.on('mouse:up', onCanvasMouseUp);
 
-  // Pencere / Klavye Dinleyicileri
   window.addEventListener('keydown', onGlobalKeyDown);
 }
 
@@ -214,9 +208,214 @@ function updateGridBackground(enabled) {
   fabricCanvas.setBackgroundColor(pattern, fabricCanvas.renderAll.bind(fabricCanvas));
 }
 
-function snap(val, step = 10) {
-  if (!snapEnabled) return val;
-  return Math.round(val / step) * step;
+// ============================================================================
+// MANYETİK KÖŞE / TEPE YAKALAMA (VERTEX SNAPPING)
+// ============================================================================
+
+function getAllCanvasVertices() {
+  if (!fabricCanvas) return [];
+  const fabric = window.fabric;
+  const vertices = [];
+
+  fabricCanvas.forEachObject((obj) => {
+    if (obj.isHelper || obj === snapIndicator) return;
+
+    if (obj.type === 'polygon' && Array.isArray(obj.points)) {
+      const matrix = obj.calcTransformMatrix();
+      obj.points.forEach((pt) => {
+        const trans = fabric.util.transformPoint(
+          new fabric.Point(pt.x - obj.pathOffset.x, pt.y - obj.pathOffset.y),
+          matrix
+        );
+        vertices.push({ x: trans.x, y: trans.y });
+      });
+    } else if (obj.type === 'group' && Array.isArray(obj._objects)) {
+      // Grup içindeki poligonları bul
+      const groupMatrix = obj.calcTransformMatrix();
+      obj._objects.forEach((sub) => {
+        if (sub.type === 'polygon' && Array.isArray(sub.points)) {
+          const subMatrix = sub.calcTransformMatrix();
+          sub.points.forEach((pt) => {
+            const localTrans = fabric.util.transformPoint(
+              new fabric.Point(pt.x - sub.pathOffset.x, pt.y - sub.pathOffset.y),
+              subMatrix
+            );
+            const worldTrans = fabric.util.transformPoint(localTrans, groupMatrix);
+            vertices.push({ x: worldTrans.x, y: worldTrans.y });
+          });
+        }
+      });
+    } else if (obj.type === 'line') {
+      vertices.push({ x: obj.x1, y: obj.y1 });
+      vertices.push({ x: obj.x2, y: obj.y2 });
+    }
+  });
+
+  return vertices;
+}
+
+function getSnappedPoint(rawPt, threshold = 16) {
+  let pt = {
+    x: snapEnabled ? Math.round(rawPt.x / 10) * 10 : rawPt.x,
+    y: snapEnabled ? Math.round(rawPt.y / 10) * 10 : rawPt.y
+  };
+
+  if (!snapEnabled) return pt;
+
+  // Mevcut şekillerin köşelerine bak
+  const vertices = getAllCanvasVertices();
+  let minDist = threshold;
+  let snapped = null;
+
+  for (const v of vertices) {
+    const d = Math.hypot(rawPt.x - v.x, rawPt.y - v.y);
+    if (d < minDist) {
+      minDist = d;
+      snapped = { x: v.x, y: v.y };
+    }
+  }
+
+  if (snapped) {
+    showSnapIndicator(snapped.x, snapped.y);
+    return snapped;
+  } else {
+    hideSnapIndicator();
+    return pt;
+  }
+}
+
+function showSnapIndicator(x, y) {
+  if (!fabricCanvas) return;
+  const fabric = window.fabric;
+  if (!snapIndicator) {
+    snapIndicator = new fabric.Circle({
+      radius: 6,
+      fill: 'rgba(16, 185, 129, 0.3)',
+      stroke: '#10b981',
+      strokeWidth: 2,
+      originX: 'center',
+      originY: 'center',
+      selectable: false,
+      isHelper: true
+    });
+    fabricCanvas.add(snapIndicator);
+  }
+  snapIndicator.set({ left: x, top: y });
+  snapIndicator.bringToFront();
+}
+
+function hideSnapIndicator() {
+  if (snapIndicator && fabricCanvas) {
+    fabricCanvas.remove(snapIndicator);
+    snapIndicator = null;
+  }
+}
+
+// ============================================================================
+// OTOMATİK AÇI VE DİKLİK HESAPLAMA ÇEKİRDEĞİ
+// ============================================================================
+
+function calculatePolygonAngles(points, arcRadius = 26) {
+  const n = points.length;
+  if (n < 3) return [];
+
+  // Shoelace signed area ile çokgenin yönü
+  let signedArea = 0;
+  for (let i = 0; i < n; i++) {
+    const p1 = points[i];
+    const p2 = points[(i + 1) % n];
+    signedArea += p1.x * p2.y - p2.x * p1.y;
+  }
+  const isClockwise = signedArea < 0;
+
+  const results = [];
+
+  for (let i = 0; i < n; i++) {
+    const pPrev = points[(i - 1 + n) % n];
+    const pCurr = points[i];
+    const pNext = points[(i + 1) % n];
+
+    const vPrev = { x: pPrev.x - pCurr.x, y: pPrev.y - pCurr.y };
+    const vNext = { x: pNext.x - pCurr.x, y: pNext.y - pCurr.y };
+
+    const lenPrev = Math.hypot(vPrev.x, vPrev.y);
+    const lenNext = Math.hypot(vNext.x, vNext.y);
+
+    if (lenPrev === 0 || lenNext === 0) continue;
+
+    const thPrev = Math.atan2(vPrev.y, vPrev.x);
+    const thNext = Math.atan2(vNext.y, vNext.x);
+
+    let diff = thNext - thPrev;
+    while (diff < 0) diff += 2 * Math.PI;
+    while (diff >= 2 * Math.PI) diff -= 2 * Math.PI;
+
+    let sweepAngle = isClockwise ? 2 * Math.PI - diff : diff;
+    if (sweepAngle < 0) sweepAngle += 2 * Math.PI;
+    if (sweepAngle > 2 * Math.PI) sweepAngle -= 2 * Math.PI;
+
+    const angleDegrees = Math.round((sweepAngle * 180) / Math.PI);
+    const isRightAngle = Math.abs(angleDegrees - 90) <= 2;
+
+    const boxSize = 16;
+    if (isRightAngle) {
+      // 90° Diklik Sembolü: Köşede kare + nokta
+      const u1 = { x: vPrev.x / lenPrev, y: vPrev.y / lenPrev };
+      const u2 = { x: vNext.x / lenNext, y: vNext.y / lenNext };
+
+      const corner1 = { x: pCurr.x + u1.x * boxSize, y: pCurr.y + u1.y * boxSize };
+      const corner2 = {
+        x: pCurr.x + (u1.x + u2.x) * boxSize,
+        y: pCurr.y + (u1.y + u2.y) * boxSize
+      };
+      const corner3 = { x: pCurr.x + u2.x * boxSize, y: pCurr.y + u2.y * boxSize };
+
+      const dotPos = {
+        x: pCurr.x + (u1.x + u2.x) * (boxSize * 0.5),
+        y: pCurr.y + (u1.y + u2.y) * (boxSize * 0.5)
+      };
+
+      results.push({
+        vertex: pCurr,
+        angleDegrees: 90,
+        isRightAngle: true,
+        rightAngleBoxPoints: [corner1, corner2, corner3],
+        dotPosition: dotPos
+      });
+    } else {
+      // Standart Açı Yayı ve Derece
+      const startAngle = isClockwise ? thNext : thPrev;
+      const endAngle = isClockwise ? thPrev : thNext;
+
+      const sX = pCurr.x + arcRadius * Math.cos(startAngle);
+      const sY = pCurr.y + arcRadius * Math.sin(startAngle);
+      const eX = pCurr.x + arcRadius * Math.cos(endAngle);
+      const eY = pCurr.y + arcRadius * Math.sin(endAngle);
+
+      let aDiff = endAngle - startAngle;
+      while (aDiff < 0) aDiff += 2 * Math.PI;
+      const largeArc = aDiff > Math.PI ? 1 : 0;
+
+      const arcPath = `M ${sX.toFixed(1)} ${sY.toFixed(1)} A ${arcRadius} ${arcRadius} 0 ${largeArc} 1 ${eX.toFixed(1)} ${eY.toFixed(1)}`;
+
+      const bisector = startAngle + sweepAngle / 2;
+      const labelDist = arcRadius + 15;
+      const labelPos = {
+        x: pCurr.x + Math.cos(bisector) * labelDist,
+        y: pCurr.y + Math.sin(bisector) * labelDist
+      };
+
+      results.push({
+        vertex: pCurr,
+        angleDegrees,
+        isRightAngle: false,
+        arcPathString: arcPath,
+        labelPosition: labelPos
+      });
+    }
+  }
+
+  return results;
 }
 
 // ============================================================================
@@ -224,46 +423,40 @@ function snap(val, step = 10) {
 // ============================================================================
 
 function setTool(tool) {
+  // 'polygon' isteklerini 'shape' ile eşleştir
+  if (tool === 'polygon') tool = 'shape';
   activeTool = tool;
 
-  // Buton aktiflik sınıfları
   document.querySelectorAll('[data-tool]').forEach((btn) => {
-    const isAct = btn.dataset.tool === tool;
+    const isAct = btn.dataset.tool === tool || (btn.dataset.tool === 'polygon' && tool === 'shape');
     if (isAct) {
-      btn.className = 'active flex h-11 w-11 flex-col items-center justify-center rounded-xl transition bg-blue-50 text-blue-600 font-bold border border-blue-200 shadow-sm dark:bg-blue-950/50 dark:border-blue-800 dark:text-blue-400';
+      btn.className = 'active flex h-12 w-full flex-col items-center justify-center rounded-xl transition bg-blue-50 text-blue-600 font-bold border border-blue-200 shadow-sm dark:bg-blue-950/50 dark:border-blue-800 dark:text-blue-400';
     } else {
-      btn.className = 'flex h-11 w-11 flex-col items-center justify-center rounded-xl text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition';
+      btn.className = 'flex h-12 w-full flex-col items-center justify-center rounded-xl text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 transition';
     }
   });
 
-  // İpucu Toast Metni
   const guidanceEl = $('geoGuidanceText');
-  const polygonBtn = $('geoPolygonFinishBtn');
+  const shapeFinishBtn = $('geoPolygonFinishBtn');
 
-  if (polygonBtn) {
-    polygonBtn.classList.toggle('hidden', tool !== 'polygon');
-    polygonBtn.classList.toggle('flex', tool === 'polygon');
+  if (shapeFinishBtn) {
+    shapeFinishBtn.classList.toggle('hidden', tool !== 'shape');
+    shapeFinishBtn.classList.toggle('flex', tool === 'shape');
   }
 
   if (guidanceEl) {
     switch (tool) {
       case 'select':
-        guidanceEl.textContent = 'Nesneleri seçmek, taşımak, döndürmek veya boyutlandırmak için tıklayın / sürükleyin.';
+        guidanceEl.textContent = 'Nesneleri seçmek, taşımak, boyutlandırmak ve açı modunu değiştirmek için tıklayın.';
         break;
-      case 'point':
-        guidanceEl.textContent = 'Tuvalde nokta eklemek istediğiniz yere tıklayın.';
+      case 'shape':
+        guidanceEl.textContent = 'Köşeleri sırayla tıklayarak şekli çizin. Bittiğinde iç açılar (90° diklik kutusu veya yay) otomatik oluşturulur.';
         break;
       case 'line':
-        guidanceEl.textContent = 'Doğru parçasını oluşturmak için başlangıç noktasından bitişe doğru sürükleyin.';
-        break;
-      case 'polygon':
-        guidanceEl.textContent = 'Çokgenin köşelerine sırayla tıklayın. Kapatmak için ilk noktaya tıklayın veya [Çokgeni Tamamla] butonuna basın.';
+        guidanceEl.textContent = 'Yükseklik, açıortay veya doğru çizmek için sürükleyin. Köşelere manyetik kenetlenir.';
         break;
       case 'circle':
-        guidanceEl.textContent = 'Merkez noktasını belirleyip sürükleyerek çember oluşturun.';
-        break;
-      case 'angle':
-        guidanceEl.textContent = 'Açıyı oluşturmak için sırayla 3 nokta seçin: 1. Kol Noktası ➔ 2. Köşe (Vertex) ➔ 3. Kol Noktası.';
+        guidanceEl.textContent = 'Merkez noktasını belirleyip dışa sürükleyerek çember oluşturun.';
         break;
       case 'text':
         guidanceEl.textContent = 'Metin veya köşe harfi (A, B, C) eklemek istediğiniz konuma tıklayın.';
@@ -273,14 +466,15 @@ function setTool(tool) {
     }
   }
 
-  // Fabric canvas cursor & selection
   if (fabricCanvas) {
     if (tool === 'select') {
       fabricCanvas.selection = true;
       fabricCanvas.defaultCursor = 'default';
       fabricCanvas.forEachObject((obj) => {
-        obj.selectable = true;
-        obj.evented = true;
+        if (!obj.isHelper) {
+          obj.selectable = true;
+          obj.evented = true;
+        }
       });
     } else {
       fabricCanvas.selection = false;
@@ -292,8 +486,8 @@ function setTool(tool) {
 }
 
 function resetToolState() {
-  cleanupPolygonDrawing();
-  cleanupAngleDrawing();
+  cleanupShapeDrawing();
+  hideSnapIndicator();
   setTool('select');
   hideFloatingToolbar();
 }
@@ -306,24 +500,51 @@ function onCanvasMouseDown(opt) {
   if (!fabricCanvas) return;
   const fabric = window.fabric;
   const pointer = fabricCanvas.getPointer(opt.e);
-  const pt = { x: snap(pointer.x), y: snap(pointer.y) };
+  const pt = getSnappedPoint(pointer);
 
-  if (activeTool === 'point') {
-    const point = new fabric.Circle({
+  if (activeTool === 'shape') {
+    // İlk noktaya yakın tıklandıysa şekli tamamla
+    if (shapePoints.length >= 3) {
+      const firstPt = shapePoints[0];
+      const dist = Math.hypot(pt.x - firstPt.x, pt.y - firstPt.y);
+      if (dist < 20) {
+        finishShape();
+        return;
+      }
+    }
+
+    shapePoints.push(pt);
+
+    // Kırmızı köşe işareti
+    const marker = new fabric.Circle({
       left: pt.x,
       top: pt.y,
-      radius: 4,
-      fill: currentStyle.strokeColor,
+      radius: 4.5,
+      fill: '#ef4444',
+      stroke: '#ffffff',
+      strokeWidth: 1.5,
       originX: 'center',
       originY: 'center',
-      selectable: true,
-      cornerColor: '#2563eb',
-      cornerSize: 8,
-      transparentCorners: false
+      selectable: false,
+      isHelper: true
     });
-    fabricCanvas.add(point);
+    fabricCanvas.add(marker);
+    shapeMarkers.push(marker);
+
+    // Canlı kauçuk bant çizgi
+    if (!shapeTempLine) {
+      shapeTempLine = new fabric.Line([pt.x, pt.y, pt.x, pt.y], {
+        stroke: currentStyle.strokeColor,
+        strokeWidth: currentStyle.strokeWidth,
+        strokeDashArray: [4, 4],
+        selectable: false,
+        isHelper: true
+      });
+      fabricCanvas.add(shapeTempLine);
+    } else {
+      shapeTempLine.set({ x1: pt.x, y1: pt.y, x2: pt.x, y2: pt.y });
+    }
     fabricCanvas.renderAll();
-    saveHistoryState();
   } else if (activeTool === 'line') {
     isDrawingLine = true;
     drawingLine = new fabric.Line([pt.x, pt.y, pt.x, pt.y], {
@@ -336,47 +557,6 @@ function onCanvasMouseDown(opt) {
       transparentCorners: false
     });
     fabricCanvas.add(drawingLine);
-  } else if (activeTool === 'polygon') {
-    // İlk noktaya yakın tıklandıysa bitir
-    if (polygonPoints.length >= 3) {
-      const firstPt = polygonPoints[0];
-      const dist = Math.hypot(pt.x - firstPt.x, pt.y - firstPt.y);
-      if (dist < 15) {
-        finishPolygon();
-        return;
-      }
-    }
-
-    polygonPoints.push(pt);
-
-    // Kırmızı köşe işareti
-    const marker = new fabric.Circle({
-      left: pt.x,
-      top: pt.y,
-      radius: 4,
-      fill: '#ef4444',
-      stroke: '#ffffff',
-      strokeWidth: 1.5,
-      originX: 'center',
-      originY: 'center',
-      selectable: false
-    });
-    fabricCanvas.add(marker);
-    polygonMarkers.push(marker);
-
-    // Kauçuk kılavuz çizgi
-    if (!polygonTempLine) {
-      polygonTempLine = new fabric.Line([pt.x, pt.y, pt.x, pt.y], {
-        stroke: currentStyle.strokeColor,
-        strokeWidth: currentStyle.strokeWidth,
-        strokeDashArray: [4, 4],
-        selectable: false
-      });
-      fabricCanvas.add(polygonTempLine);
-    } else {
-      polygonTempLine.set({ x1: pt.x, y1: pt.y, x2: pt.x, y2: pt.y });
-    }
-    fabricCanvas.renderAll();
   } else if (activeTool === 'circle') {
     const circle = new fabric.Circle({
       left: pt.x,
@@ -385,7 +565,6 @@ function onCanvasMouseDown(opt) {
       fill: currentStyle.fillColor,
       stroke: currentStyle.strokeColor,
       strokeWidth: currentStyle.strokeWidth,
-      strokeDashArray: currentStyle.isDashed ? [6, 6] : null,
       originX: 'center',
       originY: 'center',
       selectable: true,
@@ -398,33 +577,6 @@ function onCanvasMouseDown(opt) {
     fabricCanvas.renderAll();
     saveHistoryState();
     setTool('select');
-  } else if (activeTool === 'angle') {
-    // 3 Noktalı İnteraktif Açı Aracı
-    const marker = new fabric.Circle({
-      left: pt.x,
-      top: pt.y,
-      radius: 5,
-      fill: angleState.step === 2 ? '#2563eb' : '#dc2626',
-      stroke: '#ffffff',
-      strokeWidth: 1.5,
-      originX: 'center',
-      originY: 'center',
-      selectable: false
-    });
-    fabricCanvas.add(marker);
-    angleState.tempMarkers.push(marker);
-
-    if (angleState.step === 1) {
-      angleState.p1 = pt;
-      angleState.step = 2;
-    } else if (angleState.step === 2) {
-      angleState.p2 = pt; // Vertex (Köşe)
-      angleState.step = 3;
-    } else if (angleState.step === 3) {
-      angleState.p3 = pt;
-      // Hesapla ve oluştur
-      createAngleObject(angleState.p1, angleState.p2, angleState.p3);
-    }
   } else if (activeTool === 'text') {
     const text = new fabric.IText('A', {
       left: pt.x,
@@ -447,18 +599,20 @@ function onCanvasMouseDown(opt) {
 function onCanvasMouseMove(opt) {
   if (!fabricCanvas) return;
   const pointer = fabricCanvas.getPointer(opt.e);
-  const pt = { x: snap(pointer.x), y: snap(pointer.y) };
+  const pt = getSnappedPoint(pointer);
 
   if (isDrawingLine && drawingLine) {
     drawingLine.set({ x2: pt.x, y2: pt.y });
     fabricCanvas.renderAll();
-  } else if (activeTool === 'polygon' && polygonTempLine) {
-    polygonTempLine.set({ x2: pt.x, y2: pt.y });
+  } else if (activeTool === 'shape' && shapeTempLine) {
+    shapeTempLine.set({ x2: pt.x, y2: pt.y });
     fabricCanvas.renderAll();
   }
 }
 
 function onCanvasMouseUp() {
+  hideSnapIndicator();
+
   if (isDrawingLine && drawingLine) {
     isDrawingLine = false;
     drawingLine.setCoords();
@@ -471,120 +625,95 @@ function onCanvasMouseUp() {
 }
 
 // ============================================================================
-// ÇOKGEN & AÇI BİTİRME MEKANİZMALARI
+// ŞEKİL BİTİRME & OTOMATİK AÇI OLUŞTURMA
 // ============================================================================
 
-function finishPolygon() {
-  if (!fabricCanvas || polygonPoints.length < 3) {
-    cleanupPolygonDrawing();
+function finishShape() {
+  if (!fabricCanvas || shapePoints.length < 3) {
+    cleanupShapeDrawing();
     return;
   }
 
   const fabric = window.fabric;
-  const pts = [...polygonPoints];
-  cleanupPolygonDrawing();
+  const pts = [...shapePoints];
+  cleanupShapeDrawing();
 
-  const poly = new fabric.Polygon(pts, {
+  // 1. Ana Poligon Şekli
+  const polygon = new fabric.Polygon(pts, {
     fill: currentStyle.fillColor,
     stroke: currentStyle.strokeColor,
     strokeWidth: currentStyle.strokeWidth,
     strokeDashArray: currentStyle.isDashed ? [6, 6] : null,
-    selectable: true,
-    cornerColor: '#2563eb',
-    cornerSize: 8,
-    transparentCorners: false
-  });
-
-  fabricCanvas.add(poly);
-  fabricCanvas.setActiveObject(poly);
-  fabricCanvas.renderAll();
-  saveHistoryState();
-  setTool('select');
-}
-
-function cleanupPolygonDrawing() {
-  if (!fabricCanvas) return;
-  if (polygonTempLine) {
-    fabricCanvas.remove(polygonTempLine);
-    polygonTempLine = null;
-  }
-  polygonMarkers.forEach((m) => fabricCanvas.remove(m));
-  polygonMarkers = [];
-  polygonPoints = [];
-  fabricCanvas.renderAll();
-}
-
-function createAngleObject(p1, p2, p3) {
-  const fabric = window.fabric;
-  if (!fabric || !fabricCanvas) return;
-
-  const v1x = p1.x - p2.x;
-  const v1y = p1.y - p2.y;
-  const v2x = p3.x - p2.x;
-  const v2y = p3.y - p2.y;
-
-  let theta1 = Math.atan2(v1y, v1x);
-  let theta2 = Math.atan2(v2y, v2x);
-
-  let diff = theta2 - theta1;
-  while (diff < 0) diff += 2 * Math.PI;
-  while (diff >= 2 * Math.PI) diff -= 2 * Math.PI;
-
-  let startAngle = theta1;
-  let sweepAngle = diff;
-  let isClockwise = true;
-
-  if (diff > Math.PI) {
-    startAngle = theta2;
-    sweepAngle = 2 * Math.PI - diff;
-    isClockwise = false;
-  }
-
-  const angleDegrees = Math.round((sweepAngle * 180) / Math.PI);
-  const arcR = 30;
-
-  // Arc path üretimi
-  const sX = p2.x + arcR * Math.cos(startAngle);
-  const sY = p2.y + arcR * Math.sin(startAngle);
-  const endAngle = isClockwise ? startAngle + sweepAngle : startAngle - sweepAngle;
-  const eX = p2.x + arcR * Math.cos(endAngle);
-  const eY = p2.y + arcR * Math.sin(endAngle);
-
-  const pathStr = `M ${sX.toFixed(1)} ${sY.toFixed(1)} A ${arcR} ${arcR} 0 0 1 ${eX.toFixed(1)} ${eY.toFixed(1)}`;
-
-  const arcPath = new fabric.Path(pathStr, {
-    stroke: currentStyle.strokeColor,
-    strokeWidth: currentStyle.strokeWidth,
-    fill: 'transparent',
     selectable: true
   });
 
-  // Açıortay yönünde etiket konumu
-  const bisectorAngle = isClockwise ? startAngle + sweepAngle / 2 : startAngle - sweepAngle / 2;
-  const labelDist = arcR + 18;
-  const lblX = p2.x + Math.cos(bisectorAngle) * labelDist;
-  const lblY = p2.y + Math.sin(bisectorAngle) * labelDist;
+  // 2. Otomatik Açıları Hesapla
+  const angles = calculatePolygonAngles(pts, 26);
+  const angleElements = [];
 
-  const angleLabel = new fabric.IText(`${angleDegrees}°`, {
-    left: lblX,
-    top: lblY,
-    fontSize: 16,
-    fontFamily: 'Noto Sans, sans-serif',
-    fontWeight: 'bold',
-    fill: currentStyle.strokeColor,
-    originX: 'center',
-    originY: 'center',
-    selectable: true
+  angles.forEach((ang) => {
+    if (ang.isRightAngle && ang.rightAngleBoxPoints && ang.dotPosition) {
+      // 90° Diklik Karesi
+      const box = new fabric.Polyline(ang.rightAngleBoxPoints, {
+        fill: 'transparent',
+        stroke: currentStyle.strokeColor,
+        strokeWidth: 1.5,
+        selectable: false,
+        isAngleComponent: true
+      });
+
+      const dot = new fabric.Circle({
+        left: ang.dotPosition.x,
+        top: ang.dotPosition.y,
+        radius: 2,
+        fill: currentStyle.strokeColor,
+        originX: 'center',
+        originY: 'center',
+        selectable: false,
+        isAngleComponent: true
+      });
+
+      angleElements.push(box, dot);
+    } else if (ang.arcPathString) {
+      // Açı Yayı
+      const arc = new fabric.Path(ang.arcPathString, {
+        stroke: currentStyle.strokeColor,
+        strokeWidth: 1.5,
+        fill: 'transparent',
+        selectable: false,
+        isAngleComponent: true,
+        isAngleArc: true
+      });
+
+      // Açı Derecesi Metni
+      const lbl = new fabric.IText(`${ang.angleDegrees}°`, {
+        left: ang.labelPosition.x,
+        top: ang.labelPosition.y,
+        fontSize: 14,
+        fontFamily: 'Noto Sans, sans-serif',
+        fontWeight: 'bold',
+        fill: currentStyle.strokeColor,
+        originX: 'center',
+        originY: 'center',
+        selectable: false,
+        isAngleComponent: true,
+        isAngleLabel: true
+      });
+
+      angleElements.push(arc, lbl);
+    }
   });
 
-  const group = new fabric.Group([arcPath, angleLabel], {
+  // Ana şekil ve açı elemanlarını tek bir grup olarak tuvale ekle
+  const group = new fabric.Group([polygon, ...angleElements], {
     selectable: true,
     cornerColor: '#2563eb',
     cornerSize: 8,
-    transparentCorners: false
+    transparentCorners: false,
+    hasAutoAngles: true,
+    angleDisplayMode: currentStyle.angleDisplayMode || 'all'
   });
 
-  cleanupAngleDrawing();
   fabricCanvas.add(group);
   fabricCanvas.setActiveObject(group);
   fabricCanvas.renderAll();
@@ -592,15 +721,59 @@ function createAngleObject(p1, p2, p3) {
   setTool('select');
 }
 
-function cleanupAngleDrawing() {
+function cleanupShapeDrawing() {
   if (!fabricCanvas) return;
-  angleState.tempMarkers.forEach((m) => fabricCanvas.remove(m));
-  angleState.tempMarkers = [];
-  angleState.step = 1;
-  angleState.p1 = null;
-  angleState.p2 = null;
-  angleState.p3 = null;
+  if (shapeTempLine) {
+    fabricCanvas.remove(shapeTempLine);
+    shapeTempLine = null;
+  }
+  shapeMarkers.forEach((m) => fabricCanvas.remove(m));
+  shapeMarkers = [];
+  shapePoints = [];
   fabricCanvas.renderAll();
+}
+
+// ============================================================================
+// AÇI GÖSTERİM MODU KONTROLÜ (TÜMÜ / SADECE YAY / GİZLİ)
+// ============================================================================
+
+function setAngleDisplayMode(mode) {
+  currentStyle.angleDisplayMode = mode;
+  if (!fabricCanvas) return;
+
+  const active = fabricCanvas.getActiveObject();
+  if (active && active.type === 'group' && Array.isArray(active._objects)) {
+    active.angleDisplayMode = mode;
+
+    active._objects.forEach((obj) => {
+      if (obj.isAngleLabel) {
+        // Derece yazısı: sadece 'all' modunda görünür
+        obj.set('visible', mode === 'all');
+      } else if (obj.isAngleArc || obj.isAngleComponent) {
+        // Yay veya diklik kutusu: 'all' veya 'arc_only' modunda görünür
+        obj.set('visible', mode !== 'hidden');
+      }
+    });
+
+    fabricCanvas.renderAll();
+    saveHistoryState();
+  }
+
+  // Floating toolbar etiketini güncelle
+  updateAngleButtonLabel(mode);
+}
+
+function updateAngleButtonLabel(mode) {
+  const lbl = $('geoFloatAngleLabel');
+  if (!lbl) return;
+
+  if (mode === 'all') {
+    lbl.textContent = 'Açı: Değerli';
+  } else if (mode === 'arc_only') {
+    lbl.textContent = 'Açı: Sadece Yay';
+  } else {
+    lbl.textContent = 'Açı: Gizli';
+  }
 }
 
 // ============================================================================
@@ -616,12 +789,11 @@ function onObjectSelected(target) {
     return;
   }
 
-  // Toolbar konumu
   const bound = target.getBoundingRect(true);
   const container = $('geoCanvasContainer');
   if (!container) return;
 
-  const top = Math.max(10, bound.top - 48);
+  const top = Math.max(10, bound.top - 50);
   const left = Math.max(10, bound.left + bound.width / 2);
 
   toolbar.style.top = `${top}px`;
@@ -630,7 +802,18 @@ function onObjectSelected(target) {
   toolbar.classList.remove('hidden');
   toolbar.classList.add('flex');
 
-  // Preview güncelle
+  // Açı kontrol butonunu göster / gizle
+  const angleWrapper = $('geoAngleControlWrapper');
+  const hasAngles = target.hasAutoAngles || (target.type === 'group' && target._objects?.some((o) => o.isAngleComponent));
+  if (angleWrapper) {
+    angleWrapper.classList.toggle('hidden', !hasAngles);
+    if (hasAngles) {
+      const mode = target.angleDisplayMode || 'all';
+      updateAngleButtonLabel(mode);
+    }
+  }
+
+  // Renk ve kalınlık önizlemeleri
   const strokeColor = target.stroke || currentStyle.strokeColor;
   const fillColor = target.fill || currentStyle.fillColor;
   const strokeW = target.strokeWidth || currentStyle.strokeWidth;
@@ -667,9 +850,11 @@ function hideFloatingToolbar() {
 }
 
 function closeAllFloatingPopovers() {
+  const p0 = $('geoFloatAnglePopover');
   const p1 = $('geoFloatStrokePopover');
   const p2 = $('geoFloatFillPopover');
   const p3 = $('geoFloatWidthPopover');
+  if (p0) p0.classList.add('hidden');
   if (p1) p1.classList.add('hidden');
   if (p2) p2.classList.add('hidden');
   if (p3) p3.classList.add('hidden');
@@ -681,10 +866,21 @@ function updateActiveObjectStyle(updates) {
   if (!activeObjs || activeObjs.length === 0) return;
 
   activeObjs.forEach((obj) => {
-    if (updates.stroke !== undefined) obj.set('stroke', updates.stroke);
-    if (updates.fill !== undefined) obj.set('fill', updates.fill);
-    if (updates.strokeWidth !== undefined) obj.set('strokeWidth', updates.strokeWidth);
-    if (updates.strokeDashArray !== undefined) obj.set('strokeDashArray', updates.strokeDashArray);
+    if (obj.type === 'group' && Array.isArray(obj._objects)) {
+      // Grup içindeki ana çokgene stili uygula
+      const mainPoly = obj._objects.find((o) => o.type === 'polygon' || o.type === 'rect' || o.type === 'circle');
+      if (mainPoly) {
+        if (updates.stroke !== undefined) mainPoly.set('stroke', updates.stroke);
+        if (updates.fill !== undefined) mainPoly.set('fill', updates.fill);
+        if (updates.strokeWidth !== undefined) mainPoly.set('strokeWidth', updates.strokeWidth);
+        if (updates.strokeDashArray !== undefined) mainPoly.set('strokeDashArray', updates.strokeDashArray);
+      }
+    } else {
+      if (updates.stroke !== undefined) obj.set('stroke', updates.stroke);
+      if (updates.fill !== undefined) obj.set('fill', updates.fill);
+      if (updates.strokeWidth !== undefined) obj.set('strokeWidth', updates.strokeWidth);
+      if (updates.strokeDashArray !== undefined) obj.set('strokeDashArray', updates.strokeDashArray);
+    }
     obj.setCoords();
   });
 
@@ -731,149 +927,69 @@ function deleteActiveObjects() {
 }
 
 // ============================================================================
-// DÜZGÜN ÇOKGEN, ELİPS VE ŞABLONLAR
+// HAZIR GEOMETRİ ŞABLONLARI
 // ============================================================================
-
-function addEllipse() {
-  const fabric = window.fabric;
-  if (!fabric || !fabricCanvas) return;
-
-  const ellipse = new fabric.Ellipse({
-    left: 380,
-    top: 245,
-    rx: 80,
-    ry: 50,
-    fill: currentStyle.fillColor,
-    stroke: currentStyle.strokeColor,
-    strokeWidth: currentStyle.strokeWidth,
-    strokeDashArray: currentStyle.isDashed ? [6, 6] : null,
-    originX: 'center',
-    originY: 'center',
-    selectable: true,
-    cornerColor: '#2563eb',
-    cornerSize: 8,
-    transparentCorners: false
-  });
-
-  fabricCanvas.add(ellipse);
-  fabricCanvas.setActiveObject(ellipse);
-  fabricCanvas.renderAll();
-  saveHistoryState();
-  setTool('select');
-}
-
-function addRegularPolygon(sides) {
-  const fabric = window.fabric;
-  if (!fabric || !fabricCanvas) return;
-
-  const center = { x: 380, y: 245 };
-  const radius = 70;
-  const points = [];
-  const angleStep = (2 * Math.PI) / sides;
-  const startOffset = -Math.PI / 2;
-
-  for (let i = 0; i < sides; i++) {
-    const ang = startOffset + i * angleStep;
-    points.push({
-      x: center.x + radius * Math.cos(ang),
-      y: center.y + radius * Math.sin(ang)
-    });
-  }
-
-  const poly = new fabric.Polygon(points, {
-    fill: currentStyle.fillColor,
-    stroke: currentStyle.strokeColor,
-    strokeWidth: currentStyle.strokeWidth,
-    strokeDashArray: currentStyle.isDashed ? [6, 6] : null,
-    selectable: true,
-    cornerColor: '#2563eb',
-    cornerSize: 8,
-    transparentCorners: false
-  });
-
-  fabricCanvas.add(poly);
-  fabricCanvas.setActiveObject(poly);
-  fabricCanvas.renderAll();
-  saveHistoryState();
-  setTool('select');
-}
 
 function insertTemplate(tplName) {
   const fabric = window.fabric;
   if (!fabric || !fabricCanvas) return;
 
   if (tplName === 'dik_ucgen') {
-    // 3-4-5 Dik üçgen
-    const pA = { x: 260, y: 150 };
-    const pB = { x: 260, y: 350 };
-    const pC = { x: 520, y: 350 };
-
-    const triangle = new fabric.Polygon([pA, pB, pC], {
-      fill: 'transparent',
-      stroke: '#0f172a',
-      strokeWidth: 2,
-      selectable: true
-    });
-
-    // 90° Diklik kutusu
-    const rightAngleBox = new fabric.Polyline([
-      { x: pB.x, y: pB.y - 18 },
-      { x: pB.x + 18, y: pB.y - 18 },
-      { x: pB.x + 18, y: pB.y }
-    ], {
-      fill: 'transparent',
-      stroke: '#0f172a',
-      strokeWidth: 1.5,
-      selectable: false
-    });
-
-    const dot = new fabric.Circle({
-      left: pB.x + 9,
-      top: pB.y - 9,
-      radius: 2,
-      fill: '#0f172a',
-      originX: 'center',
-      originY: 'center',
-      selectable: false
-    });
-
-    const lblA = new fabric.IText('A', { left: pA.x - 12, top: pA.y - 25, fontSize: 18, fontWeight: 'bold' });
-    const lblB = new fabric.IText('B', { left: pB.x - 22, top: pB.y + 4, fontSize: 18, fontWeight: 'bold' });
-    const lblC = new fabric.IText('C', { left: pC.x + 8, top: pC.y + 4, fontSize: 18, fontWeight: 'bold' });
-
-    const group = new fabric.Group([triangle, rightAngleBox, dot, lblA, lblB, lblC], {
-      left: 240,
-      top: 130,
-      selectable: true,
-      cornerColor: '#2563eb',
-      cornerSize: 8,
-      transparentCorners: false
-    });
-
-    fabricCanvas.add(group);
-    fabricCanvas.setActiveObject(group);
+    // 3-4-5 Dik Üçgen (Otomatik Açılı)
+    const pts = [
+      { x: 260, y: 150 },
+      { x: 260, y: 350 },
+      { x: 520, y: 350 }
+    ];
+    shapePoints = pts;
+    finishShape();
+  } else if (tplName === 'ozel_30_60') {
+    // 30-60-90 Üçgeni
+    const pts = [
+      { x: 280, y: 140 },
+      { x: 280, y: 360 },
+      { x: 490, y: 360 }
+    ];
+    shapePoints = pts;
+    finishShape();
   } else if (tplName === 'eskenar') {
-    const pA = { x: 380, y: 140 };
-    const pB = { x: 240, y: 360 };
-    const pC = { x: 520, y: 360 };
+    // Eşkenar Üçgen (60°-60°-60°)
+    const pts = [
+      { x: 380, y: 150 },
+      { x: 260, y: 358 },
+      { x: 500, y: 358 }
+    ];
+    shapePoints = pts;
+    finishShape();
+  } else if (tplName === 'oklid') {
+    // Öklid Dik Üçgeni + Hipotenüs Dikmesi [AH]
+    const pts = [
+      { x: 350, y: 150 },
+      { x: 220, y: 360 },
+      { x: 540, y: 360 }
+    ];
+    shapePoints = pts;
+    finishShape();
 
-    const triangle = new fabric.Polygon([pA, pB, pC], {
-      fill: 'transparent',
-      stroke: '#0f172a',
-      strokeWidth: 2
-    });
-
-    const lblA = new fabric.IText('A', { left: pA.x - 6, top: pA.y - 24, fontSize: 18, fontWeight: 'bold' });
-    const lblB = new fabric.IText('B', { left: pB.x - 20, top: pB.y + 2, fontSize: 18, fontWeight: 'bold' });
-    const lblC = new fabric.IText('C', { left: pC.x + 8, top: pC.y + 2, fontSize: 18, fontWeight: 'bold' });
-
-    const group = new fabric.Group([triangle, lblA, lblB, lblC], {
-      left: 220,
-      top: 120,
-      selectable: true
-    });
-    fabricCanvas.add(group);
-    fabricCanvas.setActiveObject(group);
+    // Dikme h çizgisi ekle
+    setTimeout(() => {
+      const hLine = new fabric.Line([350, 150, 350, 360], {
+        stroke: '#4f46e5',
+        strokeWidth: 2,
+        strokeDashArray: [4, 4],
+        selectable: true
+      });
+      const hLbl = new fabric.IText('h', {
+        left: 360,
+        top: 240,
+        fontSize: 16,
+        fontWeight: 'bold',
+        fill: '#4f46e5'
+      });
+      fabricCanvas.add(hLine, hLbl);
+      fabricCanvas.renderAll();
+      saveHistoryState();
+    }, 50);
   } else if (tplName === 'cember_dilim') {
     const circle = new fabric.Circle({
       left: 380,
@@ -896,39 +1012,39 @@ function insertTemplate(tplName) {
     });
 
     const centerLbl = new fabric.IText('O', { left: 365, top: 245, fontSize: 16, fontWeight: 'bold' });
+    const rLine1 = new fabric.Line([380, 240, 470, 240], { stroke: '#0f172a', strokeWidth: 1.8 });
+    const rLine2 = new fabric.Line([380, 240, 425, 162], { stroke: '#0f172a', strokeWidth: 1.8 });
 
-    const radiusLine1 = new fabric.Line([380, 240, 470, 240], { stroke: '#0f172a', strokeWidth: 1.8 });
-    const radiusLine2 = new fabric.Line([380, 240, 425, 162], { stroke: '#0f172a', strokeWidth: 1.8 });
-
-    const group = new fabric.Group([circle, centerPoint, centerLbl, radiusLine1, radiusLine2], {
+    const group = new fabric.Group([circle, centerPoint, centerLbl, rLine1, rLine2], {
       left: 280,
       top: 140,
       selectable: true
     });
     fabricCanvas.add(group);
     fabricCanvas.setActiveObject(group);
+    fabricCanvas.renderAll();
+    saveHistoryState();
   } else if (tplName === 'dikdortgen') {
-    const rect = new fabric.Rect({
-      left: 240,
-      top: 160,
-      width: 280,
-      height: 160,
-      fill: 'transparent',
-      stroke: '#0f172a',
-      strokeWidth: 2,
-      selectable: true
-    });
-    fabricCanvas.add(rect);
-    fabricCanvas.setActiveObject(rect);
+    const pts = [
+      { x: 240, y: 160 },
+      { x: 520, y: 160 },
+      { x: 520, y: 320 },
+      { x: 240, y: 320 }
+    ];
+    shapePoints = pts;
+    finishShape();
   } else {
-    // Genel üçgen şablonu
-    addRegularPolygon(3);
+    // 3'gen şablonu
+    const pts = [
+      { x: 380, y: 160 },
+      { x: 260, y: 340 },
+      { x: 500, y: 340 }
+    ];
+    shapePoints = pts;
+    finishShape();
   }
 
-  fabricCanvas.renderAll();
-  saveHistoryState();
-  setTool('select');
-  $('geoTemplateDrawer').classList.add('hidden');
+  $('geoTemplateDrawer')?.classList.add('hidden');
 }
 
 // ============================================================================
@@ -944,7 +1060,6 @@ function setupKatexFormulaModule() {
 
   if (!tabsContainer || !buttonsGrid || !inputEl || !previewEl) return;
 
-  // Sekme değiştirme
   tabsContainer.querySelectorAll('[data-ftab]').forEach((btn) => {
     btn.onclick = () => {
       activeFormulaTab = btn.dataset.ftab;
@@ -956,7 +1071,6 @@ function setupKatexFormulaModule() {
     };
   });
 
-  // Sembol butonlarını render et
   function renderFormulaButtons() {
     buttonsGrid.innerHTML = '';
     const items = FORMULA_TABS[activeFormulaTab] || [];
@@ -975,7 +1089,6 @@ function setupKatexFormulaModule() {
     });
   }
 
-  // Canlı KaTeX Önizleme
   function updateFormulaPreview() {
     const latex = inputEl.value.trim() || ' ';
     const katex = window.katex;
@@ -996,7 +1109,6 @@ function setupKatexFormulaModule() {
 
   inputEl.oninput = updateFormulaPreview;
 
-  // Renk seçenekleri
   const colorOptions = $('geoFormulaColorOptions');
   if (colorOptions) {
     colorOptions.querySelectorAll('[data-color]').forEach((btn) => {
@@ -1009,20 +1121,17 @@ function setupKatexFormulaModule() {
     });
   }
 
-  // Boyut seçimi
   if (sizeSelect) {
     sizeSelect.onchange = (e) => {
       formulaSize = parseInt(e.target.value, 10) || 26;
     };
   }
 
-  // Kapatma
   const closeBtn = $('geoFormulaClose');
   const cancelBtn = $('geoFormulaCancel');
   if (closeBtn) closeBtn.onclick = () => closeModal('geoFormulaModal');
   if (cancelBtn) cancelBtn.onclick = () => closeModal('geoFormulaModal');
 
-  // Tuvale Ekle Butonu
   const insertBtn = $('geoFormulaInsertBtn');
   if (insertBtn) {
     insertBtn.onclick = async () => {
@@ -1065,7 +1174,7 @@ async function addKatexFormulaToCanvas(latex, color = '#0f172a', fontSize = 26) 
     const height = Math.max(Math.ceil(rect.height) + 8, 24);
     document.body.removeChild(wrapper);
 
-    const scale = 2; // Retina 2x
+    const scale = 2;
     const svg = `
       <svg xmlns="http://www.w3.org/2000/svg" width="${width * scale}" height="${height * scale}" viewBox="0 0 ${width} ${height}">
         <foreignObject width="100%" height="100%">
@@ -1116,7 +1225,7 @@ async function addKatexFormulaToCanvas(latex, color = '#0f172a', fontSize = 26) 
 }
 
 // ============================================================================
-// TARİHÇE (UNDO / REDO) VE KLAVYE KISAYOLLARI
+// TARİHÇE VE KLAVYE KISAYOLLARI
 // ============================================================================
 
 function saveHistoryState() {
@@ -1161,11 +1270,8 @@ function onGlobalKeyDown(e) {
   } else if (e.key === 'Delete' || e.key === 'Backspace') {
     deleteActiveObjects();
   } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
-    if (e.shiftKey) {
-      handleRedo();
-    } else {
-      handleUndo();
-    }
+    if (e.shiftKey) handleRedo();
+    else handleUndo();
     e.preventDefault();
   } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
     handleRedo();
@@ -1182,128 +1288,71 @@ function onGlobalKeyDown(e) {
 
 export function exportGeometryAsPNG() {
   if (!fabricCanvas) return null;
+  hideSnapIndicator();
   fabricCanvas.discardActiveObject();
   fabricCanvas.renderAll();
 
   return fabricCanvas.toDataURL({
     format: 'png',
-    multiplier: 2 // 2x Retina Yüksek Çözünürlük
+    multiplier: 2
   });
 }
 
 // ============================================================================
-// TÜM ARAYÜZ ETKİNLİK DİNLEYİCİLERİNİ BAĞLAMA (SETUP)
+// EVENT LISTENERS KURULUMU
 // ============================================================================
 
 export function setupGeometryEventListeners() {
-  // Sol Dikey Araç Çubuğu Butonları
+  // Araç Butonları
   const toolBtns = [
     { id: 'geoToolSelect', tool: 'select' },
-    { id: 'geoToolPoint', tool: 'point' },
+    { id: 'geoToolShape', tool: 'shape' },
+    { id: 'geoToolPolygon', tool: 'shape' },
     { id: 'geoToolLine', tool: 'line' },
-    { id: 'geoToolPolygon', tool: 'polygon' },
     { id: 'geoToolCircle', tool: 'circle' },
-    { id: 'geoToolAngle', tool: 'angle' },
     { id: 'geoToolText', tool: 'text' }
   ];
 
   toolBtns.forEach(({ id, tool }) => {
     const btn = $(id);
     if (btn) {
-      btn.onclick = () => {
-        closeMorePopover();
-        setTool(tool);
-      };
+      btn.onclick = () => setTool(tool);
     }
   });
 
-  // Çokgeni Tamamla Butonu
+  // Şekli Tamamla Butonu
   const polyFinishBtn = $('geoPolygonFinishBtn');
   if (polyFinishBtn) {
-    polyFinishBtn.onclick = () => finishPolygon();
-  }
-
-  // Daha Fazla Şekil & Formül Popover
-  const moreBtn = $('geoMoreBtn');
-  const morePopover = $('geoMorePopover');
-  if (moreBtn && morePopover) {
-    moreBtn.onclick = (e) => {
-      e.stopPropagation();
-      morePopover.classList.toggle('hidden');
-    };
-  }
-
-  function closeMorePopover() {
-    if (morePopover) morePopover.classList.add('hidden');
+    polyFinishBtn.onclick = () => finishShape();
   }
 
   // KaTeX Aç Butonu
   const openFormulaBtn = $('geoOpenFormulaBtn');
   if (openFormulaBtn) {
-    openFormulaBtn.onclick = () => {
-      closeMorePopover();
-      openModal('geoFormulaModal');
-    };
+    openFormulaBtn.onclick = () => openModal('geoFormulaModal');
   }
 
-  // Hazır Şablonlar Çekmecesini Aç/Kapat
+  // Şablon Çekmecesini Aç/Kapat
   const toggleTplBtn = $('geoToggleTplBtn');
   const tplDrawer = $('geoTemplateDrawer');
   const closeDrawerBtn = $('geoCloseDrawerBtn');
   if (toggleTplBtn && tplDrawer) {
-    toggleTplBtn.onclick = () => {
-      closeMorePopover();
-      tplDrawer.classList.toggle('hidden');
-    };
+    toggleTplBtn.onclick = () => tplDrawer.classList.toggle('hidden');
   }
   if (closeDrawerBtn && tplDrawer) {
     closeDrawerBtn.onclick = () => tplDrawer.classList.add('hidden');
   }
 
-  // Şablon Tıklamaları
   if (tplDrawer) {
     tplDrawer.querySelectorAll('[data-tpl]').forEach((btn) => {
       btn.onclick = () => insertTemplate(btn.dataset.tpl);
     });
   }
 
-  // Elips ve Çokgen Ekle Butonları
-  const addEllipseBtn = $('geoAddEllipseBtn');
-  if (addEllipseBtn) {
-    addEllipseBtn.onclick = () => {
-      closeMorePopover();
-      addEllipse();
-    };
-  }
-
-  const addPentagonBtn = $('geoAddPentagonBtn');
-  if (addPentagonBtn) {
-    addPentagonBtn.onclick = () => {
-      closeMorePopover();
-      addRegularPolygon(5);
-    };
-  }
-
-  const addHexagonBtn = $('geoAddHexagonBtn');
-  if (addHexagonBtn) {
-    addHexagonBtn.onclick = () => {
-      closeMorePopover();
-      addRegularPolygon(6);
-    };
-  }
-
-  const addOctagonBtn = $('geoAddOctagonBtn');
-  if (addOctagonBtn) {
-    addOctagonBtn.onclick = () => {
-      closeMorePopover();
-      addRegularPolygon(8);
-    };
-  }
-
-  // Kayan Toolbar Paletleri (Floating Style Toolbar)
+  // Floating Toolbar Kurulumu
   setupFloatingToolbarPalettes();
 
-  // Alt Kontrol Çubuğu: Zoom
+  // Zoom
   const zoomIn = $('geoZoomIn');
   const zoomOut = $('geoZoomOut');
   const zoomLbl = $('geoZoomLabel');
@@ -1324,7 +1373,7 @@ export function setupGeometryEventListeners() {
     };
   }
 
-  // Izgara & Snap Butonları
+  // Izgara & Snap
   const toggleGridBtn = $('geoToggleGrid');
   if (toggleGridBtn) {
     toggleGridBtn.onclick = () => {
@@ -1380,11 +1429,13 @@ export function setupGeometryEventListeners() {
     };
   }
 
-  // KaTeX Formül Modülü Başlatma
   setupKatexFormulaModule();
 }
 
 function setupFloatingToolbarPalettes() {
+  const angleBtn = $('geoFloatAngleBtn');
+  const anglePop = $('geoFloatAnglePopover');
+
   const strokeBtn = $('geoFloatStrokeBtn');
   const strokePop = $('geoFloatStrokePopover');
   const strokeGrid = $('geoStrokeGrid');
@@ -1400,7 +1451,25 @@ function setupFloatingToolbarPalettes() {
   const dupBtn = $('geoFloatDupBtn');
   const delBtn = $('geoFloatDelBtn');
 
-  // Çizgi Rengi Grid Doldur
+  // Açı Gösterim Popover
+  if (angleBtn && anglePop) {
+    angleBtn.onclick = (e) => {
+      e.stopPropagation();
+      anglePop.classList.toggle('hidden');
+      if (strokePop) strokePop.classList.add('hidden');
+      if (fillPop) fillPop.classList.add('hidden');
+      if (widthPop) widthPop.classList.add('hidden');
+    };
+
+    anglePop.querySelectorAll('[data-angle-mode]').forEach((b) => {
+      b.onclick = () => {
+        setAngleDisplayMode(b.dataset.angleMode);
+        anglePop.classList.add('hidden');
+      };
+    });
+  }
+
+  // Çizgi Rengi Grid
   if (strokeGrid) {
     strokeGrid.innerHTML = '';
     STROKE_COLORS.forEach((color) => {
@@ -1417,7 +1486,7 @@ function setupFloatingToolbarPalettes() {
     });
   }
 
-  // Dolgu Rengi Grid Doldur
+  // Dolgu Rengi Grid
   if (fillGrid) {
     fillGrid.innerHTML = '';
     FILL_COLORS.forEach((color) => {
@@ -1437,11 +1506,11 @@ function setupFloatingToolbarPalettes() {
     });
   }
 
-  // Popover Aç/Kapa
   if (strokeBtn && strokePop) {
     strokeBtn.onclick = (e) => {
       e.stopPropagation();
       strokePop.classList.toggle('hidden');
+      if (anglePop) anglePop.classList.add('hidden');
       if (fillPop) fillPop.classList.add('hidden');
       if (widthPop) widthPop.classList.add('hidden');
     };
@@ -1451,6 +1520,7 @@ function setupFloatingToolbarPalettes() {
     fillBtn.onclick = (e) => {
       e.stopPropagation();
       fillPop.classList.toggle('hidden');
+      if (anglePop) anglePop.classList.add('hidden');
       if (strokePop) strokePop.classList.add('hidden');
       if (widthPop) widthPop.classList.add('hidden');
     };
@@ -1460,12 +1530,12 @@ function setupFloatingToolbarPalettes() {
     widthBtn.onclick = (e) => {
       e.stopPropagation();
       widthPop.classList.toggle('hidden');
+      if (anglePop) anglePop.classList.add('hidden');
       if (strokePop) strokePop.classList.add('hidden');
       if (fillPop) fillPop.classList.add('hidden');
     };
   }
 
-  // Kalınlık Butonları
   const widthContainer = $('geoWidthButtons');
   if (widthContainer) {
     widthContainer.querySelectorAll('[data-w]').forEach((btn) => {
@@ -1481,7 +1551,6 @@ function setupFloatingToolbarPalettes() {
     });
   }
 
-  // Kesikli Çizgi
   if (dashedCheck) {
     dashedCheck.onchange = (e) => {
       currentStyle.isDashed = e.target.checked;
@@ -1491,10 +1560,8 @@ function setupFloatingToolbarPalettes() {
     };
   }
 
-  // Klonla & Sil
   if (dupBtn) dupBtn.onclick = duplicateActiveObject;
   if (delBtn) delBtn.onclick = deleteActiveObjects;
 }
 
 export const initGeometryDrawer = setupGeometryEventListeners;
-

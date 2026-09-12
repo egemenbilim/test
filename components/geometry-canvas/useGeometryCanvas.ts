@@ -5,11 +5,13 @@ import {
   ToolType,
   ShapeStyle,
   Point2D,
-  AngleCreationState,
+  AngleDisplayMode,
+  CornerAngleData,
   GeometryExportOptions,
 } from './types';
 import {
-  calculateAngle,
+  calculatePolygonInternalAngles,
+  findNearestVertex,
   generateArcPath,
   generateRegularPolygonPoints,
   snapToGrid,
@@ -20,7 +22,7 @@ export function useGeometryCanvas() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const fabricCanvasRef = useRef<any>(null);
 
-  // Durum Yönetimi
+  // Durum Yönetimi (Sadeleştirilmiş Araçlar)
   const [activeTool, setActiveTool] = useState<ToolType>('select');
   const [style, setStyle] = useState<ShapeStyle>({
     strokeColor: '#0f172a',
@@ -28,51 +30,70 @@ export function useGeometryCanvas() {
     strokeWidth: 2,
     isDashed: false,
     fontSize: 18,
+    angleDisplayMode: 'all',
   });
 
   const [gridEnabled, setGridEnabled] = useState<boolean>(true);
   const [snapEnabled, setSnapEnabled] = useState<boolean>(true);
   const [zoomLevel, setZoomLevel] = useState<number>(100);
 
-  // Kayan Araç Çubuğu Durumu
+  // Kayan Araç Çubuğu
   const [selectedObject, setSelectedObject] = useState<any>(null);
   const [toolbarPosition, setToolbarPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const [isToolbarVisible, setIsToolbarVisible] = useState<boolean>(false);
 
-  // Tarihçe (Undo / Redo)
+  // Tarihçe
   const historyRef = useRef<string[]>([]);
   const historyIndexRef = useRef<number>(-1);
   const isHistoryUpdatingRef = useRef<boolean>(false);
 
-  // İnteraktif Çizim Durumları
+  // Çizim Durumları
   const drawingLineRef = useRef<any>(null);
   const isDrawingLineRef = useRef<boolean>(false);
 
-  // Serbest Çokgen Durumu
-  const polygonPointsRef = useRef<Point2D[]>([]);
-  const polygonTempLineRef = useRef<any>(null);
-  const polygonMarkersRef = useRef<any[]>([]);
+  // Şekil Çiz (Shape / Polygon)
+  const shapePointsRef = useRef<Point2D[]>([]);
+  const shapeTempLineRef = useRef<any>(null);
+  const shapeMarkersRef = useRef<any[]>([]);
 
-  // 3 Noktalı Açı Durumu
-  const angleStateRef = useRef<AngleCreationState>({
-    step: 1,
-    p1: null,
-    p2: null,
-    p3: null,
-    tempMarkers: [],
-  });
+  // Tuvaldeki Tüm Tepe Noktalarını Toplama (Vertex Snapping için)
+  const getAllVertices = useCallback((): Point2D[] => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return [];
+    const vertices: Point2D[] = [];
 
-  // Tarihçeye kaydet
+    canvas.forEachObject((obj: any) => {
+      if (obj.type === 'polygon' && Array.isArray(obj.points)) {
+        const matrix = obj.calcTransformMatrix();
+        const fabric = (window as any).fabric;
+        obj.points.forEach((pt: Point2D) => {
+          if (fabric) {
+            const transformed = fabric.util.transformPoint(
+              new fabric.Point(pt.x - obj.pathOffset.x, pt.y - obj.pathOffset.y),
+              matrix
+            );
+            vertices.push({ x: transformed.x, y: transformed.y });
+          }
+        });
+      } else if (obj.type === 'line') {
+        vertices.push({ x: obj.x1, y: obj.y1 });
+        vertices.push({ x: obj.x2, y: obj.y2 });
+      } else if (obj.type === 'circle') {
+        vertices.push({ x: obj.left, y: obj.top });
+      }
+    });
+
+    return vertices;
+  }, []);
+
   const saveState = useCallback(() => {
     if (!fabricCanvasRef.current || isHistoryUpdatingRef.current) return;
     const json = JSON.stringify(fabricCanvasRef.current.toJSON());
-    // İlerideki adımları kırp
     historyRef.current = historyRef.current.slice(0, historyIndexRef.current + 1);
     historyRef.current.push(json);
     historyIndexRef.current++;
   }, []);
 
-  // Geri Al
   const handleUndo = useCallback(() => {
     if (historyIndexRef.current > 0 && fabricCanvasRef.current) {
       isHistoryUpdatingRef.current = true;
@@ -85,7 +106,6 @@ export function useGeometryCanvas() {
     }
   }, []);
 
-  // İleri Al
   const handleRedo = useCallback(() => {
     if (historyIndexRef.current < historyRef.current.length - 1 && fabricCanvasRef.current) {
       isHistoryUpdatingRef.current = true;
@@ -98,7 +118,6 @@ export function useGeometryCanvas() {
     }
   }, []);
 
-  // Izgara Arka Planını Güncelleme
   const updateGridBackground = useCallback((canvas: any, showGrid: boolean) => {
     if (!canvas) return;
     if (!showGrid) {
@@ -131,20 +150,20 @@ export function useGeometryCanvas() {
     }
   }, []);
 
-  // Çokgen Çizimini Tamamlama
-  const finalizePolygon = useCallback(() => {
+  // Şekli ve Otomatik Açılarını Oluşturup Tamamlama
+  const finalizeShape = useCallback(() => {
     const canvas = fabricCanvasRef.current;
     const fabric = (window as any).fabric;
-    if (!canvas || !fabric || polygonPointsRef.current.length < 3) {
-      // Temizle
-      cleanupPolygonDrawing();
+    if (!canvas || !fabric || shapePointsRef.current.length < 3) {
+      cleanupShapeDrawing();
       return;
     }
 
-    const points = [...polygonPointsRef.current];
-    cleanupPolygonDrawing();
+    const pts = [...shapePointsRef.current];
+    cleanupShapeDrawing();
 
-    const polygon = new fabric.Polygon(points, {
+    // 1. Ana Poligon Şekli
+    const polygon = new fabric.Polygon(pts, {
       fill: style.fillColor,
       stroke: style.strokeColor,
       strokeWidth: style.strokeWidth,
@@ -153,43 +172,118 @@ export function useGeometryCanvas() {
       cornerColor: '#2563eb',
       cornerSize: 8,
       transparentCorners: false,
-      hasBorders: true,
     });
 
-    canvas.add(polygon);
-    canvas.setActiveObject(polygon);
+    // 2. Otomatik Açıları Hesapla
+    const angleDataList: CornerAngleData[] = calculatePolygonInternalAngles(pts, 26);
+    const angleObjects: any[] = [];
+
+    angleDataList.forEach((ang) => {
+      if (ang.isRightAngle && ang.rightAngleBoxPoints && ang.dotPosition) {
+        // Diklik Karesi
+        const box = new fabric.Polyline(ang.rightAngleBoxPoints, {
+          fill: 'transparent',
+          stroke: style.strokeColor,
+          strokeWidth: 1.5,
+          selectable: false,
+          isAngleComponent: true,
+        });
+
+        // Diklik Noktası
+        const dot = new fabric.Circle({
+          left: ang.dotPosition.x,
+          top: ang.dotPosition.y,
+          radius: 2,
+          fill: style.strokeColor,
+          originX: 'center',
+          originY: 'center',
+          selectable: false,
+          isAngleComponent: true,
+        });
+
+        angleObjects.push(box, dot);
+      } else if (ang.arcPathString) {
+        // Açı Yayı
+        const arc = new fabric.Path(ang.arcPathString, {
+          stroke: style.strokeColor,
+          strokeWidth: 1.5,
+          fill: 'transparent',
+          selectable: false,
+          isAngleComponent: true,
+          isAngleArc: true,
+        });
+
+        // Derece Metni
+        const text = new fabric.IText(`${ang.angleDegrees}°`, {
+          left: ang.labelPosition.x,
+          top: ang.labelPosition.y,
+          fontSize: 14,
+          fontFamily: 'Noto Sans, sans-serif',
+          fontWeight: 'bold',
+          fill: style.strokeColor,
+          originX: 'center',
+          originY: 'center',
+          selectable: false,
+          isAngleComponent: true,
+          isAngleLabel: true,
+        });
+
+        angleObjects.push(arc, text);
+      }
+    });
+
+    // Ana şekil ve açıları bir grup olarak birleştir
+    const shapeGroup = new fabric.Group([polygon, ...angleObjects], {
+      selectable: true,
+      cornerColor: '#2563eb',
+      cornerSize: 8,
+      transparentCorners: false,
+      angleDisplayMode: 'all',
+      hasAutoAngles: true,
+    });
+
+    canvas.add(shapeGroup);
+    canvas.setActiveObject(shapeGroup);
     canvas.renderAll();
     saveState();
     setActiveTool('select');
   }, [style, saveState]);
 
-  // Çokgen geçici elemanlarını temizle
-  const cleanupPolygonDrawing = () => {
+  const cleanupShapeDrawing = () => {
     const canvas = fabricCanvasRef.current;
     if (!canvas) return;
-    if (polygonTempLineRef.current) {
-      canvas.remove(polygonTempLineRef.current);
-      polygonTempLineRef.current = null;
+    if (shapeTempLineRef.current) {
+      canvas.remove(shapeTempLineRef.current);
+      shapeTempLineRef.current = null;
     }
-    polygonMarkersRef.current.forEach((m) => canvas.remove(m));
-    polygonMarkersRef.current = [];
-    polygonPointsRef.current = [];
+    shapeMarkersRef.current.forEach((m) => canvas.remove(m));
+    shapeMarkersRef.current = [];
+    shapePointsRef.current = [];
     canvas.renderAll();
   };
 
-  // Açı geçici işaretlerini temizle
-  const cleanupAngleMarkers = () => {
+  // Açı Gösterim Modunu Değiştirme ('all' | 'arc_only' | 'hidden')
+  const setAngleDisplayMode = (mode: AngleDisplayMode) => {
     const canvas = fabricCanvasRef.current;
     if (!canvas) return;
-    angleStateRef.current.tempMarkers.forEach((m) => canvas.remove(m));
-    angleStateRef.current = {
-      step: 1,
-      p1: null,
-      p2: null,
-      p3: null,
-      tempMarkers: [],
-    };
-    canvas.renderAll();
+    const active = canvas.getActiveObject();
+    if (!active) return;
+
+    setStyle((prev) => ({ ...prev, angleDisplayMode: mode }));
+
+    // Eğer grup içindeyse açı nesnelerinin görünürlüğünü güncelle
+    if (active.type === 'group' && Array.isArray(active._objects)) {
+      active.angleDisplayMode = mode;
+      active._objects.forEach((obj: any) => {
+        if (obj.isAngleLabel) {
+          obj.set('visible', mode === 'all');
+        } else if (obj.isAngleArc || obj.isAngleComponent) {
+          obj.set('visible', mode !== 'hidden');
+        }
+      });
+      canvas.renderAll();
+      saveState();
+    }
   };
 
   // Canvas Başlatma
@@ -209,7 +303,6 @@ export function useGeometryCanvas() {
     updateGridBackground(canvas, gridEnabled);
     saveState();
 
-    // Seçim Olayları -> Kayan Araç Çubuğu Konumu
     const updateToolbar = (target: any) => {
       if (!target) {
         setIsToolbarVisible(false);
@@ -224,13 +317,13 @@ export function useGeometryCanvas() {
       });
       setIsToolbarVisible(true);
 
-      // Stili güncelle
       setStyle((prev) => ({
         ...prev,
         strokeColor: target.stroke || prev.strokeColor,
         fillColor: target.fill || prev.fillColor,
         strokeWidth: target.strokeWidth || prev.strokeWidth,
         isDashed: Array.isArray(target.strokeDashArray) && target.strokeDashArray.length > 0,
+        angleDisplayMode: target.angleDisplayMode || prev.angleDisplayMode || 'all',
       }));
     };
 
@@ -242,10 +335,14 @@ export function useGeometryCanvas() {
       saveState();
     });
 
-    // Mouse Tıklama ve Çizim Olayları
+    // Mouse Down
     canvas.on('mouse:down', (opt: any) => {
       const pointer = canvas.getPointer(opt.e);
-      const pt: Point2D = snapToGrid({ x: pointer.x, y: pointer.y }, 10, snapEnabled);
+      let pt: Point2D = snapToGrid({ x: pointer.x, y: pointer.y }, 10, snapEnabled);
+
+      // Manyetik Köşe Kenetlenmesi (Vertex Snap)
+      const existingVertices = getAllVertices();
+      pt = findNearestVertex(pt, existingVertices, 15);
 
       if (activeTool === 'point') {
         const circle = new fabric.Circle({
@@ -273,23 +370,23 @@ export function useGeometryCanvas() {
         });
         drawingLineRef.current = line;
         canvas.add(line);
-      } else if (activeTool === 'polygon') {
-        // Başlangıç noktasına yakın tıklandıysa kapat
-        if (polygonPointsRef.current.length >= 3) {
-          const firstPt = polygonPointsRef.current[0];
+      } else if (activeTool === 'shape') {
+        // İlk noktaya yakın tıklandıysa şekli kapat
+        if (shapePointsRef.current.length >= 3) {
+          const firstPt = shapePointsRef.current[0];
           const dist = Math.hypot(pt.x - firstPt.x, pt.y - firstPt.y);
-          if (dist < 15) {
-            finalizePolygon();
+          if (dist < 18) {
+            finalizeShape();
             return;
           }
         }
 
-        polygonPointsRef.current.push(pt);
-        // Vertex kırmızı mini nokta ekle
+        shapePointsRef.current.push(pt);
+
         const marker = new fabric.Circle({
           left: pt.x,
           top: pt.y,
-          radius: 4,
+          radius: 4.5,
           fill: '#ef4444',
           stroke: '#ffffff',
           strokeWidth: 1.5,
@@ -298,20 +395,19 @@ export function useGeometryCanvas() {
           selectable: false,
         });
         canvas.add(marker);
-        polygonMarkersRef.current.push(marker);
+        shapeMarkersRef.current.push(marker);
 
-        // Canlı kauçuk bant çizgisini hazırla
-        if (!polygonTempLineRef.current) {
+        if (!shapeTempLineRef.current) {
           const rubberLine = new fabric.Line([pt.x, pt.y, pt.x, pt.y], {
             stroke: style.strokeColor,
             strokeWidth: style.strokeWidth,
             strokeDashArray: [4, 4],
             selectable: false,
           });
-          polygonTempLineRef.current = rubberLine;
+          shapeTempLineRef.current = rubberLine;
           canvas.add(rubberLine);
         } else {
-          polygonTempLineRef.current.set({ x1: pt.x, y1: pt.y, x2: pt.x, y2: pt.y });
+          shapeTempLineRef.current.set({ x1: pt.x, y1: pt.y, x2: pt.x, y2: pt.y });
         }
         canvas.renderAll();
       } else if (activeTool === 'circle') {
@@ -322,83 +418,17 @@ export function useGeometryCanvas() {
           fill: style.fillColor,
           stroke: style.strokeColor,
           strokeWidth: style.strokeWidth,
-          strokeDashArray: style.isDashed ? [6, 6] : null,
           originX: 'center',
           originY: 'center',
+          selectable: true,
           cornerColor: '#2563eb',
           cornerSize: 8,
-          transparentCorners: false,
         });
         canvas.add(circle);
         canvas.setActiveObject(circle);
         canvas.renderAll();
         saveState();
         setActiveTool('select');
-      } else if (activeTool === 'angle') {
-        // 3 Aşamalı Açı Oluşturucu
-        const state = angleStateRef.current;
-        const marker = new fabric.Circle({
-          left: pt.x,
-          top: pt.y,
-          radius: 4.5,
-          fill: state.step === 2 ? '#2563eb' : '#dc2626',
-          stroke: '#ffffff',
-          strokeWidth: 1.5,
-          originX: 'center',
-          originY: 'center',
-          selectable: false,
-        });
-        canvas.add(marker);
-        state.tempMarkers.push(marker);
-
-        if (state.step === 1) {
-          state.p1 = pt;
-          state.step = 2;
-        } else if (state.step === 2) {
-          state.p2 = pt; // Vertex
-          state.step = 3;
-        } else if (state.step === 3) {
-          state.p3 = pt;
-          // Hesapla
-          if (state.p1 && state.p2 && state.p3) {
-            const res = calculateAngle(state.p1, state.p2, state.p3, 30);
-            const pathStr = generateArcPath(state.p2, 30, res.startAngleRad, res.endAngleRad);
-
-            const arcPath = new fabric.Path(pathStr, {
-              stroke: style.strokeColor,
-              strokeWidth: style.strokeWidth,
-              fill: 'transparent',
-              selectable: true,
-            });
-
-            const angleText = new fabric.IText(`${res.angleDegrees}°`, {
-              left: res.labelPosition.x,
-              top: res.labelPosition.y,
-              fontSize: 16,
-              fontFamily: 'Noto Sans, sans-serif',
-              fontWeight: 'bold',
-              fill: style.strokeColor,
-              originX: 'center',
-              originY: 'center',
-              selectable: true,
-            });
-
-            const group = new fabric.Group([arcPath, angleText], {
-              selectable: true,
-              cornerColor: '#2563eb',
-              cornerSize: 8,
-              transparentCorners: false,
-            });
-
-            cleanupAngleMarkers();
-            canvas.add(group);
-            canvas.setActiveObject(group);
-            canvas.renderAll();
-            saveState();
-            setActiveTool('select');
-          }
-        }
-        canvas.renderAll();
       } else if (activeTool === 'text') {
         const text = new fabric.IText('A', {
           left: pt.x,
@@ -418,21 +448,23 @@ export function useGeometryCanvas() {
       }
     });
 
-    // Mouse Move Olayı
+    // Mouse Move
     canvas.on('mouse:move', (opt: any) => {
       const pointer = canvas.getPointer(opt.e);
-      const pt: Point2D = snapToGrid({ x: pointer.x, y: pointer.y }, 10, snapEnabled);
+      let pt: Point2D = snapToGrid({ x: pointer.x, y: pointer.y }, 10, snapEnabled);
+      const existingVertices = getAllVertices();
+      pt = findNearestVertex(pt, existingVertices, 15);
 
       if (isDrawingLineRef.current && drawingLineRef.current) {
         drawingLineRef.current.set({ x2: pt.x, y2: pt.y });
         canvas.renderAll();
-      } else if (activeTool === 'polygon' && polygonTempLineRef.current) {
-        polygonTempLineRef.current.set({ x2: pt.x, y2: pt.y });
+      } else if (activeTool === 'shape' && shapeTempLineRef.current) {
+        shapeTempLineRef.current.set({ x2: pt.x, y2: pt.y });
         canvas.renderAll();
       }
     });
 
-    // Mouse Up Olayı
+    // Mouse Up
     canvas.on('mouse:up', () => {
       if (isDrawingLineRef.current && drawingLineRef.current) {
         isDrawingLineRef.current = false;
@@ -445,13 +477,11 @@ export function useGeometryCanvas() {
       }
     });
 
-    // Klavye Kısayolları (Delete, ESC, Geri Al, Çoğalt)
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
 
       if (e.key === 'Escape') {
-        cleanupPolygonDrawing();
-        cleanupAngleMarkers();
+        cleanupShapeDrawing();
         setActiveTool('select');
         canvas.discardActiveObject();
         canvas.renderAll();
@@ -464,17 +494,13 @@ export function useGeometryCanvas() {
           saveState();
         }
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
-        if (e.shiftKey) {
-          handleRedo();
-        } else {
-          handleUndo();
-        }
+        if (e.shiftKey) handleRedo();
+        else handleUndo();
         e.preventDefault();
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
         handleRedo();
         e.preventDefault();
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
-        // Duplicate
         handleDuplicate();
         e.preventDefault();
       }
@@ -486,9 +512,9 @@ export function useGeometryCanvas() {
       window.removeEventListener('keydown', handleKeyDown);
       canvas.dispose();
     };
-  }, []);
+  }, [getAllVertices, finalizeShape]);
 
-  // Aktif Araç Değiştiğinde Canvas Seçilebilirlik Ayarları
+  // Aktif Araç Değişimi
   useEffect(() => {
     const canvas = fabricCanvasRef.current;
     if (!canvas) return;
@@ -508,12 +534,10 @@ export function useGeometryCanvas() {
     }
   }, [activeTool]);
 
-  // Izgara Değişikliği
   useEffect(() => {
     updateGridBackground(fabricCanvasRef.current, gridEnabled);
   }, [gridEnabled, updateGridBackground]);
 
-  // Stil Güncelleme
   const updateStyle = (updates: Partial<ShapeStyle>) => {
     setStyle((prev) => ({ ...prev, ...updates }));
     const canvas = fabricCanvasRef.current;
@@ -535,7 +559,6 @@ export function useGeometryCanvas() {
     }
   };
 
-  // Klonla
   const handleDuplicate = () => {
     const canvas = fabricCanvasRef.current;
     if (!canvas) return;
@@ -562,7 +585,6 @@ export function useGeometryCanvas() {
     });
   };
 
-  // Sil
   const handleDelete = () => {
     const canvas = fabricCanvasRef.current;
     if (!canvas) return;
@@ -575,7 +597,6 @@ export function useGeometryCanvas() {
     }
   };
 
-  // Düzgün Çokgen Ekle
   const addRegularPolygon = (sides: number) => {
     const canvas = fabricCanvasRef.current;
     const fabric = (window as any).fabric;
@@ -586,11 +607,9 @@ export function useGeometryCanvas() {
       fill: style.fillColor,
       stroke: style.strokeColor,
       strokeWidth: style.strokeWidth,
-      strokeDashArray: style.isDashed ? [6, 6] : null,
       selectable: true,
       cornerColor: '#2563eb',
       cornerSize: 8,
-      transparentCorners: false,
     });
     canvas.add(poly);
     canvas.setActiveObject(poly);
@@ -599,36 +618,6 @@ export function useGeometryCanvas() {
     setActiveTool('select');
   };
 
-  // Elips Ekle
-  const addEllipse = () => {
-    const canvas = fabricCanvasRef.current;
-    const fabric = (window as any).fabric;
-    if (!canvas || !fabric) return;
-
-    const ellipse = new fabric.Ellipse({
-      left: 380,
-      top: 260,
-      rx: 70,
-      ry: 45,
-      fill: style.fillColor,
-      stroke: style.strokeColor,
-      strokeWidth: style.strokeWidth,
-      strokeDashArray: style.isDashed ? [6, 6] : null,
-      originX: 'center',
-      originY: 'center',
-      selectable: true,
-      cornerColor: '#2563eb',
-      cornerSize: 8,
-      transparentCorners: false,
-    });
-    canvas.add(ellipse);
-    canvas.setActiveObject(ellipse);
-    canvas.renderAll();
-    saveState();
-    setActiveTool('select');
-  };
-
-  // KaTeX Formül Görseli Ekle
   const addKatexFormula = async (latex: string, options: { color: string; fontSize: number }) => {
     const canvas = fabricCanvasRef.current;
     const fabric = (window as any).fabric;
@@ -649,7 +638,6 @@ export function useGeometryCanvas() {
           selectable: true,
           hasControls: true,
           hasBorders: true,
-          transparentCorners: false,
           cornerColor: '#2563eb',
           cornerSize: 8,
         });
@@ -663,7 +651,6 @@ export function useGeometryCanvas() {
     }
   };
 
-  // Dışa Aktar (2x Retina PNG DataURL)
   const exportCanvas = (options: GeometryExportOptions = {}): string | null => {
     const canvas = fabricCanvasRef.current;
     if (!canvas) return null;
@@ -671,15 +658,12 @@ export function useGeometryCanvas() {
     canvas.discardActiveObject();
     canvas.renderAll();
 
-    const dataUrl = canvas.toDataURL({
+    return canvas.toDataURL({
       format: options.format || 'png',
-      multiplier: options.multiplier || 2, // 2x Retina scale
+      multiplier: options.multiplier || 2,
     });
-
-    return dataUrl;
   };
 
-  // Zoom Ayarı
   const setZoom = (percent: number) => {
     const canvas = fabricCanvasRef.current;
     if (!canvas) return;
@@ -695,6 +679,7 @@ export function useGeometryCanvas() {
     setActiveTool,
     style,
     updateStyle,
+    setAngleDisplayMode,
     gridEnabled,
     setGridEnabled,
     snapEnabled,
@@ -707,9 +692,8 @@ export function useGeometryCanvas() {
     handleRedo,
     handleDuplicate,
     handleDelete,
-    finalizePolygon,
+    finalizeShape,
     addRegularPolygon,
-    addEllipse,
     addKatexFormula,
     exportCanvas,
   };

@@ -1,10 +1,7 @@
-import { Point2D, AngleCalculationResult } from './types';
+import { Point2D, AngleCalculationResult, CornerAngleData } from './types';
 
 /**
  * 3 Noktadan açı, yay koordinatları ve etiket konumunu hassas olarak hesaplar.
- * P1: Başlangıç kolu noktası
- * P2: Açının tepe noktası (Vertex)
- * P3: Bitiş kolu noktası
  */
 export function calculateAngle(
   p1: Point2D,
@@ -17,10 +14,9 @@ export function calculateAngle(
   const v2x = p3.x - p2.x;
   const v2y = p3.y - p2.y;
 
-  let theta1 = Math.atan2(v1y, v1x); // radyan [-PI, PI]
+  let theta1 = Math.atan2(v1y, v1x);
   let theta2 = Math.atan2(v2y, v2x);
 
-  // İki açı arasındaki pozitif açı farkı
   let diff = theta2 - theta1;
   while (diff < 0) diff += 2 * Math.PI;
   while (diff >= 2 * Math.PI) diff -= 2 * Math.PI;
@@ -29,17 +25,13 @@ export function calculateAngle(
   let sweepAngleRad = diff;
   let isClockwise = true;
 
-  // İç açıyı (<= 180°) seçme kuralı
   if (diff > Math.PI) {
-    // Diğer yönden ölçülen açı iç açıdır
     startAngleRad = theta2;
     sweepAngleRad = 2 * Math.PI - diff;
     isClockwise = false;
   }
 
   const angleDegrees = Math.round((sweepAngleRad * 180) / Math.PI);
-
-  // Açıortay açısı (etiket yerleşimi için)
   const bisectorAngleRad = isClockwise
     ? startAngleRad + sweepAngleRad / 2
     : startAngleRad - sweepAngleRad / 2;
@@ -61,6 +53,123 @@ export function calculateAngle(
 }
 
 /**
+ * Verilen bir çokgenin (üçgen, dörtgen vb.) TÜM köşelerindeki iç açıları otomatik hesaplar.
+ * Dik açıları (90°) tespit edip diklik kutusu koordinatlarını üretir.
+ */
+export function calculatePolygonInternalAngles(
+  points: Point2D[],
+  arcRadius: number = 24
+): CornerAngleData[] {
+  const n = points.length;
+  if (n < 3) return [];
+
+  // Çokgenin yönünü belirle (Shoelace signed area)
+  let signedArea = 0;
+  for (let i = 0; i < n; i++) {
+    const p1 = points[i];
+    const p2 = points[(i + 1) % n];
+    signedArea += p1.x * p2.y - p2.x * p1.y;
+  }
+  const isPolygonClockwise = signedArea < 0;
+
+  const results: CornerAngleData[] = [];
+
+  for (let i = 0; i < n; i++) {
+    const pPrev = points[(i - 1 + n) % n];
+    const pCurr = points[i];
+    const pNext = points[(i + 1) % n];
+
+    const vPrev = { x: pPrev.x - pCurr.x, y: pPrev.y - pCurr.y };
+    const vNext = { x: pNext.x - pCurr.x, y: pNext.y - pCurr.y };
+
+    const lenPrev = Math.hypot(vPrev.x, vPrev.y);
+    const lenNext = Math.hypot(vNext.x, vNext.y);
+
+    if (lenPrev === 0 || lenNext === 0) continue;
+
+    // Birim vektörler
+    const uPrev = { x: vPrev.x / lenPrev, y: vPrev.y / lenNext };
+    const uNext = { x: vNext.x / lenNext, y: vNext.y / lenNext };
+
+    const thPrev = Math.atan2(vPrev.y, vPrev.x);
+    const thNext = Math.atan2(vNext.y, vNext.x);
+
+    // Açılar arası fark
+    let diff = thNext - thPrev;
+    while (diff < 0) diff += 2 * Math.PI;
+    while (diff >= 2 * Math.PI) diff -= 2 * Math.PI;
+
+    // Çokgen yönüne göre iç açı seçimi
+    let sweepAngle = isPolygonClockwise ? 2 * Math.PI - diff : diff;
+    if (sweepAngle < 0) sweepAngle += 2 * Math.PI;
+    if (sweepAngle > 2 * Math.PI) sweepAngle -= 2 * Math.PI;
+
+    // Çokgenin iç açısı genellikle < 180°'dir (dışbükey çokgenlerde)
+    const angleDegrees = Math.round((sweepAngle * 180) / Math.PI);
+    const isRightAngle = Math.abs(angleDegrees - 90) <= 2;
+
+    const boxSize = 16;
+    if (isRightAngle) {
+      // Standart Dik Açı Sembolü (Kare ve Nokta)
+      const u1 = { x: vPrev.x / lenPrev, y: vPrev.y / lenPrev };
+      const u2 = { x: vNext.x / lenNext, y: vNext.y / lenNext };
+
+      const corner1 = { x: pCurr.x + u1.x * boxSize, y: pCurr.y + u1.y * boxSize };
+      const corner2 = {
+        x: pCurr.x + (u1.x + u2.x) * boxSize,
+        y: pCurr.y + (u1.y + u2.y) * boxSize,
+      };
+      const corner3 = { x: pCurr.x + u2.x * boxSize, y: pCurr.y + u2.y * boxSize };
+
+      const dotPos = {
+        x: pCurr.x + (u1.x + u2.x) * (boxSize * 0.5),
+        y: pCurr.y + (u1.y + u2.y) * (boxSize * 0.5),
+      };
+
+      results.push({
+        vertexIndex: i,
+        vertex: pCurr,
+        prevVertex: pPrev,
+        nextVertex: pNext,
+        angleDegrees: 90,
+        isRightAngle: true,
+        rightAngleBoxPoints: [corner1, corner2, corner3],
+        dotPosition: dotPos,
+        labelPosition: {
+          x: pCurr.x + (u1.x + u2.x) * (boxSize + 14),
+          y: pCurr.y + (u1.y + u2.y) * (boxSize + 14),
+        },
+      });
+    } else {
+      // Açı Yayı ve Derece
+      const startAngle = isPolygonClockwise ? thNext : thPrev;
+      const endAngle = isPolygonClockwise ? thPrev : thNext;
+      const arcPath = generateArcPath(pCurr, arcRadius, startAngle, endAngle);
+
+      const bisectorAngle = startAngle + sweepAngle / 2;
+      const labelDist = arcRadius + 16;
+      const labelPosition = {
+        x: pCurr.x + Math.cos(bisectorAngle) * labelDist,
+        y: pCurr.y + Math.sin(bisectorAngle) * labelDist,
+      };
+
+      results.push({
+        vertexIndex: i,
+        vertex: pCurr,
+        prevVertex: pPrev,
+        nextVertex: pNext,
+        angleDegrees,
+        isRightAngle: false,
+        arcPathString: arcPath,
+        labelPosition,
+      });
+    }
+  }
+
+  return results;
+}
+
+/**
  * Verilen merkez, yarıçap, başlangıç ve süpürme açısına göre SVG Arc Path string'i üretir.
  */
 export function generateArcPath(
@@ -74,13 +183,35 @@ export function generateArcPath(
   const endX = center.x + radius * Math.cos(endAngleRad);
   const endY = center.y + radius * Math.sin(endAngleRad);
 
-  // Açı farkı
   let diff = endAngleRad - startAngleRad;
   while (diff < 0) diff += 2 * Math.PI;
   const largeArcFlag = diff > Math.PI ? 1 : 0;
-  const sweepFlag = 1; // Saat yönü
+  const sweepFlag = 1;
 
   return `M ${startX.toFixed(2)} ${startY.toFixed(2)} A ${radius} ${radius} 0 ${largeArcFlag} ${sweepFlag} ${endX.toFixed(2)} ${endY.toFixed(2)}`;
+}
+
+/**
+ * Manyetik Köşe / Tepe Noktası Yakalama (Vertex Snapping)
+ * Kullanıcı çizim yaparken mevcut şekillerin köşelerine yaklaştığında tam kilitlenir.
+ */
+export function findNearestVertex(
+  point: Point2D,
+  vertices: Point2D[],
+  threshold: number = 14
+): Point2D {
+  let closest = point;
+  let minDist = threshold;
+
+  for (const v of vertices) {
+    const d = Math.hypot(point.x - v.x, point.y - v.y);
+    if (d < minDist) {
+      minDist = d;
+      closest = { x: v.x, y: v.y };
+    }
+  }
+
+  return closest;
 }
 
 /**
@@ -93,7 +224,7 @@ export function generateRegularPolygonPoints(
 ): Point2D[] {
   const points: Point2D[] = [];
   const angleStep = (2 * Math.PI) / sides;
-  const startOffset = -Math.PI / 2; // Üst tepe noktası yukarı baksın
+  const startOffset = -Math.PI / 2;
 
   for (let i = 0; i < sides; i++) {
     const angle = startOffset + i * angleStep;
@@ -119,7 +250,6 @@ export function snapToGrid(point: Point2D, gridSize: number = 10, enabled: boole
 
 /**
  * KaTeX formülünü SVG/DataURL görüntüsüne dönüştürür.
- * Fabric.js Image nesnesi olarak tuvale eklemek için kullanılır.
  */
 export async function katexToImage(
   latex: string,
@@ -127,20 +257,16 @@ export async function katexToImage(
 ): Promise<{ dataUrl: string; width: number; height: number }> {
   const { color = '#0f172a', fontSize = 24, scale = 2 } = options;
 
-  // Window'da KaTeX kontrolü
   const katex = (window as any).katex;
   if (!katex) {
     throw new Error('KaTeX kütüphanesi yüklenemedi.');
   }
 
-  // Geçici HTML render
   const htmlString = katex.renderToString(latex, {
     displayMode: true,
     throwOnError: false,
   });
 
-  // SVG ForeignObject oluşturma
-  // KaTeX CSS stillerini SVG içine alarak bağımsız hale getiriyoruz
   const wrapper = document.createElement('div');
   wrapper.style.display = 'inline-block';
   wrapper.style.fontSize = `${fontSize}px`;
@@ -153,13 +279,11 @@ export async function katexToImage(
   wrapper.innerHTML = htmlString;
   document.body.appendChild(wrapper);
 
-  // Ölçüm alalım
   const rect = wrapper.getBoundingClientRect();
   const width = Math.max(Math.ceil(rect.width) + 8, 30);
   const height = Math.max(Math.ceil(rect.height) + 8, 24);
   document.body.removeChild(wrapper);
 
-  // SVG Data URI üretimi
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="${width * scale}" height="${height * scale}" viewBox="0 0 ${width} ${height}">
       <foreignObject width="100%" height="100%">
@@ -172,8 +296,7 @@ export async function katexToImage(
 
   const svgDataUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
 
-  // Bir Image objesi ile PNG'ye çevirip en yüksek kalitede DataURL döndür
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => {
@@ -193,7 +316,6 @@ export async function katexToImage(
       }
     };
     img.onerror = () => {
-      // SVG fallback
       resolve({ dataUrl: svgDataUrl, width, height });
     };
     img.src = svgDataUrl;

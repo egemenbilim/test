@@ -1,6 +1,7 @@
 import { questions, MAX, LETTERS } from '../state.js';
 import { $, uid, esc, openModal, closeModal, warnText, clearWarn } from '../utils.js';
 import { openGeometryModal } from './geometryDrawer.js';
+import { openScienceModal } from './scienceTemplates.js';
 
 let editingId = null;
 let questionKind = 'coktan';
@@ -112,7 +113,6 @@ export function openText(q) {
   editingId = q ? q.id : null;
   $('txtTitle').textContent = q ? 'Yazılı soruyu düzenle' : 'Yazılı soru ekle';
   setTxtImg(q && q.imgSrc ? q.imgSrc : null);
-  $('txtHasImage').checked = !!(q && q.imgSrc);
   $('imgUploadPanel').classList.toggle('hidden', !(q && q.imgSrc));
   
   questionLevel = (q && q.level) || 'orta';
@@ -121,7 +121,6 @@ export function openText(q) {
 
   const bImg = q && q.kind === 'bosluk' ? q.imgSrc : null;
   setBlankImg(bImg || null);
-  $('blankHasImage').checked = !!bImg;
   $('blankImgPanel').classList.toggle('hidden', !bImg);
   
   if (q && q.kind === 'bosluk') {
@@ -198,7 +197,7 @@ function _saveText(keepOpen) {
           kind: 'bosluk',
           text: '',
           root: '',
-          imgSrc: bi === 0 && $('blankHasImage').checked && blankImgSrc ? blankImgSrc : null,
+          imgSrc: bi === 0 && blankImgSrc ? blankImgSrc : null,
           blankText: bt,
           blankItems: validBlanks,
           wordBank,
@@ -224,7 +223,7 @@ function _saveText(keepOpen) {
           kind: 'bosluk',
           text: '',
           root: '',
-          imgSrc: bi === 0 && $('blankHasImage').checked && blankImgSrc ? blankImgSrc : null,
+          imgSrc: bi === 0 && blankImgSrc ? blankImgSrc : null,
           blankText: bt,
           blankItems: validBlanks,
           wordBank,
@@ -244,7 +243,6 @@ function _saveText(keepOpen) {
       blankAnswers = [''];
       $('txtWordBank').value = '';
       setBlankImg(null);
-      $('blankHasImage').checked = false;
       $('blankImgPanel').classList.add('hidden');
       $('blankImgFile').value = '';
       renderBlankList();
@@ -269,7 +267,7 @@ function _saveText(keepOpen) {
     tags: tags,
     text: preamble,
     root: root,
-    imgSrc: $('txtHasImage').checked && txtImgSrc ? txtImgSrc : null,
+    imgSrc: txtImgSrc ? txtImgSrc : null,
     blankText: '',
     blankItems: [],
     wordBank: [],
@@ -296,7 +294,6 @@ function _saveText(keepOpen) {
     $('txtPreamble').value = '';
     $('txtRoot').value = '';
     setTxtImg(null);
-    $('txtHasImage').checked = false;
     $('imgUploadPanel').classList.add('hidden');
     $('txtImgFile').value = '';
     [0, 1, 2, 3, 4].forEach((i) => ($('opt' + i).value = ''));
@@ -435,7 +432,6 @@ export function handleInsertGeometryQuestion(dataUrl) {
   $('txtPreamble').value = '';
   $('txtRoot').value = '';
   setTxtImg(null);
-  $('txtHasImage').checked = false;
   $('imgUploadPanel').classList.add('hidden');
   $('txtImgFile').value = '';
   [0, 1, 2, 3, 4].forEach((i) => ($('opt' + i).value = ''));
@@ -480,31 +476,73 @@ export function initTextModal() {
     setTimeout(() => { btn.textContent = old; }, 1600);
   };
 
-  $('txtHasImage').onchange = (e) => {
-    $('imgUploadPanel').classList.toggle('hidden', !e.target.checked);
-    if (!e.target.checked) setTxtImg(null);
-  };
+  const uploadImgBtn = $('txtUploadImgBtn');
+  if (uploadImgBtn) {
+    uploadImgBtn.onclick = () => {
+      $('imgUploadPanel').classList.remove('hidden');
+      $('txtImgFile').click();
+    };
+  }
+
   $('txtImgFile').onchange = (e) => {
     const f = e.target.files && e.target.files[0];
     if (!f) return;
     const r = new FileReader();
-    r.onload = () => setTxtImg(r.result);
+    r.onload = () => {
+      setTxtImg(r.result);
+      $('imgUploadPanel').classList.remove('hidden');
+    };
     r.readAsDataURL(f);
   };
-  $('txtImgRemove').onclick = () => { setTxtImg(null); $('txtImgFile').value = ''; };
-
-  $('blankHasImage').onchange = (e) => {
-    $('blankImgPanel').classList.toggle('hidden', !e.target.checked);
-    if (!e.target.checked) setBlankImg(null);
+  $('txtImgRemove').onclick = () => {
+    setTxtImg(null);
+    $('txtImgFile').value = '';
+    $('imgUploadPanel').classList.add('hidden');
   };
+
+  const blankUploadBtn = $('blankUploadImgBtn');
+  if (blankUploadBtn) {
+    blankUploadBtn.onclick = () => {
+      $('blankImgPanel').classList.remove('hidden');
+      $('blankImgFile').click();
+    };
+  }
+
   $('blankImgFile').onchange = (e) => {
     const f = e.target.files && e.target.files[0];
     if (!f) return;
     const r = new FileReader();
-    r.onload = () => setBlankImg(r.result);
+    r.onload = () => {
+      setBlankImg(r.result);
+      $('blankImgPanel').classList.remove('hidden');
+    };
     r.readAsDataURL(f);
   };
-  $('blankImgRemove').onclick = () => { setBlankImg(null); $('blankImgFile').value = ''; };
+  $('blankImgRemove').onclick = () => {
+    setBlankImg(null);
+    $('blankImgFile').value = '';
+    $('blankImgPanel').classList.add('hidden');
+  };
+
+  const sciBtn = $('txtOpenScienceBtn');
+  if (sciBtn) {
+    sciBtn.onclick = () => {
+      openScienceModal((dataUrl) => {
+        setTxtImg(dataUrl);
+        $('imgUploadPanel').classList.remove('hidden');
+      });
+    };
+  }
+
+  const blankSciBtn = $('blankOpenScienceBtn');
+  if (blankSciBtn) {
+    blankSciBtn.onclick = () => {
+      openScienceModal((dataUrl) => {
+        setBlankImg(dataUrl);
+        $('blankImgPanel').classList.remove('hidden');
+      });
+    };
+  }
 
   $('textBtn').onclick = () => openText(null);
   $('txtCancel').onclick = () => closeModal('textModal');

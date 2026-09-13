@@ -1426,4 +1426,23 @@ html.dark .bank-q-card:hover {
   transition: opacity 0.15s ease, transform 0.15s ease;
 }
 
+/* ==========================================================================
+   Fen Bilimleri Şablon Envanteri (Fizik, Kimya, Biyoloji)
+   ========================================================================== */
+#sciPreviewStage svg {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.04));
+  transition: transform 0.15s ease;
+}
 
+#sciTemplateList::-webkit-scrollbar,
+#sciParamControls::-webkit-scrollbar {
+  width: 5px;
+}
+
+.sci-cat-tab:active {
+  transform: scale(0.96);
+}

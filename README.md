@@ -14,7 +14,7 @@ Proje, modern tarayıcı standartlarında çalışan **Native JavaScript ES Modu
 EdTech/
 │
 ├── 🌐 index.html                       # Ana Portal / Karşılama Ekranı
-├── 📄 README.md                        # Depo Dokümantasyonu & Vibecoding Rehberi
+├── 📄 README.md                        # Depo Dokümantasyonu
 │
 ├── 📁 ogrenci-takip/                   # 1. Öğrenci Takip Sistemi (Modüler)
 │   ├── index.html                      # Uygulama Arayüzü
@@ -58,27 +58,6 @@ EdTech/
             ├── textModal.js            # Çoktan Seçmeli, Boşluk Doldurma & Klasik Soru
             └── wordExport.js           # DOCX (Word) Dışa Aktarma Motoru
 ```
-
----
-
-## ⚡ Vibecoding ile Token Tasarrufu Rehberi
-
-Kod tabanı, yapay zekâ araçlarına (ChatGPT, Claude, Gemini, Cursor vb.) devasa monolitik dosyalar göndermek yerine **sadece üzerinde çalışmak istediğiniz ufak modülü** atarak minimum token harcamanız için özel olarak ayrıştırılmıştır.
-
-### Nasıl Uygulanır?
-
-1. **Hangi özelliği geliştirmek istediğinizi seçin:**
-   - Öğrenci kayıtları veya detay grafiği için 👉 `ogrenci-takip/js/modules/ogrenciler.js`
-   - Haftalık branş raporu için 👉 `ogrenci-takip/js/modules/haftalik.js`
-   - Prompt şablonları eklemek veya değiştirmek için 👉 `prompt-deposu/js/templates.js`
-   - Sınav başlığı veya MEB logosu ayarları için 👉 `egemens-testmaker/js/modules/sidebar.js`
-
-2. **Yapay Zekâya İstemi (Prompt) Verin:**
-   Tüm projeyi veya 2.000 satırlık HTML'i göndermek yerine sadece:
-   - Veri yapısını (`state.js` içindeki ilgili tanım - 5 satır)
-   - İlgili modül dosyasını (ör. `haftalik.js` - ~100 satır) yapıştırın.
-
-> 💡 **Sonuç:** İstek başına 25.000 token yerine sadece **~1.000 token** harcarsınız; yapay zekâ diğer ekranları bozmadan hızlı ve hatasız kod üretir.
 
 ---
 

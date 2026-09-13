@@ -10,7 +10,7 @@ import { scheduleAutosave, offerRestore } from './storage.js';
 import { initQuestionBank } from './modules/questionBank.js';
 import { initGeometryDrawer } from './modules/geometryDrawer.js';
 import { initCustomTemplateManager } from './modules/customTemplate.js';
-import { initScienceTemplates } from './modules/scienceTemplates.js';
+import { initScienceTemplates, closeScienceModal } from './modules/scienceTemplates.js';
 import { $, closeModal } from './utils.js';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -59,7 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if ($('mathModal') && $('mathModal').classList.contains('flex')) {
       closeModal('mathModal');
     } else if ($('scienceModal') && $('scienceModal').classList.contains('flex')) {
-      closeModal('scienceModal');
+      closeScienceModal();
     } else if ($('textModal') && $('textModal').classList.contains('flex')) {
       closeModal('textModal');
     } else if ($('bankModal') && $('bankModal').classList.contains('flex')) {

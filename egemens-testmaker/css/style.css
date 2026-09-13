@@ -1049,9 +1049,73 @@ html.dark .pv-make-btn {
 #textModal {
   z-index: 60;
 }
+#scienceModal, #geoModal {
+  z-index: 90;
+}
 #groupModal, #resultModal, #preview {
   z-index: 48;
 }
+
+/* Fen & Coğrafya Şablonları İnteraktif Tuval Stilleri */
+.sci-tool-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+.sci-tool-btn:hover {
+  border-color: #0f172a;
+  color: #0f172a;
+  transform: translateY(-1px);
+}
+.sci-tool-btn:active {
+  transform: translateY(0);
+}
+html.dark .sci-tool-btn {
+  background-color: #1e293b;
+  border-color: #334155;
+  color: #cbd5e1;
+}
+html.dark .sci-tool-btn:hover {
+  border-color: #94a3b8;
+  color: #ffffff;
+}
+.sci-tool-btn.active {
+  background-color: #0f172a;
+  border-color: #0f172a;
+  color: #ffffff;
+}
+html.dark .sci-tool-btn.active {
+  background-color: #f8fafc;
+  border-color: #f8fafc;
+  color: #0f172a;
+}
+
+.sci-interactive-svg {
+  user-select: none;
+  touch-action: none;
+}
+.sci-draggable {
+  cursor: grab;
+}
+.sci-draggable:active {
+  cursor: grabbing;
+}
+.sci-selected-box {
+  outline: 2px dashed #2563eb;
+  outline-offset: 4px;
+}
+
 
 .tw-warn {
   display: none;

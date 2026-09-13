@@ -273,6 +273,12 @@
           <button id="textBtn" class="flex items-center gap-1.5 rounded-xl bg-[#0b1329] px-4 py-2 text-[13px] font-semibold text-white shadow-sm transition-all duration-150 hover:bg-[#152347] hover:shadow-md hover:shadow-slate-900/30 active:scale-[0.98]">
             <span>✍️</span> Yazılı Soru Ekleyin
           </button>
+          <button id="dropzoneGeoBtn" type="button" class="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-[13px] font-semibold text-white shadow-sm transition-all duration-150 hover:bg-indigo-500 hover:shadow-md hover:shadow-indigo-600/20 active:scale-[0.98]" title="Geometri şekli çizip soruya ekleyin">
+            <span>📐</span> Geometri Çiz
+          </button>
+          <button id="dropzoneScienceBtn" type="button" class="flex items-center gap-1.5 rounded-xl bg-teal-600 px-4 py-2 text-[13px] font-semibold text-white shadow-sm transition-all duration-150 hover:bg-teal-500 hover:shadow-md hover:shadow-teal-600/20 active:scale-[0.98]" title="Fen ve Coğrafya şablonu ekleyin">
+            <span>🔬</span> Fen & Coğrafya Şablonu
+          </button>
           <button id="openCrop" class="flex items-center gap-1.5 rounded-xl bg-slate-600 px-4 py-2 text-[13px] font-semibold text-white shadow-sm transition-all duration-150 hover:bg-slate-500 hover:shadow-md hover:shadow-slate-600/20 active:scale-[0.98]">
             <span>✂️</span> Görsel/PDF'ten Kes
           </button>
@@ -751,23 +757,23 @@
   </div>
 </div>
 
-<!-- Fen Bilimleri Şablon Envanteri Modalı (Fizik • Kimya • Biyoloji) -->
-<div id="scienceModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/70 p-2 sm:p-4 backdrop-blur-md select-none">
+<!-- Fen Bilimleri & Coğrafya Şablon Envanteri Modalı (Fizik • Kimya • Biyoloji • Coğrafya) -->
+<div id="scienceModal" class="fixed inset-0 z-[90] hidden items-center justify-center bg-slate-950/70 p-2 sm:p-4 backdrop-blur-md select-none">
   <div class="fade-in flex max-h-[94vh] w-full max-w-6xl flex-col rounded-2xl bg-white shadow-2xl dark:bg-slate-900 dark:text-slate-100 overflow-hidden border border-slate-200 dark:border-slate-800">
     
     <!-- Modal Header -->
     <div class="flex items-center justify-between border-b border-slate-200 px-5 py-3 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/80 shrink-0">
       <div class="flex items-center gap-3">
-        <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-600 text-white text-lg shadow-md font-bold">🔬</div>
+        <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-600 text-white text-lg shadow-md font-bold">🔬</div>
         <div>
           <h2 class="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            Fen Bilimleri Şablon Envanteri
-            <span class="rounded-md bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
-              TYT & LGS Parametrik
+            Fen Bilimleri & Coğrafya Şablon Envanteri
+            <span class="rounded-md bg-teal-100 px-2 py-0.5 text-[10px] font-bold text-teal-700 dark:bg-teal-950 dark:text-teal-300">
+              TYT, AYT, LGS & KPSS Parametrik
             </span>
           </h2>
           <p class="text-[11px] text-slate-500 dark:text-slate-400 hidden sm:block">
-            Biyoloji, Kimya ve Fizik soru modellerini canlı parametrelerle düzenleyin ve yüksek çözünürlükle soruya ekleyin.
+            Fizik, Kimya, Biyoloji ve Coğrafya modellerini canlı değişkenler, sürüklenebilir organeller, formüller ve harita pinleriyle özelleştirin.
           </p>
         </div>
       </div>
@@ -781,12 +787,13 @@
       <!-- Sol Panel: Kategori Filtreleri & Şablon Listesi (280px) -->
       <div class="w-full md:w-80 border-r border-slate-200 dark:border-slate-800 flex flex-col shrink-0 bg-slate-50/50 dark:bg-slate-900/50">
         <div class="p-3 border-b border-slate-200 dark:border-slate-800 space-y-2 shrink-0">
-          <input id="sciSearchInput" class="inp !py-1.5 text-xs" placeholder="Şablon ara... (örn: Soy ağacı, Bohr, Makara)">
+          <input id="sciSearchInput" class="inp !py-1.5 text-xs" placeholder="Şablon ara... (örn: Türkiye, Horst, Devre, Hücre)">
           <div class="flex items-center gap-1 overflow-x-auto pb-0.5">
             <button type="button" data-cat="all" class="sci-cat-tab px-2.5 py-1 rounded-lg text-xs font-semibold">Tümü</button>
-            <button type="button" data-cat="biyoloji" class="sci-cat-tab px-2.5 py-1 rounded-lg text-xs font-semibold">🧬 Biyo</button>
-            <button type="button" data-cat="kimya" class="sci-cat-tab px-2.5 py-1 rounded-lg text-xs font-semibold">🧪 Kimya</button>
+            <button type="button" data-cat="cografya" class="sci-cat-tab px-2.5 py-1 rounded-lg text-xs font-semibold">🌍 Coğrafya</button>
             <button type="button" data-cat="fizik" class="sci-cat-tab px-2.5 py-1 rounded-lg text-xs font-semibold">⚡ Fizik</button>
+            <button type="button" data-cat="kimya" class="sci-cat-tab px-2.5 py-1 rounded-lg text-xs font-semibold">🧪 Kimya</button>
+            <button type="button" data-cat="biyoloji" class="sci-cat-tab px-2.5 py-1 rounded-lg text-xs font-semibold">🧬 Biyo</button>
           </div>
         </div>
         <div id="sciTemplateList" class="flex-1 overflow-y-auto p-3 space-y-2"></div>
@@ -801,18 +808,35 @@
         </div>
       </div>
 
-      <!-- Sağ Panel: Canlı Vektörel Önizleme Tuvali -->
-      <div class="flex-1 flex flex-col bg-slate-100/70 dark:bg-slate-950 p-4 overflow-hidden">
-        <div class="flex items-center justify-between mb-2 shrink-0">
-          <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Canlı Vektörel Önizleme</span>
-          <div class="flex items-center gap-1.5 text-xs">
+      <!-- Sağ Panel: Canlı Vektörel Önizleme Tuvali & İnteraktif Katmanlar -->
+      <div class="flex-1 flex flex-col bg-slate-100/70 dark:bg-slate-950 p-3 sm:p-4 overflow-hidden">
+        <!-- İnteraktif Katman Ekleme Çubuğu -->
+        <div class="flex items-center justify-between mb-2 shrink-0 flex-wrap gap-1.5">
+          <div class="flex items-center gap-1 flex-wrap">
+            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mr-1 hidden lg:inline">İnteraktif Tuval:</span>
+            <button id="sciToolAddSymbol" type="button" class="sci-tool-btn" title="Direnç, pil, anahtar, lamba veya voltmetre ekleyin">⚡ Direnç / Bileşen</button>
+            <button id="sciToolAddFormula" type="button" class="sci-tool-btn" title="Matematiksel formül ekleyin">∑ Formül (KaTeX)</button>
+            <button id="sciToolAddText" type="button" class="sci-tool-btn" title="Yazı veya açıklama ekleyin">✍️ Yazı</button>
+            <button id="sciToolAddArrow" type="button" class="sci-tool-btn" title="İşaret veya yön oku ekleyin">↗️ Ok</button>
+            <button id="sciToolAddPin" type="button" class="sci-tool-btn" title="Harita üzerine nokta / pin koyun">📍 Pin Ekle</button>
+            <button id="sciToolDeleteSelected" type="button" class="sci-tool-btn text-rose-600 hover:text-rose-700 hover:border-rose-300" title="Seçili öğeyi sil">🗑️ Sil</button>
+            <button id="sciToolResetOverlays" type="button" class="sci-tool-btn text-slate-400 hover:text-slate-600" title="Eklenen katmanları temizle">↺ Sıfırla</button>
+          </div>
+          <div class="flex items-center gap-1.5 text-xs ml-auto">
             <button id="sciModalCopySvg" type="button" class="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 shadow-xs hover:border-slate-900 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">📋 SVG Kopyala</button>
             <button id="sciModalDownload" type="button" class="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 shadow-xs hover:border-slate-900 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">💾 PNG İndir</button>
           </div>
         </div>
 
-        <div class="flex-1 flex items-center justify-center rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 shadow-inner overflow-auto">
-          <div id="sciPreviewStage" class="w-full h-full flex items-center justify-center"></div>
+        <!-- Önizleme Sahnesi -->
+        <div class="flex-1 relative flex items-center justify-center rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-2 shadow-inner overflow-hidden">
+          <div id="sciPreviewStage" class="w-full h-full flex items-center justify-center relative select-none"></div>
+        </div>
+
+        <!-- Alt İpucu ve Durum Çubuğu -->
+        <div class="mt-2 flex items-center justify-between shrink-0 text-[11px] text-slate-400">
+          <span>💡 Organelleri, harita pinlerini, direnç ve formülleri tuval üzerinde fareyle serbestçe sürükleyebilirsiniz.</span>
+          <span id="sciSelectedInfo" class="font-medium text-slate-500 hidden"></span>
         </div>
       </div>
     </div>
@@ -822,7 +846,7 @@
       <span class="text-xs text-slate-400">Şablon 300 DPI retina kalitesinde soruya eklenecektir.</span>
       <div class="flex items-center gap-2">
         <button id="sciModalCancel" type="button" class="rounded-xl px-4 py-2 text-xs font-semibold text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition">İptal</button>
-        <button id="sciModalInsert" type="button" class="flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2 text-xs font-semibold text-white shadow-md transition hover:bg-emerald-700">
+        <button id="sciModalInsert" type="button" class="flex items-center gap-2 rounded-xl bg-teal-600 px-5 py-2 text-xs font-semibold text-white shadow-md transition hover:bg-teal-700">
           <span>✚</span> Soruya Ekle
         </button>
       </div>

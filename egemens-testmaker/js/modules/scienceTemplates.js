@@ -1,14 +1,27 @@
 import { $, openModal, closeModal } from '../utils.js';
+import { GEO_TEMPLATES } from './science/geoTemplates.js';
+import { PHYS_TEMPLATES } from './science/physTemplates.js';
+import { CHEM_TEMPLATES } from './science/chemTemplates.js';
+import { BIO_TEMPLATES } from './science/bioTemplates.js';
+import {
+  injectOverlaysIntoSvg,
+  setupStageInteractions,
+  addOverlayItem,
+  deleteSelectedOverlayItem,
+  resetAllOverlays,
+  setSelectedOverlayId
+} from './science/overlayEngine.js';
 
 /**
- * Egemen's Testmaker — Fen Bilimleri Şablon Envanteri (Fizik, Kimya, Biyoloji)
- * TYT ve LGS müfredatına uygun, gerçek sınav soru kalıplarını içeren parametrik
- * vektörel (SVG) diyagram üretim motoru ve interaktif arayüzü.
+ * Egemen's Testmaker — Fen Bilimleri & Coğrafya Şablon Envanteri (Fizik, Kimya, Biyoloji, Coğrafya)
+ * TYT, AYT, LGS ve KPSS müfredatına uygun parametrik vektörel (SVG) diyagram üretim motoru,
+ * interaktif tuval, devre sembolleri, KaTeX formülleri, organel ve harita pinleri yönetim katmanı.
  */
 
 let onScienceInsertCallback = null;
-let activeCategory = 'all'; // 'all' | 'biyoloji' | 'kimya' | 'fizik'
-let activeTemplateId = 'pedigree';
+let onScienceCancelCallback = null;
+let activeCategory = 'all'; // 'all' | 'cografya' | 'fizik' | 'kimya' | 'biyoloji'
+let activeTemplateId = 'turkeyMap';
 let currentParams = {};
 
 // ============================================================================
@@ -16,6 +29,11 @@ let currentParams = {};
 // ============================================================================
 
 export const SCIENCE_TEMPLATES = {
+  // Coğrafya, Fizik, Kimya ve Biyoloji Modülleri
+  ...GEO_TEMPLATES,
+  ...PHYS_TEMPLATES,
+  ...CHEM_TEMPLATES,
+  ...BIO_TEMPLATES,
   // --------------------------------------------------------------------------
   // BİYOLOJİ ŞABLONLARI
   // --------------------------------------------------------------------------
@@ -113,138 +131,6 @@ export const SCIENCE_TEMPLATES = {
             <text x="184" y="11" font-size="11" fill="#334155">: Özelliği gösteren dişi</text>
             <rect x="330" y="0" width="14" height="14" fill="#ffffff" stroke="#0f172a" stroke-width="1.5" />
             <text x="350" y="11" font-size="11" fill="#334155">: Sağlıklı</text>
-          </g>
-        `;
-      }
-
-      svg += `</svg>`;
-      return svg;
-    }
-  },
-
-  cellStructure: {
-    id: 'cellStructure',
-    category: 'biyoloji',
-    name: 'Hücre Mimarisi & Organeller',
-    tags: ['TYT', 'LGS', 'Organeller', 'Hücre'],
-    desc: 'Bitki veya hayvan hücresi; mitokondri, kloroplast, koful, çekirdek ve numaralı işaret okları.',
-    defaultParams: {
-      cellType: 'animal',
-      labelStyle: 'roman'
-    },
-    presets: [
-      { name: 'TYT - Hayvan Hücresi Organel Tespiti (I-IV Numaralı)', params: { cellType: 'animal', labelStyle: 'roman' } },
-      { name: 'TYT - Bitki Hücresi (Kloroplast & Merkezi Koful Vurgulu)', params: { cellType: 'plant', labelStyle: 'roman' } },
-      { name: 'LGS - Hücre Organelleri Karşılaştırma Şeması', params: { cellType: 'plant', labelStyle: 'names' } }
-    ],
-    schema: [
-      { key: 'cellType', label: 'Hücre Tipi', type: 'select', options: [{ v: 'animal', l: 'Hayvan Hücresi (Yuvarlak/Esnek)' }, { v: 'plant', l: 'Bitki Hücresi (Köşeli / Çeperli)' }] },
-      { key: 'labelStyle', label: 'Etiketleme Şekli', type: 'select', options: [{ v: 'roman', l: 'Roma Rakamları (I, II, III, IV)' }, { v: 'letters', l: 'Harfler (K, L, M, N)' }, { v: 'names', l: 'Organel İsimleri' }] }
-    ],
-    renderSvg(p) {
-      const isPlant = p.cellType === 'plant';
-      const labels = p.labelStyle === 'roman'
-        ? { n: 'I', m: 'II', g: 'III', v: 'IV', c: 'V' }
-        : (p.labelStyle === 'letters' ? { n: 'K', m: 'L', g: 'M', v: 'N', c: 'P' } : { n: 'Çekirdek', m: 'Mitokondri', g: 'Golgi Aygıtı', v: isPlant ? 'Merkezi Koful' : 'Koful', c: 'Kloroplast' });
-
-      let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 380" width="100%" height="100%" style="font-family:'Noto Sans',sans-serif;">
-        <defs>
-          <radialGradient id="cytoGrad" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stop-color="${isPlant ? '#f0fdf4' : '#eff6ff'}" />
-            <stop offset="100%" stop-color="${isPlant ? '#dcfce7' : '#dbeafe'}" />
-          </radialGradient>
-        </defs>
-        <text x="270" y="24" text-anchor="middle" font-size="13" font-weight="bold" fill="#0f172a">${isPlant ? 'Bitki Hücresi Yapısı' : 'Hayvan Hücresi Yapısı'}</text>
-      `;
-
-      if (isPlant) {
-        svg += `
-          <polygon points="80,50 440,50 480,200 440,340 80,340 40,200" fill="#bbf7d0" stroke="#16a34a" stroke-width="7" stroke-linejoin="round" />
-          <polygon points="86,56 434,56 472,200 434,334 86,334 48,200" fill="url(#cytoGrad)" stroke="#22c55e" stroke-width="2.5" stroke-linejoin="round" />
-          <rect x="230" y="150" width="170" height="140" rx="40" fill="#bae6fd" stroke="#0284c7" stroke-width="2" opacity="0.85" />
-          <text x="315" y="225" font-size="11" fill="#0369a1" text-anchor="middle" font-style="italic">Hücre Özsuyu</text>
-        `;
-      } else {
-        svg += `
-          <ellipse cx="260" cy="190" rx="200" ry="145" fill="url(#cytoGrad)" stroke="#0284c7" stroke-width="3" />
-        `;
-      }
-
-      const nX = isPlant ? 160 : 220;
-      const nY = isPlant ? 150 : 180;
-      svg += `
-        <g id="nucleus">
-          <circle cx="${nX}" cy="${nY}" r="44" fill="#fed7aa" stroke="#ea580c" stroke-width="2.5" />
-          <circle cx="${nX}" cy="${nY}" r="16" fill="#c2410c" opacity="0.85" />
-          <circle cx="${nX + 26}" cy="${nY}" r="2" fill="#9a3412" />
-          <circle cx="${nX - 26}" cy="${nY}" r="2" fill="#9a3412" />
-          <circle cx="${nX}" cy="${nY + 26}" r="2" fill="#9a3412" />
-        </g>
-      `;
-
-      const mX = isPlant ? 130 : 370;
-      const mY = isPlant ? 270 : 130;
-      svg += `
-        <g id="mitochondria" transform="translate(${mX},${mY}) rotate(-25)">
-          <rect x="-35" y="-18" width="70" height="36" rx="18" fill="#fecdd3" stroke="#e11d48" stroke-width="2" />
-          <path d="M -22 -10 Q -15 0 -22 10 Q -8 0 -5 -10 Q 5 0 2 10 Q 15 0 12 -10" fill="none" stroke="#be123c" stroke-width="2" />
-        </g>
-      `;
-
-      const gX = isPlant ? 130 : 140;
-      const gY = isPlant ? 85 : 260;
-      svg += `
-        <g id="golgi" transform="translate(${gX},${gY})">
-          <path d="M -25 -12 C 0 -6 0 -6 25 -12" fill="none" stroke="#8b5cf6" stroke-width="5" stroke-linecap="round" />
-          <path d="M -30 0 C 0 8 0 8 30 0" fill="none" stroke="#8b5cf6" stroke-width="5" stroke-linecap="round" />
-          <path d="M -25 14 C 0 20 0 20 25 14" fill="none" stroke="#8b5cf6" stroke-width="5" stroke-linecap="round" />
-          <circle cx="-35" cy="4" r="3.5" fill="#8b5cf6" />
-          <circle cx="34" cy="-4" r="3" fill="#8b5cf6" />
-        </g>
-      `;
-
-      if (isPlant) {
-        svg += `
-          <g id="chloroplast" transform="translate(360, 95) rotate(15)">
-            <ellipse cx="0" cy="0" rx="34" ry="22" fill="#86efac" stroke="#15803d" stroke-width="2" />
-            <line x1="-18" y1="-8" x2="18" y2="-8" stroke="#166534" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="3,3" />
-            <line x1="-22" y1="0" x2="22" y2="0" stroke="#166534" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="3,3" />
-            <line x1="-18" y1="8" x2="18" y2="8" stroke="#166534" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="3,3" />
-          </g>
-        `;
-      }
-
-      svg += `
-        <g stroke="#0f172a" stroke-width="1.5">
-          <line x1="${nX}" y1="${nY - 46}" x2="${nX}" y2="${nY - 70}" />
-          <line x1="${nX}" y1="${nY - 70}" x2="${nX - 40}" y2="${nY - 70}" />
-          <circle cx="${nX}" cy="${nY - 46}" r="2.5" fill="#0f172a" />
-          <line x1="${mX}" y1="${mY}" x2="${mX + 60}" y2="${mY}" />
-          <circle cx="${mX}" cy="${mY}" r="2.5" fill="#0f172a" />
-          <line x1="${gX}" y1="${gY}" x2="${gX - 60}" y2="${gY}" />
-          <circle cx="${gX}" cy="${gY}" r="2.5" fill="#0f172a" />
-        </g>
-        <g font-size="12" font-weight="bold" fill="#0f172a">
-          <rect x="${nX - 75}" y="${nY - 82}" width="${labels.n.length > 2 ? 80 : 26}" height="24" rx="4" fill="#ffffff" stroke="#0f172a" stroke-width="1.5" />
-          <text x="${nX - (labels.n.length > 2 ? 35 : 62)}" y="${nY - 66}" text-anchor="middle">${labels.n}</text>
-          
-          <rect x="${mX + 64}" y="${mY - 12}" width="${labels.m.length > 2 ? 85 : 26}" height="24" rx="4" fill="#ffffff" stroke="#0f172a" stroke-width="1.5" />
-          <text x="${mX + 64 + (labels.m.length > 2 ? 42 : 13)}" y="${mY + 4}" text-anchor="middle">${labels.m}</text>
-          
-          <rect x="${gX - (labels.g.length > 2 ? 150 : 92)}" y="${gY - 12}" width="${labels.g.length > 2 ? 85 : 26}" height="24" rx="4" fill="#ffffff" stroke="#0f172a" stroke-width="1.5" />
-          <text x="${gX - (labels.g.length > 2 ? 107 : 79)}" y="${gY + 4}" text-anchor="middle">${labels.g}</text>
-        </g>
-      `;
-
-      if (isPlant) {
-        svg += `
-          <g stroke="#0f172a" stroke-width="1.5">
-            <line x1="375" y1="75" x2="420" y2="40" />
-            <circle cx="375" cy="75" r="2.5" fill="#0f172a" />
-          </g>
-          <g font-size="12" font-weight="bold" fill="#0f172a">
-            <rect x="424" y="28" width="${labels.c.length > 2 ? 85 : 26}" height="24" rx="4" fill="#ffffff" stroke="#0f172a" stroke-width="1.5" />
-            <text x="${424 + (labels.c.length > 2 ? 42 : 13)}" y="44" text-anchor="middle">${labels.c}</text>
           </g>
         `;
       }
@@ -1092,146 +978,6 @@ export const SCIENCE_TEMPLATES = {
   // --------------------------------------------------------------------------
   // FİZİK ŞABLONLARI
   // --------------------------------------------------------------------------
-  electricCircuit: {
-    id: 'electricCircuit',
-    category: 'fizik',
-    name: 'Elektrik Devresi (Seri / Paralel / Karma)',
-    tags: ['TYT', 'LGS', 'Elektrik', 'Lamba Parlaklığı', 'Ohm Yasası'],
-    desc: 'Lambalar (K, L, M), pil, anahtar, voltmetre ve ampermetre devre şemaları.',
-    defaultParams: {
-      type: 'mixed',
-      lampK: 'K',
-      lampL: 'L',
-      lampM: 'M',
-      switchOpen: false,
-      glowLines: true,
-      voltage: 'V'
-    },
-    presets: [
-      { name: 'TYT - Karma Devre (K seri, L ve M paralel - Parlaklık)', params: { type: 'mixed', lampK: 'K', lampL: 'L', lampM: 'M', glowLines: true } },
-      { name: 'LGS - Basit Seri Bağlı İki Lamba ve Anahtar', params: { type: 'series', lampK: '1. Lamba', lampL: '2. Lamba', switchOpen: false } },
-      { name: 'TYT - Paralel Bağlı Özdeş Lambalar', params: { type: 'parallel', lampK: 'K', lampL: 'L', voltage: 'V' } }
-    ],
-    schema: [
-      { key: 'type', label: 'Devre Bağlantı Şekli', type: 'select', options: [{ v: 'mixed', l: 'Karma Devre (K seri, L ve M paralel)' }, { v: 'series', l: 'Seri Bağlı 2 Lamba' }, { v: 'parallel', l: 'Paralel Bağlı 2 Lamba' }] },
-      { key: 'switchOpen', label: 'Anahtar Açık mı? (Devreden Akım Geçmez)', type: 'checkbox' },
-      { key: 'glowLines', label: 'Lamba Işık Saçma Işınlarını Göster', type: 'checkbox' },
-      { key: 'voltage', label: 'Üreteç Gerilimi (Pil)', type: 'text', hint: 'Örn: V, 24V' }
-    ],
-    renderSvg(p) {
-      let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 340" width="100%" height="100%" style="font-family:'Noto Sans',sans-serif;">
-        <text x="260" y="24" text-anchor="middle" font-size="13" font-weight="bold" fill="#0f172a">Elektrik Devresi Şeması</text>
-      `;
-
-      const renderLamp = (x, y, name, glow = true) => {
-        let lSvg = `
-          <g transform="translate(${x}, ${y})">
-            <circle cx="0" cy="0" r="18" fill="#ffffff" stroke="#0f172a" stroke-width="2.2" />
-            <line x1="-10" y1="-10" x2="10" y2="10" stroke="#0f172a" stroke-width="2" />
-            <line x1="-10" y1="10" x2="10" y2="-10" stroke="#0f172a" stroke-width="2" />
-            <text x="0" y="32" text-anchor="middle" font-size="12" font-weight="bold" fill="#0f172a">${escSvg(name)}</text>
-        `;
-        if (glow && p.glowLines && !p.switchOpen) {
-          lSvg += `
-            <g stroke="#eab308" stroke-width="2">
-              <line x1="-24" y1="0" x2="-30" y2="0" />
-              <line x1="24" y1="0" x2="30" y2="0" />
-              <line x1="0" y1="-24" x2="0" y2="-30" />
-              <line x1="0" y1="24" x2="0" y2="30" />
-            </g>
-          `;
-        }
-        lSvg += `</g>`;
-        return lSvg;
-      };
-
-      const renderBattery = (x, y) => {
-        return `
-          <g transform="translate(${x}, ${y})">
-            <line x1="-12" y1="-18" x2="-12" y2="18" stroke="#0f172a" stroke-width="3" />
-            <text x="-24" y="5" font-size="14" font-weight="bold" fill="#0f172a">+</text>
-            <line x1="12" y1="-10" x2="12" y2="10" stroke="#0f172a" stroke-width="4.5" />
-            <text x="22" y="5" font-size="14" font-weight="bold" fill="#0f172a">-</text>
-            <text x="0" y="34" text-anchor="middle" font-size="12" font-weight="bold" fill="#0f172a">${escSvg(p.voltage)}</text>
-          </g>
-        `;
-      };
-
-      const renderSwitch = (x, y, isOpen) => {
-        return `
-          <g transform="translate(${x}, ${y})">
-            <circle cx="-16" cy="0" r="3" fill="#0f172a" />
-            <circle cx="16" cy="0" r="3" fill="#0f172a" />
-            <line x1="-16" y1="0" x2="${isOpen ? 12 : 16}" y2="${isOpen ? -16 : 0}" stroke="#0f172a" stroke-width="2.5" stroke-linecap="round" />
-            <text x="0" y="-18" text-anchor="middle" font-size="10" fill="#64748b">Anahtar</text>
-          </g>
-        `;
-      };
-
-      if (p.type === 'mixed') {
-        svg += `
-          <line x1="70" y1="90" x2="150" y2="90" stroke="#0f172a" stroke-width="2.2" />
-          <line x1="190" y1="90" x2="260" y2="90" stroke="#0f172a" stroke-width="2.2" />
-          
-          <line x1="260" y1="90" x2="260" y2="50" stroke="#0f172a" stroke-width="2.2" />
-          <line x1="260" y1="50" x2="330" y2="50" stroke="#0f172a" stroke-width="2.2" />
-          <line x1="370" y1="50" x2="440" y2="50" stroke="#0f172a" stroke-width="2.2" />
-          <line x1="440" y1="50" x2="440" y2="90" stroke="#0f172a" stroke-width="2.2" />
-
-          <line x1="260" y1="90" x2="260" y2="130" stroke="#0f172a" stroke-width="2.2" />
-          <line x1="260" y1="130" x2="330" y2="130" stroke="#0f172a" stroke-width="2.2" />
-          <line x1="370" y1="130" x2="440" y2="130" stroke="#0f172a" stroke-width="2.2" />
-          <line x1="440" y1="130" x2="440" y2="90" stroke="#0f172a" stroke-width="2.2" />
-
-          <line x1="440" y1="90" x2="470" y2="90" stroke="#0f172a" stroke-width="2.2" />
-          <line x1="470" y1="90" x2="470" y2="260" stroke="#0f172a" stroke-width="2.2" />
-          <line x1="470" y1="260" x2="320" y2="260" stroke="#0f172a" stroke-width="2.2" />
-          <line x1="200" y1="260" x2="70" y2="260" stroke="#0f172a" stroke-width="2.2" />
-          <line x1="70" y1="260" x2="70" y2="90" stroke="#0f172a" stroke-width="2.2" />
-
-          ${renderLamp(170, 90, p.lampK)}
-          ${renderLamp(350, 50, p.lampL)}
-          ${renderLamp(350, 130, p.lampM)}
-
-          ${renderBattery(260, 260)}
-          ${renderSwitch(140, 260, p.switchOpen)}
-        `;
-      } else if (p.type === 'series') {
-        svg += `
-          <rect x="80" y="70" width="360" height="190" fill="none" stroke="#0f172a" stroke-width="2.2" />
-          <rect x="150" y="60" width="60" height="20" fill="#ffffff" />
-          <rect x="310" y="60" width="60" height="20" fill="#ffffff" />
-          <rect x="230" y="250" width="60" height="20" fill="#ffffff" />
-          <rect x="120" y="250" width="50" height="20" fill="#ffffff" />
-
-          ${renderLamp(180, 70, p.lampK)}
-          ${renderLamp(340, 70, p.lampL)}
-          ${renderBattery(260, 260)}
-          ${renderSwitch(140, 260, p.switchOpen)}
-        `;
-      } else {
-        svg += `
-          <line x1="80" y1="70" x2="440" y2="70" stroke="#0f172a" stroke-width="2.2" />
-          <line x1="80" y1="160" x2="440" y2="160" stroke="#0f172a" stroke-width="2.2" />
-          <line x1="80" y1="70" x2="80" y2="260" stroke="#0f172a" stroke-width="2.2" />
-          <line x1="440" y1="70" x2="440" y2="260" stroke="#0f172a" stroke-width="2.2" />
-          <line x1="80" y1="260" x2="220" y2="260" stroke="#0f172a" stroke-width="2.2" />
-          <line x1="300" y1="260" x2="440" y2="260" stroke="#0f172a" stroke-width="2.2" />
-
-          <rect x="230" y="60" width="60" height="20" fill="#ffffff" />
-          <rect x="230" y="150" width="60" height="20" fill="#ffffff" />
-
-          ${renderLamp(260, 70, p.lampK)}
-          ${renderLamp(260, 160, p.lampL)}
-          ${renderBattery(260, 260)}
-        `;
-      }
-
-      svg += `</svg>`;
-      return svg;
-    }
-  },
-
   simpleMachines: {
     id: 'simpleMachines',
     category: 'fizik',
@@ -1609,9 +1355,14 @@ export function setOnScienceInsertCallback(fn) {
   onScienceInsertCallback = fn;
 }
 
-export function openScienceModal(callback) {
+export function openScienceModal(callback, onCancel) {
   if (typeof callback === 'function') {
     onScienceInsertCallback = callback;
+  }
+  if (typeof onCancel === 'function') {
+    onScienceCancelCallback = onCancel;
+  } else {
+    onScienceCancelCallback = null;
   }
   openModal('scienceModal');
   renderCategoryTabs();
@@ -1621,6 +1372,11 @@ export function openScienceModal(callback) {
 
 export function closeScienceModal() {
   closeModal('scienceModal');
+  if (typeof onScienceCancelCallback === 'function') {
+    const cb = onScienceCancelCallback;
+    onScienceCancelCallback = null;
+    cb();
+  }
 }
 
 function renderCategoryTabs() {
@@ -1649,15 +1405,16 @@ function renderTemplateList() {
   });
 
   if (!entries.length) {
-    listEl.innerHTML = `<div class="p-6 text-center text-xs text-slate-400">Eşleşen fen şablonu bulunamadı.</div>`;
+    listEl.innerHTML = `<div class="p-6 text-center text-xs text-slate-400">Eşleşen şablon bulunamadı.</div>`;
     return;
   }
 
   entries.forEach(t => {
     const isAct = t.id === activeTemplateId;
-    const catIcon = t.category === 'biyoloji' ? '🧬' : (t.category === 'kimya' ? '🧪' : '⚡');
-    const catBadgeColor = t.category === 'biyoloji' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300' :
-      (t.category === 'kimya' ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300' : 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950 dark:text-sky-300');
+    const catIcon = t.category === 'cografya' ? '🌍' : (t.category === 'biyoloji' ? '🧬' : (t.category === 'kimya' ? '🧪' : '⚡'));
+    const catBadgeColor = t.category === 'cografya' ? 'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950 dark:text-teal-300' :
+      (t.category === 'biyoloji' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300' :
+      (t.category === 'kimya' ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300' : 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950 dark:text-sky-300'));
 
     const card = document.createElement('button');
     card.type = 'button';
@@ -1688,7 +1445,9 @@ function selectTemplate(templateId) {
   const tpl = SCIENCE_TEMPLATES[templateId];
   if (!tpl) return;
   activeTemplateId = templateId;
-  currentParams = { ...tpl.defaultParams };
+  currentParams = JSON.parse(JSON.stringify(tpl.defaultParams || {}));
+  currentParams._overlays = [];
+  setSelectedOverlayId(null);
 
   renderTemplateList();
   renderPresets(tpl);
@@ -1789,8 +1548,41 @@ function updateLivePreview() {
   const tpl = SCIENCE_TEMPLATES[activeTemplateId];
   if (!tpl) return;
 
-  const svgStr = tpl.renderSvg(currentParams);
+  let svgStr = tpl.renderSvg(currentParams);
+  svgStr = injectOverlaysIntoSvg(svgStr, currentParams);
   stage.innerHTML = svgStr;
+
+  const infoEl = $('sciSelectedInfo');
+  setupStageInteractions(
+    stage,
+    currentParams,
+    () => updateLivePreview(),
+    (sel) => {
+      if (infoEl) {
+        if (!sel) {
+          infoEl.classList.add('hidden');
+          infoEl.textContent = '';
+        } else {
+          infoEl.classList.remove('hidden');
+          if (sel.type === 'organelle') {
+            infoEl.textContent = `Seçili: Organel (${sel.key})`;
+          } else if (sel.type === 'symbol') {
+            infoEl.textContent = `Seçili: Devre Bileşeni`;
+          } else if (sel.type === 'formula') {
+            infoEl.textContent = `Seçili: Formül`;
+          } else if (sel.type === 'arrow') {
+            infoEl.textContent = `Seçili: İşaret Oku`;
+          } else if (sel.type === 'pin' || sel.type === 'mapPin') {
+            infoEl.textContent = `Seçili: Harita Pini`;
+          } else if (sel.type === 'text') {
+            infoEl.textContent = `Seçili: Metin Notu`;
+          } else {
+            infoEl.textContent = `Seçili Öğe: ${sel.type}`;
+          }
+        }
+      }
+    }
+  );
 }
 
 // ============================================================================
@@ -1816,12 +1608,157 @@ export function initScienceTemplates() {
   const cancelBtn = $('sciModalCancel');
   if (cancelBtn) cancelBtn.onclick = closeScienceModal;
 
+  // İnteraktif Katman Araç Çubuğu Butonları
+  const addSymbolBtn = $('sciToolAddSymbol');
+  if (addSymbolBtn) {
+    addSymbolBtn.onclick = () => {
+      const choice = prompt(
+        'Eklenecek devre bileşeni türünü seçin:\n1 - Direnç (Kutu)\n2 - Direnç (Zigzag)\n3 - Pil / Üreteç (+/-)\n4 - Açık Anahtar\n5 - Kapalı Anahtar\n6 - Lamba\n7 - Voltmetre (V)\n8 - Ampermetre (A)\n9 - Sığaç / Kapasitör (C)',
+        '1'
+      );
+      if (!choice) return;
+      const map = {
+        '1': 'resistor',
+        '2': 'resistor_zigzag',
+        '3': 'battery',
+        '4': 'switch_open',
+        '5': 'switch_closed',
+        '6': 'bulb',
+        '7': 'voltmeter',
+        '8': 'ammeter',
+        '9': 'capacitor'
+      };
+      const symbol = map[choice.trim()] || 'resistor';
+      let defaultLabel = (symbol === 'resistor' || symbol === 'resistor_zigzag') ? 'R' : (symbol === 'battery' ? 'V' : (symbol === 'bulb' ? 'K' : ''));
+      const label = prompt('Bileşen etiketi / adı (İsteğe bağlı, örn: R1, V, Lamba, K):', defaultLabel);
+      let defaultVal = (symbol === 'resistor' || symbol === 'resistor_zigzag') ? '6 Ω' : (symbol === 'battery' ? '12 V' : '');
+      const val = prompt('Bileşen sayısal değeri / birimi (İsteğe bağlı, örn: 6 Ω, 12 V, 2 A):', defaultVal);
+      addOverlayItem(currentParams, 'symbol', {
+        symbol,
+        label: label || '',
+        val: val || '',
+        x: 260,
+        y: 170
+      });
+      updateLivePreview();
+    };
+  }
+
+  const addFormulaBtn = $('sciToolAddFormula');
+  if (addFormulaBtn) {
+    addFormulaBtn.onclick = () => {
+      const formula = prompt(
+        'Matematiksel / Fiziksel Formül yazın:\n(Örn: V = I \\times R, E = mc^2, F_net = m \\cdot a, \\lambda = v / f, P = h \\cdot d \\cdot g):',
+        'V = I \\times R'
+      );
+      if (formula) {
+        addOverlayItem(currentParams, 'formula', {
+          text: formula,
+          x: 240,
+          y: 170,
+          size: 16
+        });
+        updateLivePreview();
+      }
+    };
+  }
+
+  const addTextBtn = $('sciToolAddText');
+  if (addTextBtn) {
+    addTextBtn.onclick = () => {
+      const text = prompt('Eklenecek metin / not:', 'Önemli Not');
+      if (text) {
+        addOverlayItem(currentParams, 'text', {
+          text,
+          x: 240,
+          y: 170,
+          size: 13
+        });
+        updateLivePreview();
+      }
+    };
+  }
+
+  const addArrowBtn = $('sciToolAddArrow');
+  if (addArrowBtn) {
+    addArrowBtn.onclick = () => {
+      const label = prompt('Ok üzerine kuvvet / yön etiketi (İsteğe bağlı, örn: F, v, Akım, Boğaz):', '');
+      addOverlayItem(currentParams, 'arrow', {
+        x1: 200,
+        y1: 170,
+        x2: 300,
+        y2: 170,
+        label: label || '',
+        color: '#dc2626'
+      });
+      updateLivePreview();
+    };
+  }
+
+  const addPinBtn = $('sciToolAddPin');
+  if (addPinBtn) {
+    addPinBtn.onclick = () => {
+      const label = prompt('Pin numarası veya harfi (örn: I, II, III, A, B, 1, 2):', 'I');
+      if (label === null) return;
+      const text = prompt('Pin açıklama metni (İsteğe bağlı, örn: Çukurova Deltası, Rize, Kapıdağ Tombolosu):', '');
+      if (currentParams.pins && Array.isArray(currentParams.pins)) {
+        const id = 'p_' + Date.now();
+        currentParams.pins.push({
+          id,
+          x: 260,
+          y: 150,
+          label: label || 'I',
+          text: text || '',
+          color: '#dc2626'
+        });
+      } else {
+        addOverlayItem(currentParams, 'pin', {
+          label: label || 'I',
+          text: text || '',
+          color: '#dc2626',
+          x: 260,
+          y: 150
+        });
+      }
+      updateLivePreview();
+    };
+  }
+
+  const deleteSelectedBtn = $('sciToolDeleteSelected');
+  if (deleteSelectedBtn) {
+    deleteSelectedBtn.onclick = () => {
+      const deleted = deleteSelectedOverlayItem(currentParams);
+      if (!deleted) {
+        alert('Lütfen önce silmek istediğiniz bir öğeyi (katman, pin veya devre bileşeni) tuval üzerinde tıklayarak seçin.');
+      } else {
+        updateLivePreview();
+      }
+    };
+  }
+
+  const resetOverlaysBtn = $('sciToolResetOverlays');
+  if (resetOverlaysBtn) {
+    resetOverlaysBtn.onclick = () => {
+      if (confirm('Eklenen tüm katmanları ve taşımaları sıfırlamak istiyor musunuz?')) {
+        const tpl = SCIENCE_TEMPLATES[activeTemplateId];
+        if (tpl) {
+          currentParams = JSON.parse(JSON.stringify(tpl.defaultParams || {}));
+          currentParams._overlays = [];
+          setSelectedOverlayId(null);
+          renderSchemaControls(tpl);
+          updateLivePreview();
+        }
+      }
+    };
+  }
+
   const insertBtn = $('sciModalInsert');
   if (insertBtn) {
     insertBtn.onclick = async () => {
       const tpl = SCIENCE_TEMPLATES[activeTemplateId];
       if (!tpl) return;
-      const svgStr = tpl.renderSvg(currentParams);
+      let svgStr = tpl.renderSvg(currentParams);
+      svgStr = injectOverlaysIntoSvg(svgStr, currentParams);
 
       insertBtn.disabled = true;
       const oldText = insertBtn.textContent;
@@ -1830,7 +1767,7 @@ export function initScienceTemplates() {
       try {
         const dataUrl = await svgToDataUrl(svgStr, 2);
         if (typeof onScienceInsertCallback === 'function') {
-          onScienceInsertCallback(dataUrl, tpl.name);
+          onScienceInsertCallback(dataUrl, tpl.name, tpl.category);
         }
         closeScienceModal();
       } catch (err) {
@@ -1848,7 +1785,8 @@ export function initScienceTemplates() {
     downloadBtn.onclick = async () => {
       const tpl = SCIENCE_TEMPLATES[activeTemplateId];
       if (!tpl) return;
-      const svgStr = tpl.renderSvg(currentParams);
+      let svgStr = tpl.renderSvg(currentParams);
+      svgStr = injectOverlaysIntoSvg(svgStr, currentParams);
       try {
         const dataUrl = await svgToDataUrl(svgStr, 2);
         const a = document.createElement('a');
@@ -1866,7 +1804,8 @@ export function initScienceTemplates() {
     copySvgBtn.onclick = async () => {
       const tpl = SCIENCE_TEMPLATES[activeTemplateId];
       if (!tpl) return;
-      const svgStr = tpl.renderSvg(currentParams);
+      let svgStr = tpl.renderSvg(currentParams);
+      svgStr = injectOverlaysIntoSvg(svgStr, currentParams);
       try {
         await navigator.clipboard.writeText(svgStr);
         const old = copySvgBtn.textContent;

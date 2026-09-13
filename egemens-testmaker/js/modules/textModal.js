@@ -440,6 +440,76 @@ export function handleInsertGeometryQuestion(dataUrl) {
   closeModal('textModal');
 }
 
+export function handleInsertScienceQuestion(dataUrl, templateName = 'Fen & Coğrafya Şablonu', category = 'fen') {
+  if (!dataUrl) return;
+
+  const preamble = $('txtPreamble')?.value.trim() || '';
+  const root = $('txtRoot')?.value.trim() || '';
+  const hasUserText = Boolean(preamble || root);
+
+  const defaultRoot = 'Yukarıda verilen görsel ve bilgilere göre aşağıdaki yargılardan hangisi doğrudur?';
+  const qText = hasUserText ? preamble : '';
+  const qRoot = hasUserText ? (root || defaultRoot) : defaultRoot;
+
+  const options = [0, 1, 2, 3, 4].map((i) => $('opt' + i)?.value.trim() || '');
+  const hasOptions = options.some(Boolean);
+
+  const tagList = [category || 'fen', 'şablon'];
+  if (templateName) tagList.push(templateName.toLowerCase().slice(0, 15));
+
+  if (editingId) {
+    const q = questions.find((x) => x.id === editingId);
+    if (q) {
+      q.imgSrc = dataUrl;
+      if (qText) q.text = qText;
+      if (qRoot) q.root = qRoot;
+      if (hasOptions) q.options = options;
+      if ($('txtAns')?.value) q.answer = $('txtAns').value;
+    }
+  } else {
+    if (questions.length >= MAX) {
+      alert('Bir testte en fazla 100 soru bulundurabilirsiniz.');
+      return;
+    }
+    const newQ = {
+      id: uid(),
+      groupId: null,
+      stem: '',
+      name: templateName || 'Fen/Coğrafya',
+      type: 'text',
+      kind: questionKind === 'bosluk' ? 'coktan' : questionKind,
+      level: questionLevel || 'orta',
+      tags: tagList,
+      text: qText,
+      root: qRoot,
+      imgSrc: dataUrl,
+      blankText: '',
+      blankItems: [],
+      wordBank: [],
+      bankShared: false,
+      options: hasOptions ? options : ['', '', '', '', ''],
+      layout: $('txtLayout')?.value || 'v',
+      blank: 0,
+      answer: $('txtAns')?.value || null,
+    };
+    questions.push(newQ);
+  }
+
+  if (onSaveCallback) onSaveCallback();
+
+  editingId = null;
+  $('txtTitle').textContent = 'Yazılı soru ekle';
+  $('txtPreamble').value = '';
+  $('txtRoot').value = '';
+  setTxtImg(null);
+  $('imgUploadPanel').classList.add('hidden');
+  $('txtImgFile').value = '';
+  [0, 1, 2, 3, 4].forEach((i) => ($('opt' + i).value = ''));
+  $('txtAns').value = '';
+  renderOptionAnswer();
+  closeModal('textModal');
+}
+
 export function initTextModal() {
   document.querySelectorAll('.qkind').forEach((b) => (b.onclick = () => setQuestionKind(b.dataset.qk)));
   document.querySelectorAll('[data-opt-answer]').forEach((btn) => {
@@ -527,9 +597,13 @@ export function initTextModal() {
   const sciBtn = $('txtOpenScienceBtn');
   if (sciBtn) {
     sciBtn.onclick = () => {
-      openScienceModal((dataUrl) => {
+      closeModal('textModal');
+      openScienceModal((dataUrl, name, cat) => {
         setTxtImg(dataUrl);
         $('imgUploadPanel').classList.remove('hidden');
+        openModal('textModal');
+      }, () => {
+        openModal('textModal');
       });
     };
   }
@@ -537,9 +611,13 @@ export function initTextModal() {
   const blankSciBtn = $('blankOpenScienceBtn');
   if (blankSciBtn) {
     blankSciBtn.onclick = () => {
-      openScienceModal((dataUrl) => {
+      closeModal('textModal');
+      openScienceModal((dataUrl, name, cat) => {
         setBlankImg(dataUrl);
         $('blankImgPanel').classList.remove('hidden');
+        openModal('textModal');
+      }, () => {
+        openModal('textModal');
       });
     };
   }
@@ -591,6 +669,15 @@ export function initTextModal() {
     dropzoneGeoBtn.onclick = () => {
       openGeometryModal((dataUrl) => {
         handleInsertGeometryQuestion(dataUrl);
+      });
+    };
+  }
+
+  const dropzoneScienceBtn = $('dropzoneScienceBtn');
+  if (dropzoneScienceBtn) {
+    dropzoneScienceBtn.onclick = () => {
+      openScienceModal((dataUrl, name, cat) => {
+        handleInsertScienceQuestion(dataUrl, name, cat);
       });
     };
   }

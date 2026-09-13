@@ -137,13 +137,20 @@ let formulaSize = 26;
 // MODAL AÇILIŞ VE DIŞA AKTARIM FONKSİYONLARI
 // ============================================================================
 
+let onGeometryCancelCallback = null;
+
 export function setOnGeometryInsertCallback(fn) {
   onInsertCallback = fn;
 }
 
-export function openGeometryModal(callback) {
+export function openGeometryModal(callback, onCancel) {
   if (typeof callback === 'function') {
     onInsertCallback = callback;
+  }
+  if (typeof onCancel === 'function') {
+    onGeometryCancelCallback = onCancel;
+  } else {
+    onGeometryCancelCallback = null;
   }
   // Yazılı soru ekle modalı açıksa tuval etkileşimini engellememesi için kapat
   closeModal('textModal');
@@ -1809,18 +1816,30 @@ export function setupGeometryEventListeners() {
   // Kapatma & İptal
   const closeBtn = $('geoModalClose');
   const cancelBtn = $('geoModalCancel');
-  if (closeBtn) closeBtn.onclick = () => closeModal('geoModal');
-  if (cancelBtn) cancelBtn.onclick = () => closeModal('geoModal');
+  const handleGeoClose = () => {
+    closeModal('geoModal');
+    if (typeof onGeometryCancelCallback === 'function') {
+      const cb = onGeometryCancelCallback;
+      onGeometryCancelCallback = null;
+      onInsertCallback = null;
+      cb();
+    }
+  };
+  if (closeBtn) closeBtn.onclick = handleGeoClose;
+  if (cancelBtn) cancelBtn.onclick = handleGeoClose;
 
   // Soruya Ekle Butonu
   const insertBtn = $('geoInsertBtn');
   if (insertBtn) {
     insertBtn.onclick = () => {
       const dataUrl = exportGeometryAsPNG();
-      if (dataUrl && typeof onInsertCallback === 'function') {
-        onInsertCallback(dataUrl);
-      }
       closeModal('geoModal');
+      const cb = onInsertCallback;
+      onInsertCallback = null;
+      onGeometryCancelCallback = null;
+      if (dataUrl && typeof cb === 'function') {
+        cb(dataUrl);
+      }
     };
   }
 

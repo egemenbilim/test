@@ -273,12 +273,6 @@
           <button id="textBtn" class="flex items-center gap-1.5 rounded-xl bg-[#0b1329] px-4 py-2 text-[13px] font-semibold text-white shadow-sm transition-all duration-150 hover:bg-[#152347] hover:shadow-md hover:shadow-slate-900/30 active:scale-[0.98]">
             <span>✍️</span> Yazılı Soru Ekleyin
           </button>
-          <button id="dropzoneGeoBtn" type="button" class="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-[13px] font-semibold text-white shadow-sm transition-all duration-150 hover:bg-indigo-500 hover:shadow-md hover:shadow-indigo-600/20 active:scale-[0.98]" title="Geometri şekli çizip soruya ekleyin">
-            <span>📐</span> Geometri Çiz
-          </button>
-          <button id="dropzoneScienceBtn" type="button" class="flex items-center gap-1.5 rounded-xl bg-teal-600 px-4 py-2 text-[13px] font-semibold text-white shadow-sm transition-all duration-150 hover:bg-teal-500 hover:shadow-md hover:shadow-teal-600/20 active:scale-[0.98]" title="Fen ve Coğrafya şablonu ekleyin">
-            <span>🔬</span> Fen & Coğrafya Şablonu
-          </button>
           <button id="openCrop" class="flex items-center gap-1.5 rounded-xl bg-slate-600 px-4 py-2 text-[13px] font-semibold text-white shadow-sm transition-all duration-150 hover:bg-slate-500 hover:shadow-md hover:shadow-slate-600/20 active:scale-[0.98]">
             <span>✂️</span> Görsel/PDF'ten Kes
           </button>
@@ -837,6 +831,91 @@
         <div class="mt-2 flex items-center justify-between shrink-0 text-[11px] text-slate-400">
           <span>💡 Organelleri, harita pinlerini, direnç ve formülleri tuval üzerinde fareyle serbestçe sürükleyebilirsiniz.</span>
           <span id="sciSelectedInfo" class="font-medium text-slate-500 hidden"></span>
+        </div>
+      </div>
+
+      <!-- Sağ Çekmece: Canlı KaTeX Formül & Devre Elemanları Paneli (Açıldığında ana ekran sola kayar) -->
+      <div id="sciSideDrawer" class="hidden w-80 lg:w-96 border-l border-slate-200 dark:border-slate-800 flex flex-col bg-white dark:bg-slate-900 shrink-0 overflow-hidden shadow-xl z-20 transition-all duration-300">
+        <!-- Çekmece Başlığı -->
+        <div class="p-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50">
+          <div class="flex items-center gap-2">
+            <span id="sciDrawerIcon" class="text-base">∑</span>
+            <span id="sciDrawerTitle" class="text-xs font-bold text-slate-800 dark:text-slate-100">Formül (KaTeX) Ekle</span>
+          </div>
+          <button id="sciDrawerClose" type="button" class="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 text-sm p-1 rounded-lg">✕</button>
+        </div>
+
+        <!-- Çekmece İçeriği -->
+        <div id="sciDrawerBody" class="flex-1 overflow-y-auto p-3.5 space-y-3.5">
+          <!-- 1. FORMÜL MODU -->
+          <div id="sciDrawerFormulaMode" class="space-y-3">
+            <!-- Kategori Butonları -->
+            <div class="flex items-center gap-1 overflow-x-auto pb-1 text-[11px]">
+              <button type="button" class="sci-drawer-tab active" data-dcat="fizik">⚡ Fizik</button>
+              <button type="button" class="sci-drawer-tab" data-dcat="kimya">🧪 Kimya</button>
+              <button type="button" class="sci-drawer-tab" data-dcat="biyoloji">🧬 Biyoloji</button>
+              <button type="button" class="sci-drawer-tab" data-dcat="matematik">📐 Matematik</button>
+            </div>
+
+            <!-- Canlı KaTeX Önizleme Alanı -->
+            <div class="rounded-xl border border-slate-200 bg-slate-50 p-3 text-center dark:border-slate-700 dark:bg-slate-800/60 min-h-[64px] flex items-center justify-center">
+              <div id="sciDrawerKatexPreview" class="text-base sm:text-lg font-serif"></div>
+            </div>
+
+            <!-- LaTeX Kod Düzenleme Kutusu -->
+            <div>
+              <label class="lbl text-[11px] font-semibold text-slate-700 dark:text-slate-300">Formül LaTeX Kodu:</label>
+              <textarea id="sciDrawerKatexInput" class="inp mt-1 text-xs font-mono !py-1.5 h-16 resize-none" placeholder="V = I \cdot R"></textarea>
+            </div>
+
+            <!-- Hızlı Formül Şablonları Listesi -->
+            <div>
+              <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1.5">Hazır Formüller (Tıklayın):</span>
+              <div id="sciDrawerChips" class="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto pr-1"></div>
+            </div>
+
+            <!-- Font Boyutu -->
+            <div class="flex items-center justify-between pt-1">
+              <span class="text-[11px] font-medium text-slate-600 dark:text-slate-400">Yazı Boyutu:</span>
+              <div class="flex items-center gap-2">
+                <input type="range" id="sciDrawerFormulaSize" min="12" max="28" value="16" class="w-24 accent-teal-600">
+                <span id="sciDrawerFormulaSizeVal" class="text-xs font-mono font-bold text-slate-700 dark:text-slate-300">16px</span>
+              </div>
+            </div>
+
+            <button id="sciDrawerInsertFormulaBtn" type="button" class="w-full rounded-xl bg-teal-600 py-2 text-xs font-semibold text-white shadow-md transition hover:bg-teal-700">
+              ✚ Tuvale Ekle
+            </button>
+          </div>
+
+          <!-- 2. BİLEŞEN MODU -->
+          <div id="sciDrawerSymbolMode" class="hidden space-y-3">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Devre Elemanı Seçin:</span>
+            <div id="sciDrawerSymbolGrid" class="grid grid-cols-3 gap-2">
+              <!-- JS rendered component cards -->
+            </div>
+
+            <!-- Parametre Girişleri -->
+            <div class="space-y-2 pt-1 border-t border-slate-100 dark:border-slate-800">
+              <div>
+                <label class="lbl text-[11px] font-semibold text-slate-700 dark:text-slate-300">Bileşen Etiketi:</label>
+                <input id="sciDrawerSymbolLabel" class="inp mt-1 text-xs !py-1.5" placeholder="Örn: R1, V, K">
+              </div>
+              <div>
+                <label class="lbl text-[11px] font-semibold text-slate-700 dark:text-slate-300">Değer / Birim:</label>
+                <input id="sciDrawerSymbolVal" class="inp mt-1 text-xs !py-1.5" placeholder="Örn: 6 Ω, 12 V, 2 A">
+              </div>
+            </div>
+
+            <!-- Önizleme Kutusu -->
+            <div class="rounded-xl border border-slate-200 bg-slate-50 p-2 text-center dark:border-slate-700 dark:bg-slate-800/60 h-20 flex items-center justify-center">
+              <div id="sciDrawerSymbolPreview" class="w-full h-full flex items-center justify-center"></div>
+            </div>
+
+            <button id="sciDrawerInsertSymbolBtn" type="button" class="w-full rounded-xl bg-teal-600 py-2 text-xs font-semibold text-white shadow-md transition hover:bg-teal-700">
+              ✚ Tuvale Ekle
+            </button>
+          </div>
         </div>
       </div>
     </div>

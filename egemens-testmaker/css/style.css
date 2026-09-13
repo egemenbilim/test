@@ -1050,7 +1050,7 @@ html.dark .pv-make-btn {
   z-index: 60;
 }
 #scienceModal, #geoModal {
-  z-index: 90;
+  z-index: 100 !important;
 }
 #groupModal, #resultModal, #preview {
   z-index: 48;
@@ -1510,3 +1510,98 @@ html.dark .bank-q-card:hover {
 .sci-cat-tab:active {
   transform: scale(0.96);
 }
+
+/* Yan Çekmece Stilleri */
+.sci-drawer-tab {
+  padding: 4px 9px;
+  border-radius: 7px;
+  font-weight: 600;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #64748b;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+.sci-drawer-tab:hover {
+  background: #ffffff;
+  color: #0f172a;
+  border-color: #cbd5e1;
+}
+.sci-drawer-tab.active {
+  background: #0f172a;
+  color: #ffffff;
+  border-color: #0f172a;
+}
+html.dark .sci-drawer-tab {
+  border-color: #334155;
+  background: #1e293b;
+  color: #94a3b8;
+}
+html.dark .sci-drawer-tab:hover {
+  background: #334155;
+  color: #f8fafc;
+}
+html.dark .sci-drawer-tab.active {
+  background: #f8fafc;
+  color: #0f172a;
+  border-color: #f8fafc;
+}
+
+.sci-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 7px;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #1e293b;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+.sci-chip:hover {
+  border-color: #0d9488;
+  background: #f0fdfa;
+  color: #0f766e;
+}
+html.dark .sci-chip {
+  border-color: #334155;
+  background: #1e293b;
+  color: #cbd5e1;
+}
+html.dark .sci-chip:hover {
+  border-color: #2dd4bf;
+  background: #134e4a;
+  color: #ffffff;
+}
+
+.sci-symbol-card {
+  border: 1.5px solid #e2e8f0;
+  border-radius: 9px;
+  padding: 6px 4px;
+  text-align: center;
+  cursor: pointer;
+  background: #ffffff;
+  transition: all 0.15s ease;
+}
+.sci-symbol-card:hover {
+  border-color: #0d9488;
+  box-shadow: 0 2px 6px rgba(13, 148, 136, 0.15);
+}
+.sci-symbol-card.selected {
+  border-color: #0d9488;
+  background: #f0fdfa;
+  box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.25);
+}
+html.dark .sci-symbol-card {
+  border-color: #334155;
+  background: #1e293b;
+}
+html.dark .sci-symbol-card.selected {
+  background: #134e4a;
+  border-color: #2dd4bf;
+}
+

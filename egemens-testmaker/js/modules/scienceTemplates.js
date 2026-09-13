@@ -5,6 +5,7 @@ import { CHEM_TEMPLATES } from './science/chemTemplates.js';
 import { BIO_TEMPLATES } from './science/bioTemplates.js';
 import {
   injectOverlaysIntoSvg,
+  renderCircuitSymbolSvg,
   setupStageInteractions,
   addOverlayItem,
   deleteSelectedOverlayItem,
@@ -1364,6 +1365,8 @@ export function openScienceModal(callback, onCancel) {
   } else {
     onScienceCancelCallback = null;
   }
+  closeModal('textModal');
+  closeSideDrawer();
   openModal('scienceModal');
   renderCategoryTabs();
   renderTemplateList();
@@ -1372,9 +1375,11 @@ export function openScienceModal(callback, onCancel) {
 
 export function closeScienceModal() {
   closeModal('scienceModal');
+  closeSideDrawer();
   if (typeof onScienceCancelCallback === 'function') {
     const cb = onScienceCancelCallback;
     onScienceCancelCallback = null;
+    onScienceInsertCallback = null;
     cb();
   }
 }
@@ -1589,6 +1594,305 @@ function updateLivePreview() {
 // 4. BAŞLATICI & OLAY DİNLEYİCİLERİ
 // ============================================================================
 
+
+// ============================================================================
+// 5. YAN ÇEKMECE (SIDE DRAWER): KATEX FORMÜLLER & DEVRE ELEMANLARI
+// ============================================================================
+
+let drawerActiveMode = 'formula'; // 'formula' | 'symbol'
+let drawerFormulaCat = 'fizik'; // 'fizik' | 'kimya' | 'biyoloji' | 'matematik'
+let drawerActiveSymbol = 'resistor';
+let drawerFormulaSize = 16;
+
+const FORMULA_PRESETS = {
+  fizik: [
+    { label: 'V = I · R', latex: 'V = I \\cdot R', desc: 'Ohm Yasası' },
+    { label: 'P = V · I', latex: 'P = V \\cdot I', desc: 'Elektriksel Güç' },
+    { label: 'F_net = m · a', latex: 'F_{\\text{net}} = m \\cdot a', desc: 'Newton 2. Yasa' },
+    { label: 'E_k = 1/2 m v²', latex: 'E_k = \\frac{1}{2} m v^2', desc: 'Kinetik Enerji' },
+    { label: 'E_p = m g h', latex: 'E_p = m g h', desc: 'Potansiyel Enerji' },
+    { label: 'W = F · Δx', latex: 'W = F \\cdot \\Delta x', desc: 'İş - Enerji' },
+    { label: 'P = h · d · g', latex: 'P = h \\cdot d \\cdot g', desc: 'Sıvı Basıncı' },
+    { label: 'F_K = V_b · d_s · g', latex: 'F_K = V_b \\cdot d_s \\cdot g', desc: 'Kaldırma Kuvveti' },
+    { label: 'T = 2π√(m/k)', latex: 'T = 2\\pi\\sqrt{\\frac{m}{k}}', desc: 'Yay Sarkacı' },
+    { label: 'T = 2π√(L/g)', latex: 'T = 2\\pi\\sqrt{\\frac{L}{g}}', desc: 'Basit Sarkaç' },
+    { label: 'λ = v / f', latex: '\\lambda = \\frac{v}{f}', desc: 'Dalga Boyu' },
+    { label: 'Q = m · c · ΔT', latex: 'Q = m \\cdot c \\cdot \\Delta T', desc: 'Isı - Sıcaklık' },
+    { label: 'E = mc²', latex: 'E = m c^2', desc: 'Kütle-Enerji' },
+    { label: 'F = q · v · B · sinθ', latex: 'F = q v B \\sin\\theta', desc: 'Manyetik Kuvvet' },
+    { label: 'a_mer = v² / r', latex: 'a_{\\text{mer}} = \\frac{v^2}{r}', desc: 'Merkezcil İvme' }
+  ],
+  kimya: [
+    { label: 'P · V = n · R · T', latex: 'P \\cdot V = n R T', desc: 'İdeal Gaz Yasası' },
+    { label: 'M = n / V', latex: 'M = \\frac{n}{V}', desc: 'Molarite' },
+    { label: 'pH = -log[H⁺]', latex: '\\text{pH} = -\\log[\\text{H}^+]', desc: 'pH Formülü' },
+    { label: 'pOH = -log[OH⁻]', latex: '\\text{pOH} = -\\log[\\text{OH}^-]', desc: 'pOH Formülü' },
+    { label: 'ΔH = ΣΔH_u - ΣΔH_g', latex: '\\Delta H = \\sum \\Delta H_u^\\circ - \\sum \\Delta H_g^\\circ', desc: 'Tepkime Isısı' },
+    { label: 'K_a · K_b = 10⁻¹⁴', latex: 'K_a \\cdot K_b = 10^{-14}', desc: 'Su İyon Çarpımı' },
+    { label: 'E°_pil = E°_kat - E°_an', latex: 'E^\\circ_{\\text{pil}} = E^\\circ_{\\text{katot}} - E^\\circ_{\\text{anot}}', desc: 'Pil Potansiyeli' },
+    { label: 'r = k[A]ᵃ[B]ᵇ', latex: 'r = k [\\text{A}]^a [\\text{B}]^b', desc: 'Tepkime Hızı' },
+    { label: 'q = m · L_e', latex: 'q = m \\cdot L_e', desc: 'Erime Isısı' },
+    { label: 'd = m / V', latex: 'd = \\frac{m}{V}', desc: 'Özkütle' }
+  ],
+  biyoloji: [
+    { label: 'Fotosentez Denklemi', latex: '6\\text{CO}_2 + 6\\text{H}_2\\text{O} \\xrightarrow{Işık} \\text{C}_6\\text{H}_{12}\\text{O}_6 + 6\\text{O}_2', desc: 'Fotosentez' },
+    { label: 'Hücresel Solunum', latex: '\\text{C}_6\\text{H}_{12}\\text{O}_6 + 6\\text{O}_2 \\to 6\\text{CO}_2 + 6\\text{H}_2\\text{O} + 32\\text{ATP}', desc: 'Solunum' },
+    { label: 'Hardy-Weinberg (Genotip)', latex: 'p^2 + 2pq + q^2 = 1', desc: 'Genotip Frekansı' },
+    { label: 'Hardy-Weinberg (Allel)', latex: 'p + q = 1', desc: 'Allel Frekansı' },
+    { label: 'DNA Baz Eşleşmesi', latex: '\\text{A} = \\text{T}, \\quad \\text{G} \\equiv \\text{C}', desc: 'Baz Eşleşmesi' },
+    { label: 'Kromozom Formülü', latex: '2n = 46 \\implies n = 23', desc: 'Kromozom Sayısı' },
+    { label: 'Kromozom & Kromatit', latex: '1\\,\\text{Kromozom} = 2\\,\\text{Kardeş Kromatit}', desc: 'Mitoz Bağıntısı' }
+  ],
+  matematik: [
+    { label: 'Kesir: a/b', latex: '\\frac{a}{b}', desc: 'Kesir' },
+    { label: 'Karekök: √x', latex: '\\sqrt{x}', desc: 'Karekök' },
+    { label: 'n. Dereceden Kök', latex: '\\sqrt[n]{x}', desc: 'Kök' },
+    { label: 'Üs: xⁿ', latex: 'x^n', desc: 'Üslü İfade' },
+    { label: 'İndis: x_n', latex: 'x_n', desc: 'Alt İndis' },
+    { label: 'Toplam: ∑', latex: '\\sum_{i=1}^{n} x_i', desc: 'Toplam Sembolü' },
+    { label: 'Limit: lim', latex: '\\lim_{x \\to 0}', desc: 'Limit' },
+    { label: 'İntegral: ∫', latex: '\\int_{a}^{b} f(x)\\,dx', desc: 'Belirli İntegral' },
+    { label: 'Yunan Harfleri', latex: '\\alpha, \\beta, \\theta, \\pi, \\Delta, \\Omega', desc: 'Semboller' },
+    { label: 'Bağıntılar', latex: '\\pm, \\approx, \\le, \\ge, \\ne', desc: 'İşaretler' }
+  ]
+};
+
+const CIRCUIT_SYMBOLS = [
+  { id: 'resistor', name: 'Direnç (Kutu)', defLabel: 'R₁', defVal: '6 Ω' },
+  { id: 'resistor_zigzag', name: 'Direnç (Zigzag)', defLabel: 'R₂', defVal: '12 Ω' },
+  { id: 'battery', name: 'Pil / Üreteç', defLabel: '+ / -', defVal: '24 V' },
+  { id: 'switch_open', name: 'Açık Anahtar', defLabel: 'S₁', defVal: '' },
+  { id: 'switch_closed', name: 'Kapalı Anahtar', defLabel: 'S₂', defVal: '' },
+  { id: 'bulb', name: 'Lamba', defLabel: 'K', defVal: '' },
+  { id: 'voltmeter', name: 'Voltmetre (V)', defLabel: 'V', defVal: '' },
+  { id: 'ammeter', name: 'Ampermetre (A)', defLabel: 'A', defVal: '' },
+  { id: 'capacitor', name: 'Sığaç / Kapasitör', defLabel: 'C', defVal: '10 µF' }
+];
+
+export function openSideDrawer(mode = 'formula') {
+  const drawer = $('sciSideDrawer');
+  if (!drawer) return;
+  drawerActiveMode = mode;
+  drawer.classList.remove('hidden');
+
+  const titleEl = $('sciDrawerTitle');
+  const iconEl = $('sciDrawerIcon');
+  const fMode = $('sciDrawerFormulaMode');
+  const sMode = $('sciDrawerSymbolMode');
+
+  if (mode === 'formula') {
+    if (titleEl) titleEl.textContent = 'Formül (KaTeX) Ekle';
+    if (iconEl) iconEl.textContent = '∑';
+    if (fMode) fMode.classList.remove('hidden');
+    if (sMode) sMode.classList.add('hidden');
+    renderDrawerFormulaTabs();
+    renderDrawerFormulaChips();
+    updateDrawerKatexPreview();
+    setTimeout(() => { $('sciDrawerKatexInput')?.focus(); }, 50);
+  } else {
+    if (titleEl) titleEl.textContent = 'Devre Elemanı Ekle';
+    if (iconEl) iconEl.textContent = '⚡';
+    if (fMode) fMode.classList.add('hidden');
+    if (sMode) sMode.classList.remove('hidden');
+    renderDrawerSymbolGrid();
+    updateDrawerSymbolPreview();
+  }
+}
+
+export function closeSideDrawer() {
+  const drawer = $('sciSideDrawer');
+  if (drawer) drawer.classList.add('hidden');
+}
+
+function renderDrawerFormulaTabs() {
+  document.querySelectorAll('#sciDrawerFormulaMode .sci-drawer-tab').forEach(tab => {
+    const isAct = tab.dataset.dcat === drawerFormulaCat;
+    tab.className = `sci-drawer-tab px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer ${
+      isAct ? 'bg-teal-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
+    }`;
+  });
+}
+
+function renderDrawerFormulaChips() {
+  const container = $('sciDrawerChips');
+  if (!container) return;
+  container.innerHTML = '';
+
+  const list = FORMULA_PRESETS[drawerFormulaCat] || [];
+  list.forEach(item => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'sci-chip text-[11px] font-medium px-2 py-1 rounded-lg border border-slate-200 bg-white hover:border-teal-600 hover:text-teal-700 text-slate-700 transition dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-teal-400 dark:hover:text-teal-300';
+    btn.textContent = item.label;
+    btn.title = item.desc || item.label;
+    btn.onclick = () => {
+      const input = $('sciDrawerKatexInput');
+      if (input) {
+        input.value = item.latex;
+        updateDrawerKatexPreview();
+      }
+    };
+    container.appendChild(btn);
+  });
+}
+
+function updateDrawerKatexPreview() {
+  const preview = $('sciDrawerKatexPreview');
+  if (!preview) return;
+  const input = $('sciDrawerKatexInput');
+  const latex = (input?.value || '').trim();
+
+  if (!latex) {
+    preview.innerHTML = '<span class="text-xs text-slate-400 font-sans italic">Önizleme burada görünecektir</span>';
+    return;
+  }
+
+  if (window.katex && typeof window.katex.renderToString === 'function') {
+    try {
+      preview.innerHTML = window.katex.renderToString(latex, { throwOnError: false, displayMode: true });
+    } catch (e) {
+      preview.textContent = latex;
+    }
+  } else {
+    preview.textContent = latex;
+  }
+}
+
+function renderDrawerSymbolGrid() {
+  const grid = $('sciDrawerSymbolGrid');
+  if (!grid) return;
+  grid.innerHTML = '';
+
+  CIRCUIT_SYMBOLS.forEach(sym => {
+    const isAct = sym.id === drawerActiveSymbol;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `sci-symbol-card p-2 rounded-xl border text-center transition flex flex-col items-center justify-center gap-1 ${
+      isAct ? 'bg-teal-50 border-teal-600 text-teal-900 ring-1 ring-teal-600 dark:bg-teal-950 dark:border-teal-400 dark:text-teal-100' :
+      'bg-slate-50 border-slate-200 hover:bg-white hover:border-slate-300 text-slate-700 dark:bg-slate-800/60 dark:border-slate-700 dark:text-slate-300'
+    }`;
+
+    btn.innerHTML = `
+      <div class="h-8 flex items-center justify-center pointer-events-none">
+        <svg viewBox="0 0 74 36" width="50" height="24">
+          ${renderCircuitSymbolSvg({ id: 'card', symbol: sym.id, x: 37, y: 18, rot: 0 }, false)}
+        </svg>
+      </div>
+      <span class="text-[10px] font-bold leading-tight line-clamp-1">${sym.name}</span>
+    `;
+
+    btn.onclick = () => {
+      drawerActiveSymbol = sym.id;
+      const lblInp = $('sciDrawerSymbolLabel');
+      const valInp = $('sciDrawerSymbolVal');
+      if (lblInp) lblInp.value = sym.defLabel;
+      if (valInp) valInp.value = sym.defVal;
+      renderDrawerSymbolGrid();
+      updateDrawerSymbolPreview();
+    };
+
+    grid.appendChild(btn);
+  });
+}
+
+function updateDrawerSymbolPreview() {
+  const box = $('sciDrawerSymbolPreview');
+  if (!box) return;
+
+  const lbl = $('sciDrawerSymbolLabel')?.value || '';
+  const val = $('sciDrawerSymbolVal')?.value || '';
+
+  const mockItem = {
+    id: 'preview_sym',
+    symbol: drawerActiveSymbol,
+    x: 60,
+    y: 35,
+    label: lbl,
+    val: val,
+    rot: 0
+  };
+
+  box.innerHTML = `
+    <svg viewBox="0 0 120 70" width="120" height="70" style="font-family:'Noto Sans',sans-serif;">
+      ${renderCircuitSymbolSvg(mockItem, false)}
+    </svg>
+  `;
+}
+
+function initSideDrawer() {
+  // Sekme geçişleri
+  document.querySelectorAll('#sciDrawerFormulaMode .sci-drawer-tab').forEach(tab => {
+    tab.onclick = () => {
+      drawerFormulaCat = tab.dataset.dcat;
+      renderDrawerFormulaTabs();
+      renderDrawerFormulaChips();
+    };
+  });
+
+  // KaTeX Canlı Önizleme
+  const kInp = $('sciDrawerKatexInput');
+  if (kInp) {
+    kInp.oninput = () => updateDrawerKatexPreview();
+  }
+
+  // KaTeX Boyut Kaydırıcısı
+  const sizeSlider = $('sciDrawerFormulaSize');
+  const sizeVal = $('sciDrawerFormulaSizeVal');
+  if (sizeSlider) {
+    sizeSlider.oninput = (e) => {
+      drawerFormulaSize = parseInt(e.target.value) || 16;
+      if (sizeVal) sizeVal.textContent = `${drawerFormulaSize}px`;
+    };
+  }
+
+  // KaTeX Tuvale Ekle Butonu
+  const insertFormulaBtn = $('sciDrawerInsertFormulaBtn');
+  if (insertFormulaBtn) {
+    insertFormulaBtn.onclick = () => {
+      const latex = ($('sciDrawerKatexInput')?.value || '').trim();
+      if (!latex) {
+        alert('Lütfen eklenecek bir formül yazın veya hazır formüllerden birini seçin.');
+        return;
+      }
+      addOverlayItem(currentParams, 'formula', {
+        text: latex,
+        x: 240,
+        y: 170,
+        size: drawerFormulaSize
+      });
+      updateLivePreview();
+    };
+  }
+
+  // Sembol Input Dinleyicileri
+  const symLbl = $('sciDrawerSymbolLabel');
+  if (symLbl) symLbl.oninput = () => updateDrawerSymbolPreview();
+  const symVal = $('sciDrawerSymbolVal');
+  if (symVal) symVal.oninput = () => updateDrawerSymbolPreview();
+
+  // Sembol Tuvale Ekle Butonu
+  const insertSymBtn = $('sciDrawerInsertSymbolBtn');
+  if (insertSymBtn) {
+    insertSymBtn.onclick = () => {
+      const lbl = $('sciDrawerSymbolLabel')?.value || '';
+      const val = $('sciDrawerSymbolVal')?.value || '';
+      addOverlayItem(currentParams, 'symbol', {
+        symbol: drawerActiveSymbol,
+        label: lbl,
+        val: val,
+        x: 260,
+        y: 170
+      });
+      updateLivePreview();
+    };
+  }
+
+  // Çekmece Kapat Butonu
+  const closeBtn = $('sciDrawerClose');
+  if (closeBtn) closeBtn.onclick = closeSideDrawer;
+}
+
+
 export function initScienceTemplates() {
   const searchInp = $('sciSearchInput');
   if (searchInp) {
@@ -1608,59 +1912,17 @@ export function initScienceTemplates() {
   const cancelBtn = $('sciModalCancel');
   if (cancelBtn) cancelBtn.onclick = closeScienceModal;
 
-  // İnteraktif Katman Araç Çubuğu Butonları
+  // İnteraktif Katman Araç Çubuğu: Sağ Çekmece ile Entegre (Direnç & KaTeX)
+  initSideDrawer();
+
   const addSymbolBtn = $('sciToolAddSymbol');
   if (addSymbolBtn) {
-    addSymbolBtn.onclick = () => {
-      const choice = prompt(
-        'Eklenecek devre bileşeni türünü seçin:\n1 - Direnç (Kutu)\n2 - Direnç (Zigzag)\n3 - Pil / Üreteç (+/-)\n4 - Açık Anahtar\n5 - Kapalı Anahtar\n6 - Lamba\n7 - Voltmetre (V)\n8 - Ampermetre (A)\n9 - Sığaç / Kapasitör (C)',
-        '1'
-      );
-      if (!choice) return;
-      const map = {
-        '1': 'resistor',
-        '2': 'resistor_zigzag',
-        '3': 'battery',
-        '4': 'switch_open',
-        '5': 'switch_closed',
-        '6': 'bulb',
-        '7': 'voltmeter',
-        '8': 'ammeter',
-        '9': 'capacitor'
-      };
-      const symbol = map[choice.trim()] || 'resistor';
-      let defaultLabel = (symbol === 'resistor' || symbol === 'resistor_zigzag') ? 'R' : (symbol === 'battery' ? 'V' : (symbol === 'bulb' ? 'K' : ''));
-      const label = prompt('Bileşen etiketi / adı (İsteğe bağlı, örn: R1, V, Lamba, K):', defaultLabel);
-      let defaultVal = (symbol === 'resistor' || symbol === 'resistor_zigzag') ? '6 Ω' : (symbol === 'battery' ? '12 V' : '');
-      const val = prompt('Bileşen sayısal değeri / birimi (İsteğe bağlı, örn: 6 Ω, 12 V, 2 A):', defaultVal);
-      addOverlayItem(currentParams, 'symbol', {
-        symbol,
-        label: label || '',
-        val: val || '',
-        x: 260,
-        y: 170
-      });
-      updateLivePreview();
-    };
+    addSymbolBtn.onclick = () => openSideDrawer('symbol');
   }
 
   const addFormulaBtn = $('sciToolAddFormula');
   if (addFormulaBtn) {
-    addFormulaBtn.onclick = () => {
-      const formula = prompt(
-        'Matematiksel / Fiziksel Formül yazın:\n(Örn: V = I \\times R, E = mc^2, F_net = m \\cdot a, \\lambda = v / f, P = h \\cdot d \\cdot g):',
-        'V = I \\times R'
-      );
-      if (formula) {
-        addOverlayItem(currentParams, 'formula', {
-          text: formula,
-          x: 240,
-          y: 170,
-          size: 16
-        });
-        updateLivePreview();
-      }
-    };
+    addFormulaBtn.onclick = () => openSideDrawer('formula');
   }
 
   const addTextBtn = $('sciToolAddText');
@@ -1766,10 +2028,14 @@ export function initScienceTemplates() {
 
       try {
         const dataUrl = await svgToDataUrl(svgStr, 2);
-        if (typeof onScienceInsertCallback === 'function') {
-          onScienceInsertCallback(dataUrl, tpl.name, tpl.category);
+        closeModal('scienceModal');
+        closeSideDrawer();
+        const cb = onScienceInsertCallback;
+        onScienceInsertCallback = null;
+        onScienceCancelCallback = null;
+        if (typeof cb === 'function') {
+          cb(dataUrl, tpl.name, tpl.category);
         }
-        closeScienceModal();
       } catch (err) {
         console.error('Fen şablonu dışa aktarma hatası:', err);
         alert('Görsel oluşturulurken bir hata meydana geldi.');

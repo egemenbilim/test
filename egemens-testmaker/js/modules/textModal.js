@@ -639,7 +639,11 @@ export function initTextModal() {
     headerGeoBtn.onclick = () => {
       closeModal('textModal');
       openGeometryModal((dataUrl) => {
-        handleInsertGeometryQuestion(dataUrl);
+        setTxtImg(dataUrl);
+        $('imgUploadPanel').classList.remove('hidden');
+        openModal('textModal');
+      }, () => {
+        openModal('textModal');
       });
     };
   }
@@ -649,7 +653,11 @@ export function initTextModal() {
     geoBtn.onclick = () => {
       closeModal('textModal');
       openGeometryModal((dataUrl) => {
-        handleInsertGeometryQuestion(dataUrl);
+        setTxtImg(dataUrl);
+        $('imgUploadPanel').classList.remove('hidden');
+        openModal('textModal');
+      }, () => {
+        openModal('textModal');
       });
     };
   }
@@ -659,25 +667,11 @@ export function initTextModal() {
     blankGeoBtn.onclick = () => {
       closeModal('textModal');
       openGeometryModal((dataUrl) => {
-        handleInsertGeometryQuestion(dataUrl);
-      });
-    };
-  }
-
-  const dropzoneGeoBtn = $('dropzoneGeoBtn');
-  if (dropzoneGeoBtn) {
-    dropzoneGeoBtn.onclick = () => {
-      openGeometryModal((dataUrl) => {
-        handleInsertGeometryQuestion(dataUrl);
-      });
-    };
-  }
-
-  const dropzoneScienceBtn = $('dropzoneScienceBtn');
-  if (dropzoneScienceBtn) {
-    dropzoneScienceBtn.onclick = () => {
-      openScienceModal((dataUrl, name, cat) => {
-        handleInsertScienceQuestion(dataUrl, name, cat);
+        setBlankImg(dataUrl);
+        $('blankImgPanel').classList.remove('hidden');
+        openModal('textModal');
+      }, () => {
+        openModal('textModal');
       });
     };
   }

@@ -16,11 +16,37 @@ let activeTool = 'select';
 const currentStyle = {
   strokeColor: '#0f172a',
   fillColor: 'transparent',
+  baseFillColor: 'transparent',
+  fillOpacity: 0.35,
   strokeWidth: 2,
   isDashed: false,
   fontSize: 20,
   angleDisplayMode: 'all' // 'all' | 'arc_only' | 'hidden'
 };
+
+function hexToRgba(hex, alpha = 1) {
+  if (!hex || hex === 'transparent') return 'transparent';
+  if (hex.startsWith('rgba')) {
+    return hex.replace(/rgba?\(([^)]+)\)/, (match, val) => {
+      const parts = val.split(',').map(s => s.trim());
+      return `rgba(${parts[0]}, ${parts[1]}, ${parts[2]}, ${alpha})`;
+    });
+  }
+  let c = hex.replace('#', '');
+  if (c.length === 3) c = c.split('').map(x => x + x).join('');
+  const num = parseInt(c, 16);
+  if (isNaN(num)) return hex;
+  const r = (num >> 16) & 255;
+  const g = (num >> 8) & 255;
+  const b = num & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function escHtml(str) {
+  return String(str || '').replace(/[&<>"']/g, (m) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[m]);
+}
 
 let gridEnabled = true;
 let snapEnabled = true;
@@ -378,12 +404,19 @@ function calculatePolygonAngles(points, arcRadius = 26) {
         y: pCurr.y + (u1.y + u2.y) * (boxSize * 0.5)
       };
 
+      const labelDist = boxSize + 14;
+      const labelPos = {
+        x: pCurr.x + uBisector.x * labelDist,
+        y: pCurr.y + uBisector.y * labelDist
+      };
+
       results.push({
         vertex: pCurr,
         angleDegrees: 90,
         isRightAngle: true,
         rightAngleBoxPoints: [corner1, corner2, corner3],
-        dotPosition: dotPos
+        dotPosition: dotPos,
+        labelPosition: labelPos
       });
     } else {
       // Standart Açı Yayı ve Derece
@@ -498,7 +531,27 @@ function onCanvasMouseDown(opt) {
   const pointer = fabricCanvas.getPointer(opt.e);
   const pt = getSnappedPoint(pointer);
 
-  if (activeTool === 'shape') {
+  if (activeTool === 'select') {
+    let clickedAngleIdx = undefined;
+    let angleGroup = null;
+
+    if (opt.subTargets && opt.subTargets.length > 0) {
+      const sub = opt.subTargets.find((s) => s.angleIndex !== undefined);
+      if (sub) {
+        clickedAngleIdx = sub.angleIndex;
+        angleGroup = opt.target && opt.target.type === 'group' ? opt.target : sub.group;
+      }
+    } else if (opt.target && opt.target.angleIndex !== undefined) {
+      clickedAngleIdx = opt.target.angleIndex;
+      angleGroup = opt.target.group || opt.target;
+    }
+
+    if (clickedAngleIdx !== undefined && angleGroup) {
+      showQuickAngleEditor(angleGroup, clickedAngleIdx, opt.e.clientX, opt.e.clientY);
+    } else {
+      hideQuickAngleEditor();
+    }
+  } else if (activeTool === 'shape') {
     // İlk noktaya yakın tıklandıysa şekli tamamla
     if (shapePoints.length >= 3) {
       const firstPt = shapePoints[0];
@@ -658,9 +711,13 @@ function finishShape() {
   const pts = [...shapePoints];
   cleanupShapeDrawing();
 
+  const polyFill = currentStyle.baseFillColor && currentStyle.baseFillColor !== 'transparent' && currentStyle.fillOpacity > 0
+    ? hexToRgba(currentStyle.baseFillColor, currentStyle.fillOpacity)
+    : (currentStyle.fillColor || 'transparent');
+
   // 1. Ana Poligon Şekli
   const polygon = new fabric.Polygon(pts, {
-    fill: currentStyle.fillColor,
+    fill: polyFill,
     stroke: currentStyle.strokeColor,
     strokeWidth: currentStyle.strokeWidth,
     strokeDashArray: currentStyle.isDashed ? [6, 6] : null,
@@ -670,8 +727,23 @@ function finishShape() {
   // 2. Otomatik Açıları Hesapla
   const angles = calculatePolygonAngles(pts, 26);
   const angleElements = [];
+  const anglesData = [];
 
-  angles.forEach((ang) => {
+  angles.forEach((ang, idx) => {
+    const angleInfo = {
+      index: idx,
+      vertex: ang.vertex,
+      origDegrees: ang.angleDegrees,
+      text: ang.isRightAngle ? '' : `${ang.angleDegrees}°`,
+      displayMode: 'all',
+      isRightAngle: ang.isRightAngle,
+      labelPos: ang.labelPosition || ang.dotPosition,
+      arcPathString: ang.arcPathString,
+      rightAngleBoxPoints: ang.rightAngleBoxPoints,
+      dotPosition: ang.dotPosition
+    };
+    anglesData.push(angleInfo);
+
     if (ang.isRightAngle && ang.rightAngleBoxPoints && ang.dotPosition) {
       // 90° Diklik Karesi
       const box = new fabric.Polyline(ang.rightAngleBoxPoints, {
@@ -679,7 +751,8 @@ function finishShape() {
         stroke: currentStyle.strokeColor,
         strokeWidth: 1.5,
         selectable: false,
-        isAngleComponent: true
+        isAngleComponent: true,
+        angleIndex: idx
       });
 
       const dot = new fabric.Circle({
@@ -690,10 +763,28 @@ function finishShape() {
         originX: 'center',
         originY: 'center',
         selectable: false,
-        isAngleComponent: true
+        isAngleComponent: true,
+        angleIndex: idx
       });
 
-      angleElements.push(box, dot);
+      const lblPos = ang.labelPosition || ang.dotPosition;
+      const lbl = new fabric.IText('', {
+        left: lblPos.x,
+        top: lblPos.y,
+        fontSize: 14,
+        fontFamily: 'Noto Sans, sans-serif',
+        fontWeight: 'bold',
+        fill: currentStyle.strokeColor,
+        originX: 'center',
+        originY: 'center',
+        selectable: false,
+        visible: false,
+        isAngleComponent: true,
+        isAngleLabel: true,
+        angleIndex: idx
+      });
+
+      angleElements.push(box, dot, lbl);
     } else if (ang.arcPathString) {
       // Açı Yayı
       const arc = new fabric.Path(ang.arcPathString, {
@@ -702,7 +793,8 @@ function finishShape() {
         fill: 'transparent',
         selectable: false,
         isAngleComponent: true,
-        isAngleArc: true
+        isAngleArc: true,
+        angleIndex: idx
       });
 
       // Açı Derecesi Metni
@@ -716,8 +808,10 @@ function finishShape() {
         originX: 'center',
         originY: 'center',
         selectable: false,
+        visible: currentStyle.angleDisplayMode === 'all',
         isAngleComponent: true,
-        isAngleLabel: true
+        isAngleLabel: true,
+        angleIndex: idx
       });
 
       angleElements.push(arc, lbl);
@@ -727,11 +821,13 @@ function finishShape() {
   // Ana şekil ve açı elemanlarını tek bir grup olarak tuvale ekle
   const group = new fabric.Group([polygon, ...angleElements], {
     selectable: true,
+    subTargetCheck: true,
     cornerColor: '#2563eb',
     cornerSize: 8,
     transparentCorners: false,
     hasAutoAngles: true,
-    angleDisplayMode: currentStyle.angleDisplayMode || 'all'
+    angleDisplayMode: currentStyle.angleDisplayMode || 'all',
+    anglesData: anglesData
   });
 
   fabricCanvas.add(group);
@@ -739,6 +835,198 @@ function finishShape() {
   fabricCanvas.renderAll();
   saveHistoryState();
   setTool('select');
+  onObjectSelected(group);
+}
+
+function updateSpecificAngle(group, angleIndex, updates, skipRenderList = false) {
+  if (!group || !group.anglesData || !group.anglesData[angleIndex]) return;
+  const ang = group.anglesData[angleIndex];
+
+  if (updates.text !== undefined) {
+    ang.text = updates.text;
+  }
+  if (updates.displayMode !== undefined) {
+    ang.displayMode = updates.displayMode;
+  }
+
+  if (Array.isArray(group._objects)) {
+    group._objects.forEach((sub) => {
+      if (sub.angleIndex === angleIndex) {
+        if (sub.isAngleLabel) {
+          if (updates.text !== undefined) {
+            sub.set('text', updates.text);
+          }
+          const shouldShow = (ang.displayMode === 'all') && Boolean(ang.text && ang.text.trim());
+          sub.set('visible', shouldShow);
+        } else if (sub.isAngleComponent || sub.isAngleArc) {
+          const shouldShow = (ang.displayMode !== 'hidden');
+          sub.set('visible', shouldShow);
+        }
+        sub.dirty = true;
+      }
+    });
+    group.dirty = true;
+  }
+
+  fabricCanvas.renderAll();
+  saveHistoryState();
+  if (!skipRenderList) {
+    renderIndividualAnglesList(group);
+  }
+}
+
+function renderIndividualAnglesList(group) {
+  const container = $('geoIndividualAnglesList');
+  if (!container) return;
+  container.innerHTML = '';
+
+  if (!group || !group.anglesData || group.anglesData.length === 0) {
+    container.innerHTML = '<div class="text-xs text-slate-400 py-1 text-center">Bu şekilde otomatik açı bulunmuyor.</div>';
+    return;
+  }
+
+  group.anglesData.forEach((ang, i) => {
+    const row = document.createElement('div');
+    row.className = 'rounded-lg border border-slate-200 bg-slate-50/80 p-2 text-xs dark:border-slate-800 dark:bg-slate-800/70';
+
+    const currentMode = ang.displayMode || 'all';
+    const isModeAll = currentMode === 'all';
+    const isModeArc = currentMode === 'arc_only';
+    const isModeHidden = currentMode === 'hidden';
+
+    row.innerHTML = `
+      <div class="flex items-center justify-between mb-1.5">
+        <span class="font-bold text-slate-800 dark:text-slate-200">Açı ${i + 1} <span class="font-normal text-[10px] text-slate-400">(${ang.origDegrees}°)</span></span>
+        <div class="flex items-center gap-1">
+          <button type="button" data-act-mode="all" data-idx="${i}" class="px-1.5 py-0.5 rounded text-[10px] font-semibold transition ${isModeAll ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-700'}" title="Yazı ve yay açık">Yazılı</button>
+          <button type="button" data-act-mode="arc_only" data-idx="${i}" class="px-1.5 py-0.5 rounded text-[10px] font-semibold transition ${isModeArc ? 'bg-amber-500 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-700'}" title="Sadece yay, yazıyı gizle">Yay</button>
+          <button type="button" data-act-mode="hidden" data-idx="${i}" class="px-1.5 py-0.5 rounded text-[10px] font-semibold transition ${isModeHidden ? 'bg-rose-500 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-700'}" title="Bu açıyı tamamen gizle">Gizle</button>
+        </div>
+      </div>
+      <div class="flex items-center gap-1">
+        <input type="text" data-ang-input="${i}" class="flex-1 min-w-0 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-bold text-slate-900 placeholder-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-white" value="${escHtml(ang.text || '')}" placeholder="x, 60°, α">
+        <div class="flex items-center gap-0.5 shrink-0">
+          <button type="button" data-ang-sym="x" data-idx="${i}" class="px-1.5 py-0.5 rounded bg-white hover:bg-blue-50 hover:text-blue-600 border border-slate-200 text-[10px] font-bold dark:bg-slate-900 dark:border-slate-700">x</button>
+          <button type="button" data-ang-sym="α" data-idx="${i}" class="px-1.5 py-0.5 rounded bg-white hover:bg-blue-50 hover:text-blue-600 border border-slate-200 text-[10px] font-bold dark:bg-slate-900 dark:border-slate-700">α</button>
+          <button type="button" data-ang-sym="?" data-idx="${i}" class="px-1.5 py-0.5 rounded bg-white hover:bg-blue-50 hover:text-blue-600 border border-slate-200 text-[10px] font-bold dark:bg-slate-900 dark:border-slate-700">?</button>
+          <button type="button" data-ang-sym="°" data-idx="${i}" class="px-1.5 py-0.5 rounded bg-white hover:bg-blue-50 hover:text-blue-600 border border-slate-200 text-[10px] font-bold dark:bg-slate-900 dark:border-slate-700">°</button>
+        </div>
+      </div>
+    `;
+
+    container.appendChild(row);
+  });
+
+  // Attach input events
+  container.querySelectorAll('[data-ang-input]').forEach((inp) => {
+    const idx = +inp.dataset.angInput;
+    inp.oninput = () => {
+      updateSpecificAngle(group, idx, { text: inp.value }, true);
+    };
+  });
+
+  // Attach mode buttons
+  container.querySelectorAll('[data-act-mode]').forEach((btn) => {
+    const idx = +btn.dataset.idx;
+    const mode = btn.dataset.actMode;
+    btn.onclick = () => {
+      updateSpecificAngle(group, idx, { displayMode: mode });
+    };
+  });
+
+  // Attach symbols
+  container.querySelectorAll('[data-ang-sym]').forEach((btn) => {
+    const idx = +btn.dataset.idx;
+    const sym = btn.dataset.angSym;
+    btn.onclick = () => {
+      const inp = container.querySelector(`[data-ang-input="${idx}"]`);
+      if (inp) {
+        inp.value = sym === '°' ? inp.value + '°' : sym;
+        updateSpecificAngle(group, idx, { text: inp.value }, false);
+      }
+    };
+  });
+}
+
+let currentEditingAngleGroup = null;
+let currentEditingAngleIndex = null;
+
+function showQuickAngleEditor(group, angleIndex, screenX, screenY) {
+  const editor = $('geoQuickAngleEditor');
+  if (!editor || !group || !group.anglesData || !group.anglesData[angleIndex]) return;
+
+  editor.onclick = (e) => e.stopPropagation();
+  editor.onmousedown = (e) => e.stopPropagation();
+
+  currentEditingAngleGroup = group;
+  currentEditingAngleIndex = angleIndex;
+  const ang = group.anglesData[angleIndex];
+
+  const titleEl = $('geoQuickAngleLabelText');
+  if (titleEl) titleEl.textContent = `Açı ${angleIndex + 1} (${ang.origDegrees}°)`;
+
+  const inputEl = $('geoQuickAngleInput');
+  if (inputEl) {
+    inputEl.value = ang.text || '';
+    inputEl.oninput = () => {
+      updateSpecificAngle(group, angleIndex, { text: inputEl.value }, true);
+    };
+  }
+
+  const container = $('geoCanvasContainer');
+  if (container) {
+    const cRect = container.getBoundingClientRect();
+    let left = screenX - cRect.left;
+    let top = screenY - cRect.top - 80;
+
+    left = Math.max(10, Math.min(left, cRect.width - 270));
+    top = Math.max(10, Math.min(top, cRect.height - 180));
+
+    editor.style.left = `${left}px`;
+    editor.style.top = `${top}px`;
+    editor.classList.remove('hidden');
+  }
+
+  const btnAll = $('geoQuickModeAll');
+  const btnArc = $('geoQuickModeArc');
+  const btnHide = $('geoQuickModeHide');
+
+  const updateModeStyles = () => {
+    const mode = ang.displayMode || 'all';
+    if (btnAll) btnAll.className = mode === 'all' ? 'flex-1 py-1 rounded-md bg-blue-600 text-white font-bold' : 'flex-1 py-1 rounded-md border border-slate-200 text-slate-600 hover:bg-slate-100 font-semibold dark:border-slate-700 dark:text-slate-300';
+    if (btnArc) btnArc.className = mode === 'arc_only' ? 'flex-1 py-1 rounded-md bg-amber-500 text-white font-bold' : 'flex-1 py-1 rounded-md border border-slate-200 text-amber-700 hover:bg-amber-50 font-semibold dark:border-slate-700 dark:text-amber-400';
+    if (btnHide) btnHide.className = mode === 'hidden' ? 'flex-1 py-1 rounded-md bg-rose-500 text-white font-bold' : 'flex-1 py-1 rounded-md border border-slate-200 text-rose-600 hover:bg-rose-50 font-semibold dark:border-slate-700 dark:text-rose-400';
+  };
+  updateModeStyles();
+
+  if (btnAll) btnAll.onclick = () => { updateSpecificAngle(group, angleIndex, { displayMode: 'all' }); updateModeStyles(); };
+  if (btnArc) btnArc.onclick = () => { updateSpecificAngle(group, angleIndex, { displayMode: 'arc_only' }); updateModeStyles(); };
+  if (btnHide) btnHide.onclick = () => { updateSpecificAngle(group, angleIndex, { displayMode: 'hidden' }); updateModeStyles(); };
+
+  const symBtns = editor.querySelectorAll('.geo-sym-btn');
+  symBtns.forEach((b) => {
+    b.onclick = () => {
+      const sym = b.dataset.sym;
+      if (sym === '°') {
+        inputEl.value = inputEl.value + '°';
+      } else {
+        inputEl.value = sym;
+      }
+      updateSpecificAngle(group, angleIndex, { text: inputEl.value }, false);
+    };
+  });
+
+  const closeBtn = $('geoQuickAngleClose');
+  if (closeBtn) {
+    closeBtn.onclick = () => hideQuickAngleEditor();
+  }
+}
+
+function hideQuickAngleEditor() {
+  const editor = $('geoQuickAngleEditor');
+  if (editor) editor.classList.add('hidden');
+  currentEditingAngleGroup = null;
+  currentEditingAngleIndex = null;
 }
 
 function cleanupShapeDrawing() {
@@ -767,18 +1055,25 @@ function setAngleDisplayMode(mode) {
   if (active && active.type === 'group' && Array.isArray(active._objects)) {
     active.angleDisplayMode = mode;
 
+    if (Array.isArray(active.anglesData)) {
+      active.anglesData.forEach((a) => {
+        a.displayMode = mode;
+      });
+    }
+
     active._objects.forEach((obj) => {
       if (obj.isAngleLabel) {
-        // Derece yazısı: sadece 'all' modunda görünür
-        obj.set('visible', mode === 'all');
+        const ang = active.anglesData?.[obj.angleIndex];
+        const hasText = ang ? Boolean(ang.text && ang.text.trim()) : true;
+        obj.set('visible', mode === 'all' && hasText);
       } else if (obj.isAngleArc || obj.isAngleComponent) {
-        // Yay veya diklik kutusu: 'all' veya 'arc_only' modunda görünür
         obj.set('visible', mode !== 'hidden');
       }
     });
 
     fabricCanvas.renderAll();
     saveHistoryState();
+    renderIndividualAnglesList(active);
   }
 
   // Floating toolbar etiketini güncelle
@@ -795,6 +1090,32 @@ function updateAngleButtonLabel(mode) {
     lbl.textContent = 'Açı: Sadece Yay';
   } else {
     lbl.textContent = 'Açı: Gizli';
+  }
+}
+
+function updateFillPreviewUI(fillColor, baseColor, opacity) {
+  const fillPreview = $('geoFloatFillPreview');
+  const fillHexLabel = $('geoFloatFillHex');
+  const opacityLabel = $('geoFloatOpacityLabel');
+  const opacitySlider = $('geoFloatOpacitySlider');
+
+  if (fillPreview) {
+    if (!fillColor || fillColor === 'transparent' || opacity === 0) {
+      fillPreview.textContent = '✕';
+      fillPreview.parentElement.style.backgroundColor = 'transparent';
+    } else {
+      fillPreview.textContent = '';
+      fillPreview.parentElement.style.backgroundColor = fillColor;
+    }
+  }
+  if (fillHexLabel) {
+    fillHexLabel.textContent = (!baseColor || baseColor === 'transparent' || opacity === 0) ? 'Şeffaf' : baseColor;
+  }
+  if (opacityLabel) {
+    opacityLabel.textContent = `%${Math.round(opacity * 100)}`;
+  }
+  if (opacitySlider && document.activeElement !== opacitySlider) {
+    opacitySlider.value = Math.round(opacity * 100);
   }
 }
 
@@ -826,34 +1147,65 @@ function onObjectSelected(target) {
 
   // Açı kontrol butonunu göster / gizle
   const angleWrapper = $('geoAngleControlWrapper');
-  const hasAngles = target.hasAutoAngles || (target.type === 'group' && target._objects?.some((o) => o.isAngleComponent));
+  const hasAngles = target.hasAutoAngles || (target.type === 'group' && Array.isArray(target.anglesData) && target.anglesData.length > 0);
   if (angleWrapper) {
     angleWrapper.classList.toggle('hidden', !hasAngles);
     if (hasAngles) {
       const mode = target.angleDisplayMode || 'all';
       updateAngleButtonLabel(mode);
+      renderIndividualAnglesList(target);
     }
   }
 
   // Renk ve kalınlık önizlemeleri
-  const strokeColor = target.stroke || currentStyle.strokeColor;
-  const fillColor = target.fill || currentStyle.fillColor;
-  const strokeW = target.strokeWidth || currentStyle.strokeWidth;
-  const isDashed = Array.isArray(target.strokeDashArray) && target.strokeDashArray.length > 0;
+  let strokeColor = target.stroke;
+  let fillColor = target.fill;
+  let strokeW = target.strokeWidth;
+  let isDashed = Array.isArray(target.strokeDashArray) && target.strokeDashArray.length > 0;
+
+  if (target.type === 'group' && Array.isArray(target._objects)) {
+    const mainPoly = target._objects.find((o) => o.type === 'polygon' || o.type === 'rect' || o.type === 'circle' || o.type === 'path');
+    if (mainPoly) {
+      if (mainPoly.stroke) strokeColor = mainPoly.stroke;
+      if (mainPoly.fill) fillColor = mainPoly.fill;
+      if (mainPoly.strokeWidth) strokeW = mainPoly.strokeWidth;
+      if (mainPoly.strokeDashArray) isDashed = Array.isArray(mainPoly.strokeDashArray) && mainPoly.strokeDashArray.length > 0;
+    }
+  }
+
+  strokeColor = strokeColor || currentStyle.strokeColor;
+  fillColor = fillColor !== undefined ? fillColor : currentStyle.fillColor;
+  strokeW = strokeW || currentStyle.strokeWidth;
 
   const strokePreview = $('geoFloatStrokePreview');
   if (strokePreview) strokePreview.style.backgroundColor = strokeColor;
 
-  const fillPreview = $('geoFloatFillPreview');
-  if (fillPreview) {
-    if (fillColor === 'transparent') {
-      fillPreview.textContent = '✕';
-      fillPreview.parentElement.style.backgroundColor = 'transparent';
-    } else {
-      fillPreview.textContent = '';
-      fillPreview.parentElement.style.backgroundColor = fillColor;
+  // Opaklık ve Dolgu Rengini Çözümle
+  let objOpacity = currentStyle.fillOpacity;
+  let objBaseColor = currentStyle.baseFillColor;
+
+  if (!fillColor || fillColor === 'transparent' || fillColor === 'rgba(0, 0, 0, 0)') {
+    objBaseColor = 'transparent';
+    objOpacity = 0;
+  } else if (typeof fillColor === 'string' && fillColor.startsWith('rgba')) {
+    const m = fillColor.match(/rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)/);
+    if (m) {
+      const r = parseInt(m[1], 10);
+      const g = parseInt(m[2], 10);
+      const b = parseInt(m[3], 10);
+      objOpacity = parseFloat(m[4]);
+      objBaseColor = '#' + [r, g, b].map((x) => x.toString(16).padStart(2, '0')).join('');
     }
+  } else if (typeof fillColor === 'string' && fillColor.startsWith('#')) {
+    objBaseColor = fillColor;
+    objOpacity = 1;
   }
+
+  currentStyle.fillColor = fillColor || 'transparent';
+  currentStyle.baseFillColor = objBaseColor;
+  currentStyle.fillOpacity = objOpacity;
+
+  updateFillPreviewUI(fillColor, objBaseColor, objOpacity);
 
   const widthLabel = $('geoFloatWidthLabel');
   if (widthLabel) widthLabel.textContent = `${strokeW}px`;
@@ -869,6 +1221,7 @@ function hideFloatingToolbar() {
     toolbar.classList.remove('flex');
   }
   closeAllFloatingPopovers();
+  hideQuickAngleEditor();
 }
 
 function closeAllFloatingPopovers() {
@@ -890,25 +1243,27 @@ function updateActiveObjectStyle(updates) {
   activeObjs.forEach((obj) => {
     if (obj.type === 'group' && Array.isArray(obj._objects)) {
       // Grup içindeki ana çokgene stili uygula
-      const mainPoly = obj._objects.find((o) => o.type === 'polygon' || o.type === 'rect' || o.type === 'circle');
+      const mainPoly = obj._objects.find((o) => o.type === 'polygon' || o.type === 'rect' || o.type === 'circle' || o.type === 'path');
       if (mainPoly) {
         if (updates.stroke !== undefined) mainPoly.set('stroke', updates.stroke);
         if (updates.fill !== undefined) mainPoly.set('fill', updates.fill);
         if (updates.strokeWidth !== undefined) mainPoly.set('strokeWidth', updates.strokeWidth);
         if (updates.strokeDashArray !== undefined) mainPoly.set('strokeDashArray', updates.strokeDashArray);
+        mainPoly.dirty = true;
       }
+      obj.dirty = true;
     } else {
       if (updates.stroke !== undefined) obj.set('stroke', updates.stroke);
       if (updates.fill !== undefined) obj.set('fill', updates.fill);
       if (updates.strokeWidth !== undefined) obj.set('strokeWidth', updates.strokeWidth);
       if (updates.strokeDashArray !== undefined) obj.set('strokeDashArray', updates.strokeDashArray);
+      obj.dirty = true;
     }
     obj.setCoords();
   });
 
   fabricCanvas.renderAll();
   saveHistoryState();
-  onObjectSelected(fabricCanvas.getActiveObject());
 }
 
 function duplicateActiveObject() {
@@ -1491,10 +1846,17 @@ function setupFloatingToolbarPalettes() {
   const dupBtn = $('geoFloatDupBtn');
   const delBtn = $('geoFloatDelBtn');
 
+  const opacitySlider = $('geoFloatOpacitySlider');
+  const opacityLabel = $('geoFloatOpacityLabel');
+
   // Açı Gösterim Popover
   if (angleBtn && anglePop) {
     angleBtn.onclick = (e) => {
       e.stopPropagation();
+      const active = fabricCanvas?.getActiveObject();
+      if (active) {
+        renderIndividualAnglesList(active);
+      }
       anglePop.classList.toggle('hidden');
       if (strokePop) strokePop.classList.add('hidden');
       if (fillPop) fillPop.classList.add('hidden');
@@ -1504,7 +1866,6 @@ function setupFloatingToolbarPalettes() {
     anglePop.querySelectorAll('[data-angle-mode]').forEach((b) => {
       b.onclick = () => {
         setAngleDisplayMode(b.dataset.angleMode);
-        anglePop.classList.add('hidden');
       };
     });
   }
@@ -1520,10 +1881,27 @@ function setupFloatingToolbarPalettes() {
       b.onclick = () => {
         currentStyle.strokeColor = color;
         updateActiveObjectStyle({ stroke: color });
+        const strokePreview = $('geoFloatStrokePreview');
+        if (strokePreview) strokePreview.style.backgroundColor = color;
         strokePop.classList.add('hidden');
       };
       strokeGrid.appendChild(b);
     });
+  }
+
+  // Dolgu Rengi ve Saydamlık Uygulama Fonksiyonu
+  function applyFillAndOpacity(baseColor, opacity) {
+    currentStyle.baseFillColor = baseColor;
+    currentStyle.fillOpacity = opacity;
+    let finalFill = 'transparent';
+    if (baseColor && baseColor !== 'transparent' && opacity > 0) {
+      finalFill = hexToRgba(baseColor, opacity);
+    } else {
+      finalFill = 'transparent';
+    }
+    currentStyle.fillColor = finalFill;
+    updateActiveObjectStyle({ fill: finalFill });
+    updateFillPreviewUI(finalFill, baseColor, opacity);
   }
 
   // Dolgu Rengi Grid
@@ -1537,14 +1915,46 @@ function setupFloatingToolbarPalettes() {
       if (color === 'transparent') {
         b.innerHTML = '<span class="text-[10px] text-red-500 font-bold">✕</span>';
       }
-      b.onclick = () => {
-        currentStyle.fillColor = color;
-        updateActiveObjectStyle({ fill: color });
-        fillPop.classList.add('hidden');
+      b.onclick = (e) => {
+        e.stopPropagation();
+        if (color === 'transparent') {
+          applyFillAndOpacity('transparent', 0);
+        } else {
+          const op = currentStyle.fillOpacity > 0 ? currentStyle.fillOpacity : 0.35;
+          applyFillAndOpacity(color, op);
+        }
       };
       fillGrid.appendChild(b);
     });
   }
+
+  // Saydamlık Slider
+  if (opacitySlider) {
+    opacitySlider.oninput = (e) => {
+      e.stopPropagation();
+      const op = parseInt(e.target.value, 10) / 100;
+      let base = currentStyle.baseFillColor;
+      if ((!base || base === 'transparent') && op > 0) {
+        base = '#3b82f6';
+      }
+      applyFillAndOpacity(base, op);
+    };
+  }
+
+  // Saydamlık Hızlı Butonları (0, 25, 50, 75, 100)
+  document.querySelectorAll('.geo-op-btn').forEach((btn) => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      const op = parseFloat(btn.dataset.op);
+      let base = currentStyle.baseFillColor;
+      if (op === 0) {
+        applyFillAndOpacity('transparent', 0);
+      } else {
+        if (!base || base === 'transparent') base = '#3b82f6';
+        applyFillAndOpacity(base, op);
+      }
+    };
+  });
 
   if (strokeBtn && strokePop) {
     strokeBtn.onclick = (e) => {
@@ -1587,6 +1997,8 @@ function setupFloatingToolbarPalettes() {
           b.className = 'flex-1 rounded-md py-1 text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800';
         });
         btn.className = 'flex-1 rounded-md py-1 text-xs font-bold bg-blue-600 text-white';
+        const widthLabel = $('geoFloatWidthLabel');
+        if (widthLabel) widthLabel.textContent = `${w}px`;
       };
     });
   }

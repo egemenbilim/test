@@ -273,9 +273,6 @@
           <button id="textBtn" class="flex items-center gap-1.5 rounded-xl bg-[#0b1329] px-4 py-2 text-[13px] font-semibold text-white shadow-sm transition-all duration-150 hover:bg-[#152347] hover:shadow-md hover:shadow-slate-900/30 active:scale-[0.98]">
             <span>✍️</span> Yazılı Soru Ekleyin
           </button>
-          <button id="dropzoneGeoBtn" class="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-[13px] font-semibold text-white shadow-sm transition-all duration-150 hover:bg-indigo-500 hover:shadow-md hover:shadow-indigo-600/20 active:scale-[0.98]" title="Vektörel geometri sorusu çizip doğrudan teste ekleyin">
-            <span>📐</span> Geometri Sorusu Çiz
-          </button>
           <button id="openCrop" class="flex items-center gap-1.5 rounded-xl bg-slate-600 px-4 py-2 text-[13px] font-semibold text-white shadow-sm transition-all duration-150 hover:bg-slate-500 hover:shadow-md hover:shadow-slate-600/20 active:scale-[0.98]">
             <span>✂️</span> Görsel/PDF'ten Kes
           </button>
@@ -397,14 +394,9 @@
 <!-- Yazılı Soru Ekleme / Düzenleme Modalı -->
 <div id="textModal" class="fixed inset-0 z-40 hidden items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
   <div class="fade-in max-h-[90vh] w-full max-w-2xl overflow-auto rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900 dark:text-slate-200">
-    <div class="flex items-start justify-between gap-3">
-      <div>
-        <h3 id="txtTitle" class="text-[15px] font-semibold text-slate-900 dark:text-slate-100">Yazılı Soru Ekle</h3>
-        <p class="mt-0.5 text-[12.5px] text-slate-500">Hazır bir soruyu kutulara yapıştırırsanız şıklar ve soru kökü otomatik ayrılır.</p>
-      </div>
-      <button id="modalHeaderGeoBtn" type="button" class="flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3.5 py-1.5 text-[12px] font-bold text-indigo-700 shadow-sm transition hover:bg-indigo-100 hover:border-indigo-400 dark:border-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300 shrink-0" title="Geometri sorusu çizip otomatik olarak sınava ekleyin">
-        <span>📐</span> Geometri Sorusu Çiz
-      </button>
+    <div>
+      <h3 id="txtTitle" class="text-[15px] font-semibold text-slate-900 dark:text-slate-100">Yazılı Soru Ekle</h3>
+      <p class="mt-0.5 text-[12.5px] text-slate-500">Hazır bir soruyu kutulara yapıştırırsanız şıklar ve soru kökü otomatik ayrılır.</p>
     </div>
 
     <div class="mt-4 grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1 text-xs dark:bg-slate-800">
@@ -854,17 +846,22 @@
                 <span>📐</span>
                 <span id="geoFloatAngleLabel">Açı: Değerli</span>
               </button>
-              <div id="geoFloatAnglePopover" class="absolute left-0 top-10 z-40 hidden w-52 space-y-1 rounded-xl border border-slate-200 bg-white p-2 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
-                <div class="px-2 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Açı Gösterim Seçenekleri</div>
-                <button type="button" data-angle-mode="all" class="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-600 dark:text-slate-200 dark:hover:bg-slate-800 transition">
-                  <span>📐 Yay + Derece (60°)</span>
-                </button>
-                <button type="button" data-angle-mode="arc_only" class="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-50 dark:text-amber-300 dark:hover:bg-slate-800 transition">
-                  <span>👁️‍🗨️ Sadece Yay (Yazısız)</span>
-                </button>
-                <button type="button" data-angle-mode="hidden" class="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition">
-                  <span>🚫 Açıları Gizle</span>
-                </button>
+              <div id="geoFloatAnglePopover" class="absolute left-0 top-10 z-40 hidden w-72 max-h-[360px] overflow-y-auto rounded-xl border border-slate-200 bg-white p-3 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+                <div class="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+                  <span class="text-[11px] font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider">Açı Yönetimi</span>
+                  <div class="flex items-center gap-1">
+                    <button type="button" data-angle-mode="all" class="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 font-bold hover:bg-blue-100 dark:bg-blue-950 dark:text-blue-300" title="Tüm açıları göster">Tümü</button>
+                    <button type="button" data-angle-mode="arc_only" class="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 font-bold hover:bg-amber-100 dark:bg-amber-950 dark:text-amber-300" title="Tüm açıların yazısını gizle, sadece yay kalsın">Sadece Yay</button>
+                    <button type="button" data-angle-mode="hidden" class="text-[10px] px-1.5 py-0.5 rounded bg-rose-50 text-rose-600 font-bold hover:bg-rose-100 dark:bg-rose-950 dark:text-rose-300" title="Tüm açıları gizle">Gizle</button>
+                  </div>
+                </div>
+
+                <div class="mt-2.5 flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  <span>Münferit Açılar &amp; Yazılar</span>
+                  <span class="text-[9px] font-normal lowercase text-slate-400">harf / derece yazın</span>
+                </div>
+                <!-- Münferit Açılar Listesi -->
+                <div id="geoIndividualAnglesList" class="mt-1.5 space-y-2"></div>
               </div>
             </div>
 
@@ -879,16 +876,35 @@
               </div>
             </div>
 
-            <!-- Dolgu Rengi Seçici -->
+            <!-- Dolgu Rengi & Saydamlık Seçici -->
             <div class="relative">
-              <button type="button" id="geoFloatFillBtn" title="Dolgu Rengi" class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 p-1 hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800 transition">
+              <button type="button" id="geoFloatFillBtn" title="Dolgu Rengi ve Saydamlık" class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 p-1 hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800 transition">
                 <div class="flex items-center justify-center h-4 w-4 rounded-sm border border-slate-400 relative overflow-hidden">
                   <span id="geoFloatFillPreview" class="text-[10px] text-red-500 font-bold leading-none">✕</span>
                 </div>
               </button>
-              <div id="geoFloatFillPopover" class="absolute left-0 top-10 z-40 hidden w-48 rounded-xl border border-slate-200 bg-white p-3 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
-                <div class="mb-2 text-[10px] font-semibold text-slate-500 uppercase">Dolgu Rengi</div>
+              <div id="geoFloatFillPopover" class="absolute left-0 top-10 z-40 hidden w-60 rounded-xl border border-slate-200 bg-white p-3 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+                <div class="mb-2 text-[10px] font-semibold text-slate-500 uppercase flex items-center justify-between">
+                  <span>Dolgu Rengi</span>
+                  <span id="geoFloatFillHex" class="text-[10px] text-slate-400 font-mono font-normal">Şeffaf</span>
+                </div>
                 <div class="grid grid-cols-6 gap-2" id="geoFillGrid"></div>
+
+                <!-- Saydamlık (Opaklık) Ayarı -->
+                <div class="mt-3 border-t border-slate-100 pt-2.5 dark:border-slate-800">
+                  <div class="flex items-center justify-between text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                    <span>Saydamlık (Opaklık)</span>
+                    <span id="geoFloatOpacityLabel" class="text-blue-600 font-bold">%35</span>
+                  </div>
+                  <input type="range" id="geoFloatOpacitySlider" min="0" max="100" value="35" class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600 dark:bg-slate-700 mt-2">
+                  <div class="mt-2 flex items-center justify-between gap-1 text-[10px]">
+                    <button type="button" class="geo-op-btn flex-1 py-0.5 rounded border border-slate-200 hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800 font-medium" data-op="0">Şeffaf</button>
+                    <button type="button" class="geo-op-btn flex-1 py-0.5 rounded border border-slate-200 hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800 font-medium" data-op="0.25">%25</button>
+                    <button type="button" class="geo-op-btn flex-1 py-0.5 rounded border border-slate-200 hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800 font-medium" data-op="0.50">%50</button>
+                    <button type="button" class="geo-op-btn flex-1 py-0.5 rounded border border-slate-200 hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800 font-medium" data-op="0.75">%75</button>
+                    <button type="button" class="geo-op-btn flex-1 py-0.5 rounded border border-slate-200 hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800 font-medium" data-op="1.0">%100</button>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -925,6 +941,40 @@
             <button type="button" id="geoFloatDelBtn" title="Sil (Delete)" class="flex h-8 w-8 items-center justify-center rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition">
               <span>🗑️</span>
             </button>
+          </div>
+
+          <!-- Münferit Açı Hızlı Düzenleyici (Canvas Üstünde Açılan Mini Popover) -->
+          <div id="geoQuickAngleEditor" class="absolute z-40 hidden w-64 rounded-xl border border-blue-200 bg-white/95 p-3 shadow-2xl backdrop-blur-md dark:border-blue-900 dark:bg-slate-900/95 transition-all select-none">
+            <div class="flex items-center justify-between pb-1.5 border-b border-slate-100 dark:border-slate-800">
+              <span id="geoQuickAngleTitle" class="text-xs font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
+                <span>📐</span>
+                <span id="geoQuickAngleLabelText">Köşe Açısı</span>
+              </span>
+              <button type="button" id="geoQuickAngleClose" class="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 text-xs">✕</button>
+            </div>
+            <div class="mt-2">
+              <label class="text-[10px] font-semibold text-slate-500 uppercase">Açı Değeri / Özel Yazı</label>
+              <div class="mt-1 flex items-center gap-1.5">
+                <input type="text" id="geoQuickAngleInput" class="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-bold text-slate-900 placeholder-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-white" placeholder="Örn: 60°, x, α">
+              </div>
+              <!-- Hızlı Semboller -->
+              <div class="mt-1.5 flex flex-wrap gap-1" id="geoQuickSymbols">
+                <button type="button" class="geo-sym-btn rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-bold hover:bg-blue-100 hover:text-blue-700 dark:bg-slate-800 dark:hover:bg-slate-700" data-sym="x">x</button>
+                <button type="button" class="geo-sym-btn rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-bold hover:bg-blue-100 hover:text-blue-700 dark:bg-slate-800 dark:hover:bg-slate-700" data-sym="y">y</button>
+                <button type="button" class="geo-sym-btn rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-bold hover:bg-blue-100 hover:text-blue-700 dark:bg-slate-800 dark:hover:bg-slate-700" data-sym="α">α</button>
+                <button type="button" class="geo-sym-btn rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-bold hover:bg-blue-100 hover:text-blue-700 dark:bg-slate-800 dark:hover:bg-slate-700" data-sym="β">β</button>
+                <button type="button" class="geo-sym-btn rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-bold hover:bg-blue-100 hover:text-blue-700 dark:bg-slate-800 dark:hover:bg-slate-700" data-sym="θ">θ</button>
+                <button type="button" class="geo-sym-btn rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-bold hover:bg-blue-100 hover:text-blue-700 dark:bg-slate-800 dark:hover:bg-slate-700" data-sym="?">?</button>
+                <button type="button" class="geo-sym-btn rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-bold hover:bg-blue-100 hover:text-blue-700 dark:bg-slate-800 dark:hover:bg-slate-700" data-sym="°">°</button>
+                <button type="button" class="geo-sym-btn rounded bg-indigo-50 px-1.5 py-0.5 text-[11px] font-bold text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-950 dark:text-indigo-300" data-sym="90°">90°</button>
+              </div>
+            </div>
+            <!-- Münferit Görünüm Seçenekleri -->
+            <div class="mt-2.5 border-t border-slate-100 pt-2 dark:border-slate-800 flex items-center justify-between gap-1 text-[11px]">
+              <button type="button" id="geoQuickModeAll" class="flex-1 py-1 rounded-md bg-blue-50 text-blue-700 font-bold hover:bg-blue-100 dark:bg-blue-950 dark:text-blue-300" title="Yazı ve yay açık">👁️ Yazılı</button>
+              <button type="button" id="geoQuickModeArc" class="flex-1 py-1 rounded-md border border-slate-200 text-amber-700 font-semibold hover:bg-amber-50 dark:border-slate-700 dark:text-amber-400" title="Yazıyı gizle, sadece yay kalsın">⌒ Yay</button>
+              <button type="button" id="geoQuickModeHide" class="flex-1 py-1 rounded-md border border-slate-200 text-rose-600 font-semibold hover:bg-rose-50 dark:border-slate-700 dark:text-rose-400" title="Bu açıyı tamamen gizle">✕ Gizle</button>
+            </div>
           </div>
         </div>
       </div>

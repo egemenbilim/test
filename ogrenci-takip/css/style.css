@@ -490,16 +490,20 @@ textarea:focus {
   padding: 24px;
   max-width: 900px;
   width: 100%;
-  max-height: 85vh;
+  max-height: 90vh;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
   box-shadow: 0 25px 60px rgba(0, 0, 0, .35);
 }
 .modal-close {
   position: absolute;
-  top: 12px;
-  right: 12px;
-  width: 36px;
-  height: 36px;
+  top: 10px;
+  right: 10px;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
   border: none;
   background: #f1f5f9;
   border-radius: 10px;
@@ -507,8 +511,12 @@ textarea:focus {
   font-size: 22px;
   color: var(--muted);
   line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: manipulation;
 }
-.modal-close:hover {
+.modal-close:hover, .modal-close:active {
   background: #e2e8f0;
   color: var(--text);
 }
@@ -733,30 +741,55 @@ textarea:focus {
    TABLET & MOBİL EKRAN OPTİMİZASYONU
    ========================================================================== */
 @media screen and (max-width: 992px) {
+  header.hero {
+    padding-top: max(16px, env(safe-area-inset-top));
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+  }
   .hero-inner {
     flex-wrap: wrap;
     gap: 12px;
   }
   .wrap {
-    padding: 12px 16px 40px;
+    padding-top: 12px;
+    padding-left: max(14px, env(safe-area-inset-left));
+    padding-right: max(14px, env(safe-area-inset-right));
+    padding-bottom: max(40px, env(safe-area-inset-bottom));
   }
   nav.top {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     flex-wrap: nowrap;
-    padding-bottom: 6px;
-    gap: 6px;
+    padding-bottom: 8px;
+    gap: 8px;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  nav.top::-webkit-scrollbar {
+    display: none;
   }
   nav.top a {
     flex-shrink: 0;
-    padding: 8px 12px;
+    padding: 10px 16px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13.5px;
+    touch-action: manipulation;
   }
   .card {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
   }
   .table {
     min-width: 580px;
+  }
+  .table td .btn, .table th .btn {
+    min-height: 38px;
+    padding: 6px 12px;
+    margin: 2px;
   }
   .grid-2 {
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -768,6 +801,38 @@ textarea:focus {
     grid-template-columns: repeat(3, 1fr);
     gap: 8px;
   }
+  /* iOS Otomatik Zoom Önleme & Dokunmatik Form Alanları */
+  input, select, textarea {
+    font-size: 16px !important;
+    min-height: 44px;
+  }
+  .btn {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: manipulation;
+  }
+  .btn.sm {
+    min-height: 38px;
+    padding: 8px 14px;
+    font-size: 12.5px;
+  }
+  .chk-wrap {
+    min-height: 38px;
+    padding: 4px 6px;
+  }
+  .chk-wrap input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+  }
+  #aktifSurecKart .flex > div {
+    flex: 1 1 140px;
+  }
+  #aktifSurecKart input {
+    width: 100% !important;
+    min-width: 130px;
+  }
 }
 @media screen and (max-width: 640px) {
   .stat-grid {
@@ -775,6 +840,14 @@ textarea:focus {
   }
   .hero h1 {
     font-size: 18px;
+  }
+  .btn {
+    width: 100%;
+    margin-top: 4px;
+  }
+  .flex {
+    flex-direction: column;
+    align-items: stretch;
   }
 }
 

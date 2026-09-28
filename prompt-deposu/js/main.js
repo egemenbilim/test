@@ -1,16 +1,419 @@
 /* ══════════════════════════════════════════════════════
-   Eğitim Promptları Deposu — Ana Orkestrasyon (Main)
+   CYBER-NEURAL GLOW STUDIO — MAIN ORCHESTRATOR
+   Eğitim Promptları Deposu | Egemen's EdTech
    ══════════════════════════════════════════════════════ */
 
 import {
   SINIF_REQUIRED, PANELS, HIDE_DERS, HIDE_KONU,
-  dersOptions, promptTemplates, getConcreteInstruction
+  dersOptions, promptTemplates, getConcreteInstruction, TURKISH_RULE
 } from './templates.js';
-import { toast, markInvalid, setResult, tidy } from './utils.js';
+import { toast, markInvalid, tidy } from './utils.js';
 
 let courseCount = 0;
 let veliCourseCount = 0;
+let isStreaming = false;
+let streamTimer = null;
+let currentFullText = "";
+let soundEnabled = localStorage.getItem('cyber_audio_enabled') !== 'false';
 
+/* ══════════════════════════════════════════════════════
+   1. WEB AUDIO API SES SENTEZLEYİCİSİ (Haptic Sound FX)
+   ══════════════════════════════════════════════════════ */
+let audioCtx = null;
+function getAudioContext() {
+  if (!audioCtx) {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (AudioContextClass) audioCtx = new AudioContextClass();
+  }
+  if (audioCtx && audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+  return audioCtx;
+}
+
+export function playSound(type) {
+  if (!soundEnabled) return;
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    if (type === 'click') {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(900, now);
+      osc.frequency.exponentialRampToValueAtTime(450, now + 0.03);
+      gain.gain.setValueAtTime(0.04, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.03);
+    } else if (type === 'success') {
+      const notes = [523.25, 659.25, 783.99]; // C5, E5, G5 akoru
+      notes.forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, now + idx * 0.06);
+        gain.gain.setValueAtTime(0.05, now + idx * 0.06);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.06 + 0.18);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + idx * 0.06);
+        osc.stop(now + idx * 0.06 + 0.18);
+      });
+    } else if (type === 'copy') {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(659.25, now);
+      osc.frequency.exponentialRampToValueAtTime(880, now + 0.08);
+      gain.gain.setValueAtTime(0.05, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.08);
+    }
+  } catch (e) {
+    // Ses sentezleyici hatası olursa sessizce yut
+  }
+}
+
+export function toggleSound() {
+  soundEnabled = !soundEnabled;
+  localStorage.setItem('cyber_audio_enabled', soundEnabled ? 'true' : 'false');
+  updateSoundUI();
+  if (soundEnabled) playSound('click');
+}
+
+function updateSoundUI() {
+  const btn = document.getElementById('btn-sound-toggle');
+  const icon = document.getElementById('sound-icon');
+  const txt = document.getElementById('sound-text');
+  if (!btn) return;
+  if (soundEnabled) {
+    btn.classList.add('is-active');
+    if (icon) icon.textContent = '🔊';
+    if (txt) txt.textContent = 'Ses: Açık';
+  } else {
+    btn.classList.remove('is-active');
+    if (icon) icon.textContent = '🔇';
+    if (txt) txt.textContent = 'Ses: Kapalı';
+  }
+}
+
+/* ══════════════════════════════════════════════════════
+   2. HTML5 CANVAS: NEURAL CONSTELLATION PARÇACIKLARI
+   ══════════════════════════════════════════════════════ */
+function initNeuralCanvas() {
+  const canvas = document.getElementById('neural-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  let width, height;
+  let particles = [];
+  const mouse = { x: -9999, y: -9999, radius: 140 };
+
+  function resize() {
+    width = canvas.width = window.innerWidth;
+    height = canvas.height = window.innerHeight;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  function updatePointer(clientX, clientY) {
+    mouse.x = clientX;
+    mouse.y = clientY;
+    document.documentElement.style.setProperty('--mouse-x', `${clientX}px`);
+    document.documentElement.style.setProperty('--mouse-y', `${clientY}px`);
+  }
+
+  window.addEventListener('mousemove', (e) => updatePointer(e.clientX, e.clientY));
+  window.addEventListener('touchmove', (e) => {
+    if (e.touches && e.touches.length > 0) {
+      updatePointer(e.touches[0].clientX, e.touches[0].clientY);
+    }
+  }, { passive: true });
+  window.addEventListener('touchstart', (e) => {
+    if (e.touches && e.touches.length > 0) {
+      updatePointer(e.touches[0].clientX, e.touches[0].clientY);
+    }
+  }, { passive: true });
+  window.addEventListener('touchend', () => {
+    mouse.x = -9999;
+    mouse.y = -9999;
+  }, { passive: true });
+
+  const particleCount = Math.min(Math.floor(window.innerWidth / 20), 75);
+  for (let i = 0; i < particleCount; i++) {
+    particles.push({
+      x: Math.random() * width,
+      y: Math.random() * height,
+      vx: (Math.random() - 0.5) * 0.75,
+      vy: (Math.random() - 0.5) * 0.75,
+      radius: Math.random() * 2 + 1,
+      color: Math.random() > 0.4 ? 'rgba(6, 182, 212,' : 'rgba(139, 92, 246,'
+    });
+  }
+
+  function draw() {
+    if (document.hidden) {
+      requestAnimationFrame(draw);
+      return;
+    }
+    ctx.clearRect(0, 0, width, height);
+
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+      p.x += p.vx;
+      p.y += p.vy;
+
+      if (p.x < 0 || p.x > width) p.vx *= -1;
+      if (p.y < 0 || p.y > height) p.vy *= -1;
+
+      // Parçacık noktası
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+      ctx.fillStyle = p.color + '0.7)';
+      ctx.fill();
+
+      // Fareye bağlantı
+      const dxMouse = p.x - mouse.x;
+      const dyMouse = p.y - mouse.y;
+      const distMouse = Math.sqrt(dxMouse * dxMouse + dyMouse * dyMouse);
+      if (distMouse < mouse.radius) {
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+        ctx.lineTo(mouse.x, mouse.y);
+        ctx.strokeStyle = `rgba(6, 182, 212, ${1 - distMouse / mouse.radius * 0.8})`;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+
+      // Yakındaki diğer parçacıklarla bağlantı
+      for (let j = i + 1; j < particles.length; j++) {
+        const p2 = particles[j];
+        const dx = p.x - p2.x;
+        const dy = p.y - p2.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 115) {
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(p2.x, p2.y);
+          ctx.strokeStyle = `rgba(139, 92, 246, ${0.15 * (1 - dist / 115)})`;
+          ctx.lineWidth = 0.8;
+          ctx.stroke();
+        }
+      }
+    }
+    requestAnimationFrame(draw);
+  }
+  draw();
+}
+
+/* ══════════════════════════════════════════════════════
+   3. KUTLAMA KONFETİSİ (Celebration Confetti)
+   ══════════════════════════════════════════════════════ */
+export function burstConfetti() {
+  const canvas = document.getElementById('confetti-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+
+  const colors = ['#06b6d4', '#8b5cf6', '#10b981', '#f59e0b', '#f43f5e', '#ffffff'];
+  let pieces = [];
+  const count = 70;
+
+  for (let i = 0; i < count; i++) {
+    pieces.push({
+      x: window.innerWidth * 0.75 + (Math.random() - 0.5) * 200,
+      y: window.innerHeight * 0.45,
+      vx: (Math.random() - 0.5) * 12,
+      vy: Math.random() * -14 - 6,
+      size: Math.random() * 8 + 5,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      rotation: Math.random() * 360,
+      rotSpeed: (Math.random() - 0.5) * 15,
+      opacity: 1,
+      gravity: 0.45,
+      drag: 0.96
+    });
+  }
+
+  function renderConfetti() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    let alive = false;
+
+    pieces.forEach(p => {
+      p.vy += p.gravity;
+      p.vx *= p.drag;
+      p.vy *= p.drag;
+      p.x += p.vx;
+      p.y += p.vy;
+      p.rotation += p.rotSpeed;
+      p.opacity -= 0.012;
+
+      if (p.opacity > 0) {
+        alive = true;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate((p.rotation * Math.PI) / 180);
+        ctx.fillStyle = p.color;
+        ctx.globalAlpha = Math.max(0, p.opacity);
+        ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
+        ctx.restore();
+      }
+    });
+
+    if (alive) {
+      requestAnimationFrame(renderConfetti);
+    } else {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+  }
+  renderConfetti();
+}
+
+/* ══════════════════════════════════════════════════════
+   4. 3D TILT ETKİLEŞİMİ (Holographic Card Flare)
+   ══════════════════════════════════════════════════════ */
+function init3DTilt() {
+  document.querySelectorAll('.tilt-tile').forEach(card => {
+    card.addEventListener('mousemove', (e) => {
+      const rect = card.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const centerX = rect.width / 2;
+      const centerY = rect.height / 2;
+
+      const rotateX = ((y - centerY) / centerY) * -9; // Max 9 deg tilt
+      const rotateY = ((x - centerX) / centerX) * 9;
+
+      card.style.transform = `perspective(800px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-4px) scale(1.02)`;
+      card.style.setProperty('--tile-mouse-x', `${x}px`);
+      card.style.setProperty('--tile-mouse-y', `${y}px`);
+    });
+
+    card.addEventListener('mouseleave', () => {
+      const isChecked = card.querySelector('input[type="radio"]:checked');
+      card.style.transform = isChecked ? 'translateY(-3px) scale(1.02)' : 'none';
+    });
+
+    card.addEventListener('touchend', () => {
+      setTimeout(() => {
+        const isChecked = card.querySelector('input[type="radio"]:checked');
+        card.style.transform = isChecked ? 'translateY(-3px) scale(1.02)' : 'none';
+      }, 150);
+    }, { passive: true });
+
+    card.addEventListener('touchcancel', () => {
+      const isChecked = card.querySelector('input[type="radio"]:checked');
+      card.style.transform = isChecked ? 'translateY(-3px) scale(1.02)' : 'none';
+    }, { passive: true });
+  });
+}
+
+/* ══════════════════════════════════════════════════════
+   5. CANLI TYPEWRITER / STREAM METİN AKIŞ MOTORU
+   ══════════════════════════════════════════════════════ */
+export function streamPrompt(fullText) {
+  const box = document.getElementById('result-box');
+  const skipBtn = document.getElementById('btn-skip-stream');
+  const statusChip = document.getElementById('status-chip');
+  const statusText = document.getElementById('status-text');
+  const paper = document.getElementById('paper');
+
+  if (!box) return;
+
+  if (isStreaming && streamTimer) {
+    clearInterval(streamTimer);
+  }
+
+  isStreaming = true;
+  currentFullText = fullText;
+  box.classList.remove('empty');
+  box.innerHTML = '<span class="typewriter-cursor"></span>';
+
+  if (skipBtn) skipBtn.style.display = 'inline-block';
+  if (statusChip) {
+    statusChip.className = 'terminal-status-pill streaming';
+  }
+  if (statusText) statusText.textContent = 'Yazılıyor... ⚡';
+  if (paper) {
+    paper.classList.remove('pulse');
+    void paper.offsetWidth;
+    paper.classList.add('pulse');
+  }
+
+  let index = 0;
+  const totalLength = fullText.length;
+  // Hızlı akış: her adımda 4-7 karakter yazar
+  const chunkSize = Math.max(3, Math.floor(totalLength / 80));
+
+  streamTimer = setInterval(() => {
+    index += chunkSize;
+    if (index >= totalLength) {
+      index = totalLength;
+      finalizeStream();
+    }
+    box.textContent = fullText.slice(0, index);
+    box.appendChild(createCursor());
+    box.scrollTop = box.scrollHeight;
+    updateCounts(index);
+  }, 14);
+}
+
+function createCursor() {
+  const c = document.createElement('span');
+  c.className = 'typewriter-cursor';
+  return c;
+}
+
+export function skipStream() {
+  if (!isStreaming) return;
+  finalizeStream();
+}
+
+function finalizeStream() {
+  if (streamTimer) clearInterval(streamTimer);
+  isStreaming = false;
+  const box = document.getElementById('result-box');
+  const skipBtn = document.getElementById('btn-skip-stream');
+  const statusChip = document.getElementById('status-chip');
+  const statusText = document.getElementById('status-text');
+
+  if (box) {
+    box.textContent = currentFullText;
+    box.scrollTop = 0;
+  }
+  if (skipBtn) skipBtn.style.display = 'none';
+  if (statusChip) {
+    statusChip.className = 'terminal-status-pill ok';
+  }
+  if (statusText) statusText.textContent = 'Hazır · Türkçe Çıktı';
+
+  updateCounts(currentFullText.length);
+  playSound('success');
+  burstConfetti();
+}
+
+function updateCounts(charCount) {
+  const charEl = document.getElementById('count-chars');
+  const wordEl = document.getElementById('count-words');
+  if (charEl) charEl.textContent = charCount.toLocaleString('tr-TR');
+  if (wordEl) {
+    const textSnippet = currentFullText.slice(0, charCount);
+    const words = textSnippet.split(/\s+/).filter(Boolean).length;
+    wordEl.textContent = words.toLocaleString('tr-TR');
+  }
+}
+
+/* ══════════════════════════════════════════════════════
+   6. DİNAMİK FORM SATIRLARI (Çalışma Programı & Veli)
+   ══════════════════════════════════════════════════════ */
 export function addCourseRow() {
   if (courseCount >= 10) { toast("En fazla 10 ders ekleyebilirsiniz."); return; }
   courseCount++;
@@ -26,18 +429,20 @@ export function addCourseRow() {
     </div>
     <div class="row-field">
       <label class="mini-label">Konu(lar) <span class="req">*</span></label>
-      <input type="text" class="p-konu control" placeholder="Örn: Türev, Limit">
+      <input type="text" class="p-konu control" placeholder="Örn: Fonksiyonlar, Parabol">
     </div>
-    ${courseCount > 1 ? `<button type="button" class="btn-remove">✕</button>` : ''}
+    ${courseCount > 1 ? `<button type="button" class="btn-remove" title="Dersi Kaldır">✕</button>` : ''}
   `;
   c.appendChild(r);
 
   if (courseCount > 1) {
     r.querySelector('.btn-remove').addEventListener('click', () => {
+      playSound('click');
       r.remove();
       courseCount--;
     });
   }
+  playSound('click');
 }
 
 export function addVeliCourseRow() {
@@ -57,16 +462,18 @@ export function addVeliCourseRow() {
       <label class="mini-label">İşlenen Konular ${veliCourseCount === 1 ? '<span class="req">*</span>' : ''}</label>
       <input type="text" class="v-konu control" placeholder="Örn: Cümlede Anlam">
     </div>
-    ${veliCourseCount > 1 ? `<button type="button" class="btn-remove">✕</button>` : ''}
+    ${veliCourseCount > 1 ? `<button type="button" class="btn-remove" title="Dersi Kaldır">✕</button>` : ''}
   `;
   c.appendChild(r);
 
   if (veliCourseCount > 1) {
     r.querySelector('.btn-remove').addEventListener('click', () => {
+      playSound('click');
       r.remove();
       veliCourseCount--;
     });
   }
+  playSound('click');
 }
 
 export function handleVeliDersChange(sel) {
@@ -82,14 +489,20 @@ export function handleVeliDersChange(sel) {
 }
 
 export function onMateryalChange(v) {
+  playSound('click');
   PANELS.forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
 
-  document.getElementById('sinif-group').style.display = SINIF_REQUIRED.includes(v) ? 'block' : 'none';
-  document.getElementById('main-ders-group').style.display = HIDE_DERS.includes(v) ? 'none' : 'block';
-  document.getElementById('konu-group').style.display = HIDE_KONU.includes(v) ? 'none' : 'block';
+  const sinifGroup = document.getElementById('sinif-group');
+  if (sinifGroup) sinifGroup.style.display = SINIF_REQUIRED.includes(v) ? 'block' : 'none';
+
+  const dersGroup = document.getElementById('main-ders-group');
+  if (dersGroup) dersGroup.style.display = HIDE_DERS.includes(v) ? 'none' : 'block';
+
+  const konuGroup = document.getElementById('konu-group');
+  if (konuGroup) konuGroup.style.display = HIDE_KONU.includes(v) ? 'none' : 'block';
 
   const map = {
     nlm: 'nlm-options',
@@ -99,7 +512,20 @@ export function onMateryalChange(v) {
     gagne: 'gagne-options',
     video: 'video-options'
   };
-  if (map[v]) document.getElementById(map[v]).style.display = 'block';
+  if (map[v]) {
+    const targetEl = document.getElementById(map[v]);
+    if (targetEl) targetEl.style.display = 'block';
+  }
+
+  // 3D Tilt tile durumunu güncelle
+  document.querySelectorAll('.tilt-tile').forEach(tile => {
+    const radio = tile.querySelector('input[type="radio"]');
+    if (radio && radio.checked) {
+      tile.style.transform = 'translateY(-3px) scale(1.02)';
+    } else {
+      tile.style.transform = 'none';
+    }
+  });
 }
 
 export function getMateryal() {
@@ -107,6 +533,9 @@ export function getMateryal() {
   return c ? c.value : '';
 }
 
+/* ══════════════════════════════════════════════════════
+   7. PROMPT ÜRETİM MANTIĞI & VALİDASYON
+   ══════════════════════════════════════════════════════ */
 export function generatePrompt() {
   const materyal = getMateryal();
   if (!materyal) { toast("Lütfen bir Materyal Türü seçin."); return; }
@@ -260,7 +689,8 @@ ${gs ? `- Daily study time should not exceed ${gs}.` : '- Daily study duration s
     };
 
     optF.forEach(f => {
-      const val = document.getElementById("m-" + f).value.trim();
+      const inputEl = document.getElementById("m-" + f);
+      const val = inputEl ? inputEl.value.trim() : "";
       v["{" + f + "}"] = val || "(contextually fill)";
     });
 
@@ -269,8 +699,10 @@ ${gs ? `- Daily study time should not exceed ${gs}.` : '- Daily study duration s
   } else {
     const d = document.getElementById("ders").value;
     const k = document.getElementById("konu").value;
-    const og = document.getElementById("ogretmen").value || "Egemen Bilim (Turkish Language and Literature Teacher)";
-    const ku = document.getElementById("kurum").value || "[Institution Name]";
+    const ogEl = document.getElementById("ogretmen");
+    const kuEl = document.getElementById("kurum");
+    const og = (ogEl && ogEl.value) ? ogEl.value : "Egemen Bilim (Turkish Language and Literature Teacher)";
+    const ku = (kuEl && kuEl.value) ? kuEl.value : "[Institution Name]";
 
     if (!d) { markInvalid(document.getElementById("ders")); toast("Ders seçin."); return; }
     if (!k.trim()) { markInvalid(document.getElementById("konu")); toast("Konu yazın."); return; }
@@ -290,35 +722,201 @@ ${gs ? `- Daily study time should not exceed ${gs}.` : '- Daily study duration s
     }
   }
 
-  setResult(tidy(sonuc));
+  const finalPrompt = tidy(sonuc) + TURKISH_RULE;
+  streamPrompt(finalPrompt);
+
+  if (window.innerWidth <= 1100) {
+    const paper = document.getElementById('paper');
+    if (paper) {
+      paper.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
 }
 
+/* ══════════════════════════════════════════════════════
+   8. AKSİYONLAR: KOPYALA, İNDİR, AI DERİN BAĞLANTILARI
+   ══════════════════════════════════════════════════════ */
 export function copyPrompt() {
   const box = document.getElementById('result-box');
-  if (box.classList.contains('empty')) { toast("Önce bir prompt oluşturun!"); return; }
+  if (!box || box.classList.contains('empty')) {
+    toast("Önce bir prompt oluşturun!");
+    return Promise.reject("empty");
+  }
 
-  navigator.clipboard.writeText(box.textContent).then(() => {
+  return navigator.clipboard.writeText(box.textContent).then(() => {
     const btn = document.getElementById('btn-copy');
     const txt = document.getElementById('copy-text');
-    btn.classList.add('done');
-    txt.textContent = "Kopyalandı!";
+    if (btn) btn.classList.add('copied');
+    if (txt) txt.textContent = "Kopyalandı! 🎉";
+    playSound('copy');
+    burstConfetti();
     toast("Prompt panoya kopyalandı.", 'ok');
     setTimeout(() => {
-      btn.classList.remove('done');
-      txt.textContent = "Metni Kopyala";
-    }, 2000);
-  }).catch(err => toast("Kopyalama başarısız: " + err));
+      if (btn) btn.classList.remove('copied');
+      if (txt) txt.textContent = "Metni Kopyala";
+    }, 2200);
+  }).catch(err => {
+    toast("Kopyalama başarısız: " + err);
+    throw err;
+  });
 }
 
-// Global window bağlaması (inline event handler'lar için)
+export function downloadPrompt() {
+  const box = document.getElementById('result-box');
+  if (!box || box.classList.contains('empty')) {
+    toast("İndirmek için önce bir prompt oluşturun!");
+    return;
+  }
+
+  playSound('click');
+  const materyal = getMateryal() || 'egitim-promptu';
+  const now = new Date().toISOString().slice(0, 10);
+  const filename = `${materyal}_${now}.md`;
+
+  const blob = new Blob([box.textContent], { type: 'text/markdown;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast(`Prompt "${filename}" olarak indirildi.`, 'ok');
+}
+
+export function openInAI(platform) {
+  const box = document.getElementById('result-box');
+  if (!box || box.classList.contains('empty')) {
+    toast("Lütfen önce bir prompt oluşturun!");
+    return;
+  }
+
+  copyPrompt().then(() => {
+    const urls = {
+      chatgpt: 'https://chatgpt.com',
+      claude: 'https://claude.ai',
+      notebooklm: 'https://notebooklm.google.com'
+    };
+    if (urls[platform]) {
+      window.open(urls[platform], '_blank', 'noopener,noreferrer');
+      toast(`Prompt kopyalandı! ${platform.toUpperCase()} yeni sekmede açıldı.`, 'ok');
+    }
+  }).catch(() => {});
+}
+
+export function toggleMaarifAccordion(btn) {
+  playSound('click');
+  btn.classList.toggle('is-open');
+  const body = document.getElementById('maarif-accordion-body');
+  if (body) body.classList.toggle('is-open');
+}
+
+/* ══════════════════════════════════════════════════════
+   9. HIZLI ÖRNEK SENARYOLAR (Quick Presets)
+   ══════════════════════════════════════════════════════ */
+export function loadPreset(key) {
+  playSound('click');
+
+  if (key === 'maarif_divan') {
+    const radio = document.querySelector('input[name="materyal"][value="maarif"]');
+    if (radio) {
+      radio.checked = true;
+      onMateryalChange('maarif');
+    }
+    const ders = document.getElementById('ders');
+    if (ders) ders.value = 'Türk Dili ve Edebiyatı';
+    const okul = document.getElementById('m-okul');
+    if (okul) okul.value = 'Atatürk Anadolu Lisesi';
+    const tarih = document.getElementById('m-tarih');
+    if (tarih) tarih.value = '14/10/2026';
+    const hafta = document.getElementById('m-hafta');
+    if (hafta) hafta.value = '5. Hafta';
+    const sure = document.getElementById('m-sure');
+    if (sure) sure.value = '80 dk';
+    const unite = document.getElementById('m-unite');
+    if (unite) unite.value = '2. Ünite: Şiir';
+    const konular = document.getElementById('m-konular');
+    if (konular) konular.value = '1. Tanzimat Şiiri, 2. Şinasi ve Tercüman-ı Ahval Mukaddimesi, 3. Namık Kemal Hürriyet Kasidesi, 4. Ziya Paşa Terkib-i Bend';
+    const cıktı = document.getElementById('m-ogrenme_ciktilari');
+    if (cıktı) cıktı.value = 'TDE1.2. Şiir tahlili ve dönemin zihniyetini yorumlama';
+
+    toast('10. Sınıf Edebiyat Maarif şablonu yüklendi!', 'ok');
+    generatePrompt();
+  } else if (key === 'fen_dna') {
+    const radio = document.querySelector('input[name="materyal"][value="not"]');
+    if (radio) {
+      radio.checked = true;
+      onMateryalChange('not');
+    }
+    const sinif = document.getElementById('sinif');
+    if (sinif) sinif.value = '8. Sınıf';
+    const ders = document.getElementById('ders');
+    if (ders) ders.value = 'Fen Bilgisi';
+    const konu = document.getElementById('konu');
+    if (konu) konu.value = 'DNA ve Genetik Kod, Nükleotid Dizilimleri, DNA Eşlenmesi, Gen-Kromozom ilişkisi ve Mutasyon/Modifikasyon analizi.';
+
+    toast('8. Sınıf Fen Özeti şablonu yüklendi!', 'ok');
+    generatePrompt();
+  } else if (key === 'yks_program') {
+    const radio = document.querySelector('input[name="materyal"][value="calisma_programi"]');
+    if (radio) {
+      radio.checked = true;
+      onMateryalChange('calisma_programi');
+    }
+    const sure = document.getElementById('p-sure');
+    if (sure) sure.value = '3 Haftalık';
+    const ogrenci = document.getElementById('p-ogrenci');
+    if (ogrenci) ogrenci.value = 'Kerem';
+    const kaynak = document.getElementById('p-kaynak');
+    if (kaynak) kaynak.value = '3D Soru Bankası & MEB OGM Materyal';
+    const gs = document.getElementById('p-gunluk-sure');
+    if (gs) gs.value = '5 Saat';
+    const ts = document.getElementById('p-toplam-soru');
+    if (ts) ts.value = '1800 Soru';
+    const gks = document.getElementById('p-gunluk-soru');
+    if (gks) gks.value = '120 Soru';
+    const deneme = document.getElementById('p-deneme');
+    if (deneme) deneme.value = 'Haftada 2 TYT Denemesi';
+    const ek = document.getElementById('p-ek');
+    if (ek) ek.value = 'Pazartesi ve Çarşamba ağırlıklı olarak Matematik ve Geometri olsun. Pazar günleri deneme analizi yapılsın.';
+
+    toast('YKS Çalışma Programı şablonu yüklendi!', 'ok');
+  } else if (key === 'veli_bulten') {
+    const radio = document.querySelector('input[name="materyal"][value="veli_bulteni"]');
+    if (radio) {
+      radio.checked = true;
+      onMateryalChange('veli_bulteni');
+    }
+    const etk = document.getElementById('v-etkinlikler');
+    if (etk) etk.value = 'Bu hafta öğrencilerimizle beraber "Bilim ve Etik" üzerine münazara etkinliği düzenledik ve kitap okuma saati yaptık.';
+
+    toast('Haftalık Veli Bülteni şablonu yüklendi!', 'ok');
+  }
+}
+
+/* ══════════════════════════════════════════════════════
+   10. GLOBAL BINDINGS & INIT
+   ══════════════════════════════════════════════════════ */
 window.generatePrompt = generatePrompt;
 window.copyPrompt = copyPrompt;
+window.downloadPrompt = downloadPrompt;
+window.openInAI = openInAI;
+window.toggleMaarifAccordion = toggleMaarifAccordion;
+window.loadPreset = loadPreset;
 window.handleVeliDersChange = handleVeliDersChange;
+window.toggleSound = toggleSound;
+window.skipStream = skipStream;
 
 document.addEventListener("DOMContentLoaded", () => {
+  initNeuralCanvas();
+  init3DTilt();
+  updateSoundUI();
+
   addCourseRow();
   addVeliCourseRow();
 
+  // Materyal Seçimi Değişimi
   document.querySelectorAll('input[name="materyal"]').forEach(r => {
     r.addEventListener('change', () => onMateryalChange(r.value));
   });
@@ -329,10 +927,70 @@ document.addEventListener("DOMContentLoaded", () => {
   const btnVeliCourse = document.getElementById('btn-add-veli-course');
   if (btnVeliCourse) btnVeliCourse.addEventListener('click', addVeliCourseRow);
 
+  // Arama & Filtreleme
+  const searchInput = document.getElementById('search-materials');
+  if (searchInput) {
+    searchInput.addEventListener('input', (e) => {
+      const q = e.target.value.toLowerCase().trim();
+      document.querySelectorAll('.tilt-tile').forEach(tile => {
+        const name = (tile.getAttribute('data-name') || '').toLowerCase();
+        const text = tile.textContent.toLowerCase();
+        if (!q || name.includes(q) || text.includes(q)) {
+          tile.style.display = 'flex';
+          tile.style.opacity = '1';
+        } else {
+          tile.style.display = 'none';
+        }
+      });
+    });
+  }
+
+  // Kısayol: Ctrl+Enter / Cmd+Enter
   document.addEventListener('keydown', e => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
       e.preventDefault();
       generatePrompt();
     }
   });
+
+  // Tablet Hızlı Atlama Kontrolcüsü
+  window.toggleTabletJump = function() {
+    const paper = document.getElementById('paper');
+    const icon = document.getElementById('tablet-jump-icon');
+    const txt = document.getElementById('tablet-jump-text');
+    if (!paper) return;
+    const paperTop = paper.getBoundingClientRect().top;
+    if (paperTop > 250) {
+      paper.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (icon) icon.textContent = '⬆️';
+      if (txt) txt.textContent = 'Forma Dön';
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      if (icon) icon.textContent = '⬇️';
+      if (txt) txt.textContent = 'Promptu Gör';
+    }
+  };
+
+  window.addEventListener('scroll', () => {
+    if (window.innerWidth > 1100) return;
+    const paper = document.getElementById('paper');
+    const icon = document.getElementById('tablet-jump-icon');
+    const txt = document.getElementById('tablet-jump-text');
+    if (!paper || !icon || !txt) return;
+    const paperTop = paper.getBoundingClientRect().top;
+    if (paperTop <= 250) {
+      icon.textContent = '⬆️';
+      txt.textContent = 'Forma Dön';
+    } else {
+      icon.textContent = '⬇️';
+      txt.textContent = 'Promptu Gör';
+    }
+  }, { passive: true });
+
+  // Varsayılan ilk şablonu seçili başlat
+  const firstRadio = document.querySelector('input[name="materyal"][value="maarif"]');
+  if (firstRadio) {
+    firstRadio.checked = true;
+    onMateryalChange('maarif');
+  }
 });

@@ -36,11 +36,11 @@ EdTech/
 ├── 📁 prompt-deposu/                   # 2. Eğitim Promptları Deposu (Modüler)
 │   ├── index.html                      # Prompt Üretici Arayüzü
 │   ├── css/
-│   │   └── style.css                   # Premium Navy-Emerald Tema & Animasyonlar
+│   │   └── style.css                   # Cyber-Neural Glow Studio (HTML5 Canvas Parçacık Ağı, 3D Tilt & Neon Işıltılar)
 │   └── js/
 │       ├── templates.js                # 9 Hazır Pedagojik Prompt Şablonu & Kurallar
-│       ├── utils.js                    # Bildirimler, Çıktı Biçimlendirme & Form Doğrulama
-│       └── main.js                     # Dinamik Formlar, Prompt Üretimi & Panoya Kopyalama
+│       ├── utils.js                    # Siber Toast Bildirimleri & Form Doğrulama
+│       └── main.js                     # Canvas Parçacık Motoru, 3D Tilt, Canlı Daktilo Akışı, Konfeti & Ses Sentezleyici
 │
 └── 📁 egemens-testmaker/               # 3. Sınav Hazırlama Aracı (Modüler)
     ├── index.html                      # Testmaker Çalışma Alanı

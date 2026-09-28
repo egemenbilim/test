@@ -26,7 +26,11 @@ import {
 } from './modules/denemeler.js';
 import {
   hfBitisOtomatik, hfDersOnerileriGuncelle, hfKaydet,
-  hfTopluKaydet, hfSil, renderHaftalik, hfRaporAl
+  hfTopluKaydet, hfSil, renderHaftalik, hfRaporAl,
+  hfOgrenciSecildi, hfSinavTuruSecildi, hfDersSecildi, hfKonuSecildi,
+  hfTurDegis, hfNetHesaplaLive, hfOdevDurumHizliDegis, hfFiltreTurSec,
+  hfOzelRaporAc, hfOzelRaporKapat, hfOzelRaporRender, hfOzelRaporYazdir,
+  hfWhatsAppPaylas, seciliHfOgrenciId
 } from './modules/haftalik.js';
 import {
   doldurRaporFiltreleri, dersSecTumu, dersSecTemizle,
@@ -62,7 +66,16 @@ export function goto(v) {
   if (v === 'siniflar') renderSiniflar();
   if (v === 'ogrenciler') { doldurSelectler(); renderOgrenciler(); }
   if (v === 'deneme') { doldurSelectler(); dersListesiniOlustur(); renderDenemeler(); }
-  if (v === 'haftalik') { doldurSelectler(); renderHaftalik(); }
+  if (v === 'haftalik') {
+    doldurSelectler();
+    if (!seciliHfOgrenciId && DB.ogrenciler.length) {
+      hfOgrenciSecildi(DB.ogrenciler[0].id);
+    } else if (seciliHfOgrenciId) {
+      hfOgrenciSecildi(seciliHfOgrenciId);
+    } else {
+      renderHaftalik();
+    }
+  }
   if (v === 'rapor') { doldurRaporFiltreleri(); renderRapor(); }
   if (v === 'cikti') renderCikti();
 }
@@ -104,8 +117,8 @@ export function doldurSelectler() {
 
   const oO = DB.ogrenciler.map(o => `<option value="${o.id}">${o.adSoyad} (${sinifAdi(o.sinifId)})</option>`).join('');
   if ($('denOgrenci')) $('denOgrenci').innerHTML = '<option value="">Öğrenci seçin</option>' + oO;
-  if ($('hfOgrenci')) $('hfOgrenci').innerHTML = '<option value="">Öğrenci seçin</option>' + DB.ogrenciler.map(o => `<option value="${o.id}">${o.adSoyad}</option>`).join('');
-  if ($('filtreHfOgrenci')) $('filtreHfOgrenci').innerHTML = '<option value="">Tüm Öğrenciler</option>' + DB.ogrenciler.map(o => `<option value="${o.id}">${o.adSoyad}</option>`).join('');
+  if ($('hfOgrenci')) $('hfOgrenci').innerHTML = '<option value="">Öğrenci seçin</option>' + oO;
+  if ($('filtreHfOgrenci')) $('filtreHfOgrenci').innerHTML = '<option value="">Tüm Öğrenciler</option>' + oO;
 
   uypSelectleriGuncelle();
 }
@@ -197,13 +210,26 @@ window.topluDegerlendir = topluDegerlendir;
 window.topluKaydet = topluKaydet;
 window.topluSonuclariTemizle = topluSonuclariTemizle;
 
-// Haftalık
+// Haftalık Soru / Ödev Takibi
 window.hfBitisOtomatik = hfBitisOtomatik;
 window.hfKaydet = hfKaydet;
 window.hfTopluKaydet = hfTopluKaydet;
 window.hfSil = hfSil;
 window.renderHaftalik = renderHaftalik;
 window.hfRaporAl = hfRaporAl;
+window.hfOgrenciSecildi = hfOgrenciSecildi;
+window.hfSinavTuruSecildi = hfSinavTuruSecildi;
+window.hfDersSecildi = hfDersSecildi;
+window.hfKonuSecildi = hfKonuSecildi;
+window.hfTurDegis = hfTurDegis;
+window.hfNetHesaplaLive = hfNetHesaplaLive;
+window.hfOdevDurumHizliDegis = hfOdevDurumHizliDegis;
+window.hfFiltreTurSec = hfFiltreTurSec;
+window.hfOzelRaporAc = hfOzelRaporAc;
+window.hfOzelRaporKapat = hfOzelRaporKapat;
+window.hfOzelRaporRender = hfOzelRaporRender;
+window.hfOzelRaporYazdir = hfOzelRaporYazdir;
+window.hfWhatsAppPaylas = hfWhatsAppPaylas;
 
 // Raporlar
 window.dersSecTumu = dersSecTumu;

@@ -8,13 +8,9 @@
   <!-- Özel Modüler Stiller -->
   <link rel="stylesheet" href="css/style.css">
   
-  <!-- PDF.js Kütüphanesi -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script>
-    if (window.pdfjsLib) {
-      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    }
-  </script>
+  <!-- Yerel PDF.js Kütüphanesi (100% Çevrimdışı ve file:// Uyumlu) -->
+  <script src="js/lib/pdf.min.js"></script>
+  <script src="js/lib/pdfWorkerInline.js"></script>
 </head>
 <body>
 
@@ -256,19 +252,26 @@ Deneme Adı: Özdebir AYT 1
 
   <!-- PDF İLE OTOMATİK AKTAR -->
   <div id="denPdf" class="hidden">
-    <!-- PDF YÜKLEME KARTI -->
-    <div class="card" id="pdfDropZone" style="background:#f8fafc;border:2px dashed var(--indigo);text-align:center;padding:32px 20px;transition:all .2s;cursor:pointer" onclick="$('pdfDosyaInput').click()">
-      <div style="font-size:46px;margin-bottom:8px">📄</div>
-      <h2 style="color:var(--indigo);margin-bottom:6px">Deneme Sonuç PDF'ini Buraya Sürükleyin veya Seçin</h2>
-      <p style="color:var(--muted);font-size:13px;max-width:560px;margin:0 auto 16px;line-height:1.6">
-        Kurumunuzdan gelen <b>TYT / AYT Şube Net-Puan Listesi</b> PDF dosyasını buraya bırakın. Sistem sınav adını, tarihini, öğrenci isimlerini, sınıflarını ve tüm ders netlerini otomatik olarak ayıklar.
+    <!-- PDF YÜKLEME KARTI (SÜRÜKLE BIRAK & TIKLAYARAK DOSYA/KLASÖRDEN SEÇ) -->
+    <div class="card" id="pdfDropZone" style="background:#f8fafc;border:2px dashed var(--indigo);border-radius:12px;text-align:center;padding:36px 20px;transition:all .2s;cursor:pointer;user-select:none" onclick="window.pdfDosyaSecAc()">
+      <div style="font-size:52px;margin-bottom:10px;pointer-events:none">📄</div>
+      <h2 style="color:var(--indigo);margin-bottom:6px;pointer-events:none">PDF Dosyasını Buraya Sürükleyin veya Tıklayarak Seçin</h2>
+      <p style="color:var(--muted);font-size:13px;max-width:560px;margin:0 auto 16px;line-height:1.6;pointer-events:none">
+        Kurumunuzdan gelen <b>TYT / AYT Şube Net-Puan Listesi</b> PDF dosyasını buraya bırakın veya <b>bu alana tıklayarak</b> bilgisayarınızdan dosyayı seçin.
       </p>
 
-      <div style="display:flex;justify-content:center;gap:12px;align-items:center;flex-wrap:wrap" onclick="event.stopPropagation()">
-        <button class="btn" style="padding:10px 24px;font-size:14px" onclick="$('pdfDosyaInput').click()">📂 PDF Dosyası Seç</button>
-        <input type="file" id="pdfDosyaInput" accept=".pdf" class="hidden" onchange="window.pdfDosyaSecildi(event)">
-        <button class="btn gray sm" onclick="$('pdfMetinKutusu').classList.toggle('hidden')">📋 veya Kopyalanan Metni Yapıştır</button>
+      <div style="display:flex;justify-content:center;gap:12px;align-items:center;flex-wrap:wrap">
+        <button type="button" class="btn" style="padding:11px 26px;font-size:14px;pointer-events:none">
+          📂 Bilgisayardan Dosya Seç
+        </button>
+        <button type="button" class="btn gray sm" onclick="event.stopPropagation();$('pdfMetinKutusu').classList.toggle('hidden')">
+          📋 veya Metin Yapıştır
+        </button>
       </div>
+
+      <input type="file" id="pdfDosyaInput" accept=".pdf,application/pdf" style="display:none" onchange="window.pdfDosyaSecildi(event)">
+
+      <div id="pdfSecilenDosya" class="hidden mt-3" style="font-size:13px;font-weight:600;color:var(--indigo)"></div>
 
       <div id="pdfYukleniyor" class="hidden" style="margin-top:16px;font-weight:600;color:var(--indigo)">
         ⏳ PDF taranıyor ve veriler ayıklanıyor, lütfen bekleyin...

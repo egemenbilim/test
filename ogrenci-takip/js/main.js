@@ -184,12 +184,28 @@ window.renderRapor = renderRapor;
 window.raporPDF = raporPDF;
 
 // PDF Ayrıştırma ve Onay
+window.pdfDosyaSecAc = function() {
+  const inp = $('pdfDosyaInput');
+  if (inp) {
+    inp.value = '';
+    inp.click();
+  }
+};
+
 window.pdfDosyaSecildi = async function(ev) {
-  const file = (ev.target && ev.target.files && ev.target.files[0]) || (ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0]);
+  const file = (ev && ev.target && ev.target.files && ev.target.files[0]) ||
+               (ev && ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0]) ||
+               (ev instanceof File ? ev : null);
   if (!file) return;
 
+  const infoEl = $('pdfSecilenDosya');
   const yk = $('pdfYukleniyor');
   const ht = $('pdfHata');
+
+  if (infoEl) {
+    infoEl.textContent = `📄 Seçilen Dosya: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+    infoEl.classList.remove('hidden');
+  }
   if (yk) yk.classList.remove('hidden');
   if (ht) ht.classList.add('hidden');
 

@@ -29,8 +29,10 @@ export function cleanTurkishText(text) {
     'HSEY  N': 'HÜSEYİN',
     'HSEYN': 'HÜSEYİN',
     'ZDEM  R': 'ÖZDEMİR',
-    'ZDEMR': 'ÖZDEMİR',
     'AL ': 'ALİ ',
+    'ALİEFE': 'ALİ EFE',
+    'ALEFE': 'ALİ EFE',
+    'AL  EFE': 'ALİ EFE',
     'KA  AN': 'KAĞAN',
     'KAAN': 'KAĞAN',
     'ZAVOTU': 'ZAVOTÇU',
@@ -49,6 +51,8 @@ export function cleanTurkishText(text) {
     'MAAR  F0': 'MAARİF',
     'MAARF0': 'MAARİF',
     'MAAR  F': 'MAARİF',
+    'MAAR İ F0': 'MAARİF0',
+    'MAAR İ F': 'MAARİF',
     'KOCAEL ': 'KOCAELİ',
     ' ZM  T': 'İZMİT',
     'zmit': 'İzmit',
@@ -58,6 +62,16 @@ export function cleanTurkishText(text) {
   for (const [k, v] of Object.entries(dict)) {
     s = s.replaceAll(k, v);
   }
+
+  // Özel harf boşluk düzeltmeleri:
+  s = s.replace(/AL[İI]\s*[İI]\s*EFE/gi, 'ALİ EFE');
+  s = s.replace(/AL\s*[İI]\s*EFE/gi, 'ALİ EFE');
+
+  // Kelime içine yanlışlıkla tek boşlukla girmiş Türkçe harfleri kaynaştır:
+  // Örn: HÜSEY İ N -> HÜSEYİN, ÖZDEM İ R -> ÖZDEMİR, KA Ğ AN -> KAĞAN
+  s = s.replace(/([A-ZÇĞİÖŞÜa-zçğıöşü]{2,})\s+([İĞŞÇÖÜıüğşçö])\s+([A-ZÇĞİÖŞÜa-zçğıöşü]{1,})/g, '$1$2$3');
+  // Örn: A Ğ CA -> AĞCA
+  s = s.replace(/(\b[A-ZÇĞİÖŞÜa-zçğıöşü])\s+([İĞŞÇÖÜıüğşçö])\s+([A-ZÇĞİÖŞÜa-zçğıöşü]{2,})/g, '$1$2$3');
 
   // Unicode replacement karakterlerini ve fazla boşlukları temizle
   s = s.replace(/\ufffd/g, '');
@@ -95,8 +109,14 @@ export function parseExamLines(lines) {
         // Tarih ve kodu ayıkla
         let adClean = cleanTurkishText(l);
         // Örn: "12.09.2026 - 110300 - 11 Hız ve Renk MAARİF0 TYT İzmit..."
-        const subeSplit = adClean.split(/\s+(?:İzmit|KOCAELİ|Şube|\d{2}\s+\d{2})/i)[0];
-        sinavAdi = subeSplit.replace(/^\d{2}\.\d{2}\.\d{4}\s*-\s*\d+\s*-\s*/, '').replace(/[\-\s]+$/, '').trim();
+        const subeSplit = adClean.split(/(?:\s+(?:İzmit|KOCAELİ|Şube|\d{2}\s+\d{2}))|\bİzmit\b/i)[0];
+        sinavAdi = subeSplit.replace(/^\d{2}\.\d{2}\.\d{4}\s*-\s*\d+\s*-\s*/, '')
+                            .replace(/TYT[İI].*$/i, 'TYT')
+                            .replace(/AYT[İI].*$/i, 'AYT')
+                            .replace(/İzmit.*$/i, '')
+                            .replace(/[\-\s]+$/, '')
+                            .replace(/\s+[İI\-\.]\s*$/, '')
+                            .trim();
         if (!sinavAdi) sinavAdi = subeSplit.trim();
       }
     }
@@ -227,7 +247,11 @@ export function parseExamLines(lines) {
 /* ═════ DOSYADAN OKUMA (PDF.JS) ═════ */
 export async function parsePdfFile(file) {
   if (!window.pdfjsLib) {
-    throw new Error('PDF okuma kütüphanesi (pdf.js) yüklenemedi. Lütfen internet bağlantınızı kontrol edip sayfayı yenileyin.');
+    throw new Error('PDF okuma motoru hazır değil. Lütfen sayfayı yenileyin veya alternatif metin yapıştırma kutusunu kullanın.');
+  }
+
+  if (window.PDF_WORKER_BLOB_URL && window.pdfjsLib.GlobalWorkerOptions) {
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc = window.PDF_WORKER_BLOB_URL;
   }
 
   const arrayBuffer = await file.arrayBuffer();
@@ -273,16 +297,8 @@ export async function parsePdfFile(file) {
       // Satır içi soldan sağa X'e göre sırala
       itemsInRow.sort((a, b) => a.x - b.x);
 
-      // Kelimeleri birleştir
-      let lineStr = '';
-      let lastX = -1;
-      itemsInRow.forEach(it => {
-        if (lastX >= 0 && it.x - lastX > 4) {
-          lineStr += ' ';
-        }
-        lineStr += it.str;
-        lastX = it.x + (it.width || (it.str.length * 4.5));
-      });
+      // Her tablo hücresi öğesini bir boşlukla birleştirerek hücrelerin kaynaşmasını engelle
+      const lineStr = itemsInRow.map(it => it.str).join(' ');
 
       if (lineStr.trim()) {
         allLines.push(lineStr.trim());
@@ -499,6 +515,11 @@ export function pdfTemizle() {
   if (f) f.value = '';
   const m = $('pdfMetinInput');
   if (m) m.value = '';
+  const sf = $('pdfSecilenDosya');
+  if (sf) {
+    sf.textContent = '';
+    sf.classList.add('hidden');
+  }
 }
 
 /* ═════ ONAYLA VE KAYDET ═════ */

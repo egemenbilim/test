@@ -8,7 +8,7 @@ import { $, toast, promptKopyala } from './utils.js';
 import { renderDashboard } from './modules/dashboard.js';
 import {
   sinifEkle, sinifDuzenle, sinifIptal, sinifSil, renderSiniflar,
-  aktifSurecRender, aktifSurecOzetRender, aktifSurecRapor,
+  aktifSurecRender, aktifSurecOzetRender, aktifSurecRapor, aktifSurecOtomatikDoldur,
   sinifDetayGoster, konuEkle, konuDurumDegis, konuSil,
   konuTumunuSil, setSelectUpdateCallback as setSinifSelectCallback
 } from './modules/siniflar.js';
@@ -42,6 +42,12 @@ import {
   pdfSecTumuDegistir, pdfRowToggle, pdfTopluSinifUygula,
   pdfTemizle, pdfOnaylaVeKaydet, setPdfSelectCallback
 } from './modules/pdfParser.js';
+import {
+  uypSelectleriGuncelle, uypPlanSecildi, uypPlaniSinifaCek,
+  uypModalAc, uypPlaniOnizleModal, uypPlaniOnizleGoster,
+  uypOzelPlanSil, parseUypDosya, parseUypMetin, renderUypOnayPaneli,
+  uypOnaySatirSil, uypOnaySatirEkle, uypOnayVeKaydet
+} from './modules/uypParser.js';
 
 /* ═════ NAVİGASYON VE SEKME YÖNETİMİ ═════ */
 export function goto(v) {
@@ -100,6 +106,8 @@ export function doldurSelectler() {
   if ($('denOgrenci')) $('denOgrenci').innerHTML = '<option value="">Öğrenci seçin</option>' + oO;
   if ($('hfOgrenci')) $('hfOgrenci').innerHTML = '<option value="">Öğrenci seçin</option>' + DB.ogrenciler.map(o => `<option value="${o.id}">${o.adSoyad}</option>`).join('');
   if ($('filtreHfOgrenci')) $('filtreHfOgrenci').innerHTML = '<option value="">Tüm Öğrenciler</option>' + DB.ogrenciler.map(o => `<option value="${o.id}">${o.adSoyad}</option>`).join('');
+
+  uypSelectleriGuncelle();
 }
 
 // Modüller arası callback bağlamaları
@@ -134,6 +142,30 @@ window.konuSil = konuSil;
 window.konuTumunuSil = konuTumunuSil;
 window.aktifSurecOzetRender = aktifSurecOzetRender;
 window.aktifSurecRapor = aktifSurecRapor;
+window.aktifSurecOtomatikDoldur = aktifSurecOtomatikDoldur;
+
+// Ünitelendirilmiş Yıllık Plan (ÜYP)
+window.uypSelectleriGuncelle = uypSelectleriGuncelle;
+window.uypPlanSecildi = uypPlanSecildi;
+window.uypPlaniSinifaCek = uypPlaniSinifaCek;
+window.uypModalAc = uypModalAc;
+window.uypPlaniOnizleModal = uypPlaniOnizleModal;
+window.uypPlaniOnizleGoster = uypPlaniOnizleGoster;
+window.uypOzelPlanSil = uypOzelPlanSil;
+window.uypOnaySatirSil = uypOnaySatirSil;
+window.uypOnaySatirEkle = uypOnaySatirEkle;
+window.uypOnayVeKaydet = uypOnayVeKaydet;
+window.uypYapistirilanMetniAyristir = function() {
+  const t = ($('uypYapistirMetin') && $('uypYapistirMetin').value) || '';
+  if (!t.trim()) { toast('Lütfen önce plan metnini yapıştırın', false); return; }
+  const taslak = parseUypMetin(t, 'Yapıştırılan Yıllık Plan');
+  if (!taslak || !taslak.haftalar.length) {
+    toast('Metinden geçerli konu satırı çıkarılamadı', false);
+    return;
+  }
+  renderUypOnayPaneli(taslak);
+  toast(`✅ ${taslak.haftalar.length} satır ayrıştırıldı!`);
+};
 
 // Öğrenciler
 window.ogrenciKaydet = ogrenciKaydet;
@@ -335,6 +367,39 @@ document.addEventListener('DOMContentLoaded', () => {
       const files = e.dataTransfer && e.dataTransfer.files;
       if (files && files.length) {
         window.pdfDosyaSecildi({ dataTransfer: { files: [files[0]] } });
+      }
+    });
+  }
+
+  // ÜYP Yıllık Plan Dosya Yükleme Eventleri
+  const uypDrop = $('uypDropZone');
+  const uypInput = $('uypDosyaInput');
+  if (uypDrop && uypInput) {
+    uypDrop.addEventListener('click', () => {
+      uypInput.click();
+    });
+    uypInput.addEventListener('change', e => {
+      if (e.target.files && e.target.files.length) {
+        parseUypDosya(e.target.files[0]);
+      }
+    });
+    uypDrop.addEventListener('dragover', e => {
+      e.preventDefault();
+      uypDrop.style.background = '#dcfce7';
+      uypDrop.style.borderColor = '#15803d';
+    });
+    uypDrop.addEventListener('dragleave', e => {
+      e.preventDefault();
+      uypDrop.style.background = '#f0fdf4';
+      uypDrop.style.borderColor = '#059669';
+    });
+    uypDrop.addEventListener('drop', e => {
+      e.preventDefault();
+      uypDrop.style.background = '#f0fdf4';
+      uypDrop.style.borderColor = '#059669';
+      const files = e.dataTransfer && e.dataTransfer.files;
+      if (files && files.length) {
+        parseUypDosya(files[0]);
       }
     });
   }

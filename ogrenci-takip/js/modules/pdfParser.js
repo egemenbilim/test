@@ -1,5 +1,6 @@
 /* ══════════════════════════════════════════════════════
-   Öğrenci Takip Sistemi — PDF Deneme Ayrıştırıcı ve Onay Modülü
+   Öğrenci Takip Sistemi — Evrensel PDF Deneme Ayrıştırıcı ve Onay Modülü
+   Desteklenen Sınav Türleri: LGS, TYT, AYT (SAY, EA, SÖZ) ve Genel Şube Listeleri
    ══════════════════════════════════════════════════════ */
 
 import {
@@ -29,7 +30,6 @@ export function cleanTurkishText(text) {
     'HSEY  N': 'HÜSEYİN',
     'HSEYN': 'HÜSEYİN',
     'ZDEM  R': 'ÖZDEMİR',
-    'AL ': 'ALİ ',
     'ALİEFE': 'ALİ EFE',
     'ALEFE': 'ALİ EFE',
     'AL  EFE': 'ALİ EFE',
@@ -63,14 +63,13 @@ export function cleanTurkishText(text) {
     s = s.replaceAll(k, v);
   }
 
-  // Özel harf boşluk düzeltmeleri:
-  s = s.replace(/AL[İI]\s*[İI]\s*EFE/gi, 'ALİ EFE');
-  s = s.replace(/AL\s*[İI]\s*EFE/gi, 'ALİ EFE');
+  // Özel harf ve eksik 'İ' düzeltmeleri (Örn: RIFAT AL YEŞİLYURT -> RIFAT ALİ YEŞİLYURT, ama BİLAL bozulmaz):
+  s = s.replace(/(?<![A-Za-zÇĞİÖŞÜçğıöşü])AL(?![A-Za-zÇĞİÖŞÜçğıöşü])/gu, 'ALİ');
+  s = s.replace(/(?<![A-Za-zÇĞİÖŞÜçğıöşü])AL[İI]\s*[İI]\s*EFE(?![A-Za-zÇĞİÖŞÜçğıöşü])/gui, 'ALİ EFE');
+  s = s.replace(/(?<![A-Za-zÇĞİÖŞÜçğıöşü])AL\s*[İI]\s*EFE(?![A-Za-zÇĞİÖŞÜçğıöşü])/gui, 'ALİ EFE');
 
   // Kelime içine yanlışlıkla tek boşlukla girmiş Türkçe harfleri kaynaştır:
-  // Örn: HÜSEY İ N -> HÜSEYİN, ÖZDEM İ R -> ÖZDEMİR, KA Ğ AN -> KAĞAN
   s = s.replace(/([A-ZÇĞİÖŞÜa-zçğıöşü]{2,})\s+([İĞŞÇÖÜıüğşçö])\s+([A-ZÇĞİÖŞÜa-zçğıöşü]{1,})/g, '$1$2$3');
-  // Örn: A Ğ CA -> AĞCA
   s = s.replace(/(\b[A-ZÇĞİÖŞÜa-zçğıöşü])\s+([İĞŞÇÖÜıüğşçö])\s+([A-ZÇĞİÖŞÜa-zçğıöşü]{2,})/g, '$1$2$3');
 
   // Unicode replacement karakterlerini ve fazla boşlukları temizle
@@ -79,7 +78,7 @@ export function cleanTurkishText(text) {
   return s;
 }
 
-/* ═════ PDF METNİNDEN DENEME BİLGİLERİNİ ÇÖZÜMLEME ═════ */
+/* ═════ EVRENSEL PDF DENEME METNİ ÇÖZÜMLEME ═════ */
 export function parseExamLines(lines) {
   if (!lines || !lines.length) return { error: 'PDF içeriği okunamadı veya boş.' };
 
@@ -92,10 +91,14 @@ export function parseExamLines(lines) {
   for (let i = 0; i < Math.min(lines.length, 30); i++) {
     const l = lines[i];
 
-    // Sınav Türü
-    if (/\bTYT\b/i.test(l)) sinavTuru = 'TYT';
-    else if (/\bAYT\b/i.test(l)) sinavTuru = 'AYT';
-    else if (/\bLGS\b/i.test(l)) sinavTuru = 'LGS';
+    // Sınav Türü Tespiti
+    if (/\bLGS\b/i.test(l)) {
+      sinavTuru = 'LGS';
+    } else if (/\bAYT\b/i.test(l)) {
+      sinavTuru = 'AYT';
+    } else if (/\bTYT\b/i.test(l) && sinavTuru !== 'LGS') {
+      sinavTuru = 'TYT';
+    }
 
     // Tarih tespiti: GG.AA.YYYY
     const tm = l.match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/);
@@ -103,21 +106,19 @@ export function parseExamLines(lines) {
       sinavTarihi = `${tm[3]}-${tm[2].padStart(2, '0')}-${tm[1].padStart(2, '0')}`;
     }
 
-    // Deneme Adı tespiti (örn: 12.09.2026 - 110300 - 11 Hız ve Renk MAARİF0 TYT)
-    if (/MAAR[İI]?F|H[ıiIİ]z ve Renk|[ÖO]zdebir|T[ÖO]DER|Limit|Yan[ıi]t|Apotemi|TYT|AYT/i.test(l)) {
-      if (!sinavAdi && l.length > 5 && !/NET-PUAN|L[İI]STES[İI]|S[ıi]nav Tarihi/i.test(l)) {
-        // Tarih ve kodu ayıkla
-        let adClean = cleanTurkishText(l);
-        // Örn: "12.09.2026 - 110300 - 11 Hız ve Renk MAARİF0 TYT İzmit..."
-        const subeSplit = adClean.split(/(?:\s+(?:İzmit|KOCAELİ|Şube|\d{2}\s+\d{2}))|\bİzmit\b/i)[0];
-        sinavAdi = subeSplit.replace(/^\d{2}\.\d{2}\.\d{4}\s*-\s*\d+\s*-\s*/, '')
-                            .replace(/TYT[İI].*$/i, 'TYT')
-                            .replace(/AYT[İI].*$/i, 'AYT')
-                            .replace(/İzmit.*$/i, '')
-                            .replace(/[\-\s]+$/, '')
-                            .replace(/\s+[İI\-\.]\s*$/, '')
-                            .trim();
-        if (!sinavAdi) sinavAdi = subeSplit.trim();
+    // Deneme Adı tespiti (örn: "12.09.2026 - 8010 - TDP HBS BİRLEŞİK" veya "12.09.2026 - 110300 - 11 Hız ve Renk MAARİF0 TYT")
+    const nm = l.match(/\d{1,2}\.\d{1,2}\.\d{4}\s*-\s*\d+\s*-\s*([^\t\n\r]+)/);
+    if (nm && !sinavAdi) {
+      let rawAd = nm[1].split(/\s{2,}|\t/)[0].trim();
+      rawAd = cleanTurkishText(rawAd);
+      sinavAdi = rawAd.replace(/[\-\s]+$/, '').trim();
+    } else if (/MAAR[İI]?F|H[ıiIİ]z ve Renk|[ÖO]zdebir|T[ÖO]DER|Limit|Yan[ıi]t|Apotemi|BİRLEŞ[İI]K|TDP/i.test(l)) {
+      if (!sinavAdi && l.length > 5 && !/NET-PUAN|L[İI]STES[İI]|S[ıi]nav Tarihi|KATILIM/i.test(l)) {
+        let rawAd = l.split(/\s{2,}|\t|\s+İzmit|\s+KOCAELİ|\s+Şube/i)[0].trim();
+        let adClean = cleanTurkishText(rawAd);
+        sinavAdi = adClean.replace(/^\d{2}\.\d{2}\.\d{4}\s*-\s*\d+\s*-\s*/, '')
+                          .replace(/[\-\s]+$/, '')
+                          .trim();
       }
     }
 
@@ -138,17 +139,29 @@ export function parseExamLines(lines) {
     const raw = lines[i].trim();
     if (!raw) continue;
 
-    // Satır yapısı: SıraNo ÖğrNo Ad Soyad Sınıf Kitapçık Numaralar...
-    // Örnek: "1 39791 HÜSEYİN UMU ARSLAN 1112 B 28 12 25,00 ..."
-    const m = raw.match(/^\s*(\d+)\s+(\d+)\s+(.*?)\s+([^\s]+)\s+([ABCD])\s+([\d\,\.\-\s]+)$/);
-    if (!m) continue;
+    // Evrensel Regex:
+    // Pattern 1: SıraNo(opsiyonel) ÖğrNo AdSoyad Sınıf Kitapçık(1-4 hane örn AA, B, BB, 1) Sayılar...
+    let m = raw.match(/^\s*(?:(\d+)\s+)?(\d{2,10})\s+(.+?)\s+([0-9A-Za-z\/\-\*]+)\s+([A-Za-z0-9\-]{1,4})\s+([\d\,\.\-\s]+)$/);
+    let sira = 0, ogrNo = '', rawAd = '', pdfSinif = '', kitapcik = '-', rest = '';
 
-    const sira = parseInt(m[1], 10);
-    const ogrNo = m[2].trim();
-    const rawAd = m[3].trim();
-    const pdfSinif = m[4].trim();
-    const kitapcik = m[5].trim();
-    const rest = m[6].trim();
+    if (m) {
+      sira = parseInt(m[1] || (ogrenciler.length + 1), 10);
+      ogrNo = m[2].trim();
+      rawAd = m[3].trim();
+      pdfSinif = m[4].trim();
+      kitapcik = m[5].trim();
+      rest = m[6].trim();
+    } else {
+      // Pattern 2: Kitapçık alanı olmayan veya tek harfli kaynaşmış satırlar
+      m = raw.match(/^\s*(?:(\d+)\s+)?(\d{2,10})\s+(.+?)\s+([0-9A-Za-z\/\-\*]+)\s+([\d\,\.\-\s]+)$/);
+      if (!m) continue;
+      sira = parseInt(m[1] || (ogrenciler.length + 1), 10);
+      ogrNo = m[2].trim();
+      rawAd = m[3].trim();
+      pdfSinif = m[4].trim();
+      kitapcik = '-';
+      rest = m[5].trim();
+    }
 
     const adSoyad = cleanTurkishText(rawAd);
 
@@ -160,11 +173,10 @@ export function parseExamLines(lines) {
       if (!isNaN(v)) nums.push(v);
     }
 
-    if (nums.length < 15) continue; // Yeterli ders neti yoksa atla
+    // En az 15 sayı yoksa öğrenci satırı değildir
+    if (nums.length < 15) continue;
 
-    // 11 üçlü:
-    // 0: Türkçe, 1: Tarih, 2: Coğrafya, 3: Felsefe, 4: Din Kültürü,
-    // 5: Matematik, 6: Geometri, 7: Fizik, 8: Kimya, 9: Biyoloji, 10: Toplam
+    // Üçlü yardımcı fonksiyon: (Doğru, Yanlış, Net)
     const trip = (idx) => {
       const pos = idx * 3;
       if (pos + 2 < nums.length) {
@@ -177,29 +189,68 @@ export function parseExamLines(lines) {
       return { dogru: 0, yanlis: 0, net: 0 };
     };
 
-    const turkce = trip(0);
-    const tarih = trip(1);
-    const cografya = trip(2);
-    const felsefe = trip(3);
-    const din = trip(4);
-    const mat = trip(5);
-    const geo = trip(6);
-    const fizik = trip(7);
-    const kimya = trip(8);
-    const biyoloji = trip(9);
-    const toplam = trip(10);
+    let dersSonuclari = [];
+    let toplam = { dogru: 0, yanlis: 0, net: 0 };
+    let puan = 0;
 
-    // TYT'de Matematik = Matematik (30) + Geometri (10) tek derste 40 soru
-    const matToplam = {
-      dogru: mat.dogru + geo.dogru,
-      yanlis: mat.yanlis + geo.yanlis,
-      net: Math.round((mat.net + geo.net) * 100) / 100,
-      altMat: mat,
-      altGeo: geo
-    };
+    // Sınav türüne veya sayı adedine göre eşleştirme
+    const isLgs = sinavTuru === 'LGS' || (nums.length >= 21 && nums.length <= 29);
 
-    // Puan (genellikle 33. index)
-    const puan = nums.length > 33 ? nums[33] : 0;
+    if (isLgs) {
+      if (sinavTuru !== 'LGS') sinavTuru = 'LGS';
+
+      const turkce = trip(0);
+      const inkilap = trip(1);  // Sosyal / Hayat
+      const din = trip(2);      // Din Kült.
+      const ingilizce = trip(3);// İngilizce
+      const mat = trip(4);      // Matematik
+      const fen = trip(5);      // Fen Bil.
+      toplam = trip(6);         // Toplam
+      puan = nums.length > 21 ? nums[21] : 0;
+
+      dersSonuclari = [
+        { ders: 'Türkçe', ...turkce },
+        { ders: 'İnkılap Tarihi', ...inkilap },
+        { ders: 'Din Kültürü', ...din },
+        { ders: 'İngilizce', ...ingilizce },
+        { ders: 'Matematik', ...mat },
+        { ders: 'Fen Bilimleri', ...fen }
+      ];
+    } else {
+      // TYT Sınavı
+      const turkce = trip(0);
+      const tarih = trip(1);
+      const cografya = trip(2);
+      const felsefe = trip(3);
+      const din = trip(4);
+      const mat = trip(5);
+      const geo = trip(6);
+      const fizik = trip(7);
+      const kimya = trip(8);
+      const biyoloji = trip(9);
+      toplam = trip(10);
+      puan = nums.length > 33 ? nums[33] : 0;
+
+      const matToplam = {
+        dogru: mat.dogru + geo.dogru,
+        yanlis: mat.yanlis + geo.yanlis,
+        net: Math.round((mat.net + geo.net) * 100) / 100,
+        altMat: mat,
+        altGeo: geo
+      };
+
+      dersSonuclari = [
+        { ders: 'Türkçe', ...turkce },
+        { ders: 'Tarih', ...tarih },
+        { ders: 'Coğrafya', ...cografya },
+        { ders: 'Felsefe', ...felsefe },
+        { ders: 'Din Kültürü', ...din },
+        { ders: 'Matematik', ...matToplam },
+        { ders: 'Fizik', ...fizik },
+        { ders: 'Kimya', ...kimya },
+        { ders: 'Biyoloji', ...biyoloji }
+      ];
+    }
 
     // Sistemde kayıtlı öğrenci var mı?
     const eslesenOgr = DB.ogrenciler.find(o =>
@@ -217,22 +268,14 @@ export function parseExamLines(lines) {
       kitapcik,
       mevcutOgrenci: !!eslesenOgr,
       eslesenOgrenciId: eslesenOgr ? eslesenOgr.id : null,
-      turkce,
-      tarih,
-      cografya,
-      felsefe,
-      din,
-      mat: matToplam,
-      fizik,
-      kimya,
-      biyoloji,
+      dersSonuclari,
       toplam,
       puan
     });
   }
 
   if (!ogrenciler.length) {
-    return { error: 'PDF içeriğinde tablo veya öğrenci satırı bulunamadı. Lütfen "TYT / AYT Şube Net-Puan Listesi" formatında bir PDF yüklediğinizden emin olun.' };
+    return { error: 'PDF içeriğinde tablo veya öğrenci satırı bulunamadı. Lütfen dosyanın "LGS, TYT veya AYT Şube Net-Puan Listesi" formatında olduğunu kontrol edin.' };
   }
 
   return {
@@ -264,8 +307,6 @@ export async function parsePdfFile(file) {
     const page = await pdfDoc.getPage(pageNum);
     const content = await page.getTextContent();
 
-    // Text item'larını Y koordinatına göre satır satır grupla
-    // PDF'te Y koordinatı aşağıdan yukarıya artar, o yüzden tolerance ile grupluyoruz
     const rowMap = new Map();
 
     content.items.forEach(item => {
@@ -274,10 +315,10 @@ export async function parsePdfFile(file) {
       const x = item.transform[4];
       const y = item.transform[5];
 
-      // Yaklaşık 2.5 piksel aralığındakileri aynı satır kabul et
+      // Y toleransı: 4px
       let foundKey = null;
       for (const k of rowMap.keys()) {
-        if (Math.abs(k - y) < 3.0) {
+        if (Math.abs(k - y) < 4.0) {
           foundKey = k;
           break;
         }
@@ -286,19 +327,32 @@ export async function parsePdfFile(file) {
         foundKey = y;
         rowMap.set(foundKey, []);
       }
-      rowMap.get(foundKey).push({ str: text, x, y });
+      rowMap.get(foundKey).push({ str: text, x, y, width: item.width || 0 });
     });
 
-    // Satırları yukarıdan aşağıya sırala (büyük Y'den küçük Y'ye)
     const sortedYs = Array.from(rowMap.keys()).sort((a, b) => b - a);
 
     sortedYs.forEach(yKey => {
       const itemsInRow = rowMap.get(yKey);
-      // Satır içi soldan sağa X'e göre sırala
       itemsInRow.sort((a, b) => a.x - b.x);
 
-      // Her tablo hücresi öğesini bir boşlukla birleştirerek hücrelerin kaynaşmasını engelle
-      const lineStr = itemsInRow.map(it => it.str).join(' ');
+      let lineStr = '';
+      for (let i = 0; i < itemsInRow.length; i++) {
+        const cur = itemsInRow[i];
+        if (i === 0) {
+          lineStr += cur.str;
+        } else {
+          const prev = itemsInRow[i - 1];
+          const gap = cur.x - (prev.x + prev.width);
+          if (gap < 0.5) {
+            lineStr += cur.str;
+          } else if (gap < 12) {
+            lineStr += ' ' + cur.str;
+          } else {
+            lineStr += '   ' + cur.str;
+          }
+        }
+      }
 
       if (lineStr.trim()) {
         allLines.push(lineStr.trim());
@@ -324,7 +378,12 @@ export function renderPdfOnayPaneli(parsed) {
 
   // PDF'ten çıkan benzersiz sınıf kodları
   const pdfSiniflar = [...new Set(parsed.ogrenciler.map(o => o.sinif))];
-  const pdfSinifTavsiye = pdfSiniflar[0] || '11-A';
+  const isLgs = parsed.sinavTuru === 'LGS';
+
+  // Ders Başlıkları
+  const dersBasliklari = isLgs
+    ? ['Türkçe', 'İnkılap', 'Din K.', 'İngilizce', 'Matematik', 'Fen Bil.']
+    : ['Türkçe', 'Sosyal', 'Matematik', 'Fen'];
 
   const html = `
     <div class="card" style="background:#f8fafc;border:2px solid var(--indigo);margin-bottom:16px">
@@ -332,7 +391,7 @@ export function renderPdfOnayPaneli(parsed) {
         <div>
           <h2 style="margin:0;color:var(--indigo)">🔍 PDF Çözümleme Sonucu & Onay Ekranı</h2>
           <p class="muted" style="font-size:12px;margin-top:2px">
-            Belgeden <b>${parsed.ogrenciler.length} öğrenci</b> tespit edildi. Kaydetmeden önce sınıf, öğrenci adı veya sınav detaylarını düzenleyebilirsiniz.
+            Belgeden <b>${parsed.ogrenciler.length} öğrenci</b> (${parsed.sinavTuru}) tespit edildi. Kaydetmeden önce sınıf, öğrenci adı veya sınav detaylarını düzenleyebilirsiniz.
           </p>
         </div>
         <button class="btn gray sm" onclick="window.pdfTemizle()">🧹 İptal / Kapat</button>
@@ -383,26 +442,51 @@ export function renderPdfOnayPaneli(parsed) {
               <th style="width:36px;text-align:center">
                 <input type="checkbox" id="pdfSecTumu" checked onchange="window.pdfSecTumuDegistir(this.checked)">
               </th>
-              <th style="width:40px">Sıra</th>
-              <th style="width:80px">Öğr No</th>
-              <th style="min-width:190px">Öğrenci Adı Soyadı (Düzenlenebilir)</th>
-              <th style="min-width:150px">Sınıf Seçimi</th>
-              <th style="width:110px">Durum</th>
-              <th class="num" title="Türkçe Net">Türkçe</th>
-              <th class="num" title="Sosyal Net (Tarih+Coğ+Fel+Din)">Sosyal</th>
-              <th class="num" title="Matematik Net (Mat+Geo)">Matematik</th>
-              <th class="num" title="Fen Net (Fiz+Kim+Biyo)">Fen</th>
-              <th class="num" style="color:var(--indigo);font-weight:700" title="Toplam Net">Toplam Net</th>
-              <th class="num">Puan</th>
+              <th style="width:38px">Sıra</th>
+              <th style="width:75px">Öğr No</th>
+              <th style="min-width:180px">Öğrenci Adı Soyadı (Düzenlenebilir)</th>
+              <th style="min-width:140px">Sınıf Seçimi</th>
+              <th style="width:85px">Durum</th>
+              ${dersBasliklari.map(d => `<th class="num">${d}</th>`).join('')}
+              <th class="num" style="color:var(--indigo);font-weight:700">Toplam Net</th>
+              <th class="num">${isLgs ? 'LGS Puanı' : 'Puan'}</th>
             </tr>
           </thead>
           <tbody>
             ${parsed.ogrenciler.map((o, idx) => {
-              const sosyalNet = (o.tarih.net + o.cografya.net + o.felsefe.net + o.din.net).toFixed(2);
-              const fenNet = (o.fizik.net + o.kimya.net + o.biyoloji.net).toFixed(2);
-              const matNet = o.mat.net.toFixed(2);
-              const turkceNet = o.turkce.net.toFixed(2);
               const topNet = o.toplam.net.toFixed(2);
+
+              let dersHücreleriHtml = '';
+              if (isLgs) {
+                const getNet = (dAd) => {
+                  const x = o.dersSonuclari.find(d => d.ders === dAd);
+                  return x ? x.net.toFixed(2) : '0.00';
+                };
+                dersHücreleriHtml = `
+                  <td class="num mono">${getNet('Türkçe')}</td>
+                  <td class="num mono">${getNet('İnkılap Tarihi')}</td>
+                  <td class="num mono">${getNet('Din Kültürü')}</td>
+                  <td class="num mono">${getNet('İngilizce')}</td>
+                  <td class="num mono">${getNet('Matematik')}</td>
+                  <td class="num mono">${getNet('Fen Bilimleri')}</td>
+                `;
+              } else {
+                // TYT
+                const getNet = (dAd) => {
+                  const x = o.dersSonuclari.find(d => d.ders === dAd);
+                  return x ? x.net : 0;
+                };
+                const turkceNet = getNet('Türkçe').toFixed(2);
+                const matNet = getNet('Matematik').toFixed(2);
+                const sosyalNet = (getNet('Tarih') + getNet('Coğrafya') + getNet('Felsefe') + getNet('Din Kültürü')).toFixed(2);
+                const fenNet = (getNet('Fizik') + getNet('Kimya') + getNet('Biyoloji')).toFixed(2);
+                dersHücreleriHtml = `
+                  <td class="num mono">${turkceNet}</td>
+                  <td class="num mono">${sosyalNet}</td>
+                  <td class="num mono">${matNet}</td>
+                  <td class="num mono">${fenNet}</td>
+                `;
+              }
 
               return `
                 <tr id="pdf_row_${idx}">
@@ -434,12 +518,9 @@ export function renderPdfOnayPaneli(parsed) {
                       '<span class="badge" style="background:#eff6ff;color:var(--indigo);font-size:11px">➕ Yeni</span>'
                     }
                   </td>
-                  <td class="num mono">${turkceNet}</td>
-                  <td class="num mono" title="Tar: ${o.tarih.net} | Coğ: ${o.cografya.net} | Fel: ${o.felsefe.net} | Din: ${o.din.net}">${sosyalNet}</td>
-                  <td class="num mono" title="Mat: ${o.mat.altMat.net} | Geo: ${o.mat.altGeo.net}">${matNet}</td>
-                  <td class="num mono" title="Fiz: ${o.fizik.net} | Kim: ${o.kimya.net} | Biyo: ${o.biyoloji.net}">${fenNet}</td>
+                  ${dersHücreleriHtml}
                   <td class="num mono" style="font-weight:700;color:var(--indigo)">${topNet}</td>
-                  <td class="num mono muted">${o.puan ? o.puan.toFixed(2) : '—'}</td>
+                  <td class="num mono muted">${o.puan ? o.puan.toFixed(3) : '—'}</td>
                 </tr>
               `;
             }).join('')}
@@ -448,15 +529,15 @@ export function renderPdfOnayPaneli(parsed) {
       </div>
 
       <!-- AKSİYON BUTONLARI -->
-      <div class="flex mt-4" style="justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
-        <span style="font-size:13px;color:var(--muted)">
-          Seçili: <b id="pdfSeciliSayi" style="color:var(--indigo)">${parsed.ogrenciler.filter(o => o.dahilEt).length}</b> / ${parsed.ogrenciler.length} öğrenci
-        </span>
-        <div class="flex" style="gap:10px">
-          <button class="btn gray" onclick="window.pdfTemizle()">🧹 Vazgeç</button>
-          <button class="btn green" style="font-size:14px;padding:10px 20px" onclick="window.pdfOnaylaVeKaydet()">
-            💾 Onayla ve Sisteme Aktar
+      <div class="flex mt-4" style="justify-content:space-between;flex-wrap:wrap;gap:10px">
+        <div class="flex" style="gap:8px">
+          <button class="btn green" id="pdfOnayBtn" onclick="window.pdfOnaylaVeKaydet()">
+            💾 Onayla ve Sisteme Aktar (<span id="pdfSeciliSayac">${parsed.ogrenciler.length}</span> Öğrenci)
           </button>
+          <button class="btn gray" onclick="window.pdfTemizle()">İptal Et</button>
+        </div>
+        <div class="muted" style="font-size:11px;align-self:center">
+          💡 İsim veya numara alanına tıklayarak doğrudan düzenleme yapabilirsiniz.
         </div>
       </div>
     </div>
@@ -466,42 +547,45 @@ export function renderPdfOnayPaneli(parsed) {
   panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-/* ═════ ONAY EKRANI ETKİLEŞİMLERİ ═════ */
 export function pdfSecTumuDegistir(secili) {
   if (!aktifPdfVerisi) return;
-  aktifPdfVerisi.ogrenciler.forEach((o, i) => {
+  aktifPdfVerisi.ogrenciler.forEach((o, idx) => {
     o.dahilEt = secili;
-    const chk = $(`pdf_chk_${i}`);
+    const chk = $(`pdf_chk_${idx}`);
     if (chk) chk.checked = secili;
   });
-  pdfSeciliSayisiGuncelle();
+  pdfSayaciGuncelle();
 }
 
 export function pdfRowToggle(idx) {
   if (!aktifPdfVerisi || !aktifPdfVerisi.ogrenciler[idx]) return;
   const chk = $(`pdf_chk_${idx}`);
-  aktifPdfVerisi.ogrenciler[idx].dahilEt = chk ? chk.checked : false;
-  pdfSeciliSayisiGuncelle();
+  if (chk) {
+    aktifPdfVerisi.ogrenciler[idx].dahilEt = chk.checked;
+  }
+  pdfSayaciGuncelle();
 }
 
-function pdfSeciliSayisiGuncelle() {
+function pdfSayaciGuncelle() {
   if (!aktifPdfVerisi) return;
-  const sec = aktifPdfVerisi.ogrenciler.filter((_, i) => {
-    const chk = $(`pdf_chk_${i}`);
-    return chk && chk.checked;
-  }).length;
-  const el = $('pdfSeciliSayi');
-  if (el) el.textContent = sec;
+  const sayi = aktifPdfVerisi.ogrenciler.filter(o => o.dahilEt).length;
+  const el = $('pdfSeciliSayac');
+  if (el) el.textContent = sayi;
 }
 
 export function pdfTopluSinifUygula() {
-  if (!aktifPdfVerisi) return;
-  const secilenVal = $('pdfTopluSinifSecim').value;
-  aktifPdfVerisi.ogrenciler.forEach((_, idx) => {
-    const sel = $(`pdf_sinif_${idx}`);
-    if (sel) sel.value = secilenVal;
+  const sel = $('pdfTopluSinifSecim');
+  if (!sel || !aktifPdfVerisi) return;
+  const val = sel.value;
+
+  aktifPdfVerisi.ogrenciler.forEach((o, idx) => {
+    const rowSel = $(`pdf_sinif_${idx}`);
+    if (rowSel) {
+      rowSel.value = val;
+    }
   });
-  toast('Tüm satırlara sınıf uygulandı');
+
+  toast('Seçilen sınıf tüm listeye uygulandı');
 }
 
 export function pdfTemizle() {
@@ -511,38 +595,34 @@ export function pdfTemizle() {
     panel.innerHTML = '';
     panel.classList.add('hidden');
   }
-  const f = $('pdfDosyaInput');
-  if (f) f.value = '';
-  const m = $('pdfMetinInput');
-  if (m) m.value = '';
-  const sf = $('pdfSecilenDosya');
-  if (sf) {
-    sf.textContent = '';
-    sf.classList.add('hidden');
+  const fInput = $('pdfFileInput');
+  if (fInput) fInput.value = '';
+  const durum = $('pdfDurum');
+  if (durum) {
+    durum.innerHTML = '';
+    durum.classList.add('hidden');
   }
+  const badge = $('pdfDosyaAdiBadge');
+  if (badge) badge.classList.add('hidden');
 }
 
-/* ═════ ONAYLA VE KAYDET ═════ */
+/* ═════ ONAY VE KAYIT MOTORU ═════ */
 export function pdfOnaylaVeKaydet() {
-  if (!aktifPdfVerisi) {
+  if (!aktifPdfVerisi || !aktifPdfVerisi.ogrenciler.length) {
     toast('Aktarılacak veri bulunamadı', false);
     return;
   }
 
-  const sinavAdi = $('pdfSinavAdi').value.trim();
-  const sinavTuru = $('pdfSinavTuru').value;
-  const sinavTarihi = $('pdfSinavTarihi').value;
+  const sinavTuru = $('pdfSinavTuru') ? $('pdfSinavTuru').value : aktifPdfVerisi.sinavTuru;
+  const sinavAdi = ($('pdfSinavAdi') && $('pdfSinavAdi').value.trim()) || aktifPdfVerisi.sinavAdi || `${sinavTuru} Deneme`;
+  const sinavTarihi = ($('pdfSinavTarihi') && $('pdfSinavTarihi').value) || aktifPdfVerisi.sinavTarihi || new Date().toISOString().split('T')[0];
 
-  if (!sinavAdi || !sinavTarihi) {
-    toast('Lütfen sınav adı ve tarihini eksiksiz girin', false);
-    return;
-  }
-
-  // Seçili öğrencileri topla ve doğrula
+  // Aktarılacak seçili öğrencileri topla ve UI'daki düzenlemeleri al
   const aktarilacaklar = [];
+
   aktifPdfVerisi.ogrenciler.forEach((orig, idx) => {
     const chk = $(`pdf_chk_${idx}`);
-    if (!chk || !chk.checked) return;
+    if (chk && !chk.checked) return;
 
     const adInput = $(`pdf_ad_${idx}`);
     const noInput = $(`pdf_no_${idx}`);
@@ -568,7 +648,7 @@ export function pdfOnaylaVeKaydet() {
   }
 
   // 1. Sınıfları hazırla / oluştur
-  const sinifMap = new Map(); // key: secimVal -> sinifId
+  const sinifMap = new Map();
   aktarilacaklar.forEach(item => {
     const v = item.sinifSecim;
     if (sinifMap.has(v)) return;
@@ -592,13 +672,11 @@ export function pdfOnaylaVeKaydet() {
   aktarilacaklar.forEach(item => {
     const sid = sinifMap.get(item.sinifSecim) || (DB.siniflar[0] ? DB.siniflar[0].id : 1);
 
-    // İsim benzerliğine göre öğrenci ara
     let ogr = DB.ogrenciler.find(o =>
       o.adSoyad.trim().toLowerCase() === item.adSoyad.trim().toLowerCase()
     );
 
     if (!ogr) {
-      // Yeni öğrenci ekle
       ogr = {
         id: nid(),
         adSoyad: item.adSoyad,
@@ -609,7 +687,6 @@ export function pdfOnaylaVeKaydet() {
       DB.ogrenciler.push(ogr);
       yeniOgrSayisi++;
     } else {
-      // Mevcut öğrencinin sınıfını güncelle
       ogr.sinifId = sid;
     }
     item.kaydedilenOgrenciId = ogr.id;
@@ -618,43 +695,29 @@ export function pdfOnaylaVeKaydet() {
   // 3. Denemeyi bul veya oluştur
   const { deneme, yeni: yeniDeneme } = denemeBulVeyaOlustur(sinavAdi, sinavTuru, sinavTarihi);
 
-  // 4. Sonuçları kaydet
+  // 4. Sonuçları evrensel olarak kaydet
   let kaydedilenDersSayisi = 0;
   let mukerrerSayisi = 0;
 
   aktarilacaklar.forEach(item => {
     const oid = item.kaydedilenOgrenciId;
 
-    // Bu denemede bu öğrencinin zaten kaydı var mı?
     if (DB.sonuclar.some(s => s.denemeId === deneme.id && s.ogrenciId === oid)) {
       mukerrerSayisi++;
       return;
     }
 
-    // TYT Standart Dersleri
-    const dersler = [
-      { ders: 'Türkçe', d: item.turkce.dogru, y: item.turkce.yanlis, b: 0 },
-      { ders: 'Tarih', d: item.tarih.dogru, y: item.tarih.yanlis, b: 0 },
-      { ders: 'Coğrafya', d: item.cografya.dogru, y: item.cografya.yanlis, b: 0 },
-      { ders: 'Felsefe', d: item.felsefe.dogru, y: item.felsefe.yanlis, b: 0 },
-      { ders: 'Din Kültürü', d: item.din.dogru, y: item.din.yanlis, b: 0 },
-      { ders: 'Matematik', d: item.mat.dogru, y: item.mat.yanlis, b: 0 },
-      { ders: 'Fizik', d: item.fizik.dogru, y: item.fizik.yanlis, b: 0 },
-      { ders: 'Kimya', d: item.kimya.dogru, y: item.kimya.yanlis, b: 0 },
-      { ders: 'Biyoloji', d: item.biyoloji.dogru, y: item.biyoloji.yanlis, b: 0 }
-    ];
-
-    dersler.forEach(ds => {
-      if (ds.d > 0 || ds.y > 0) {
+    (item.dersSonuclari || []).forEach(ds => {
+      if (ds.dogru > 0 || ds.yanlis > 0 || ds.net !== 0) {
         DB.sonuclar.push({
           id: nid(),
           denemeId: deneme.id,
           ogrenciId: oid,
           ders: ds.ders,
-          dogru: ds.d,
-          yanlis: ds.y,
-          bos: ds.b,
-          net: netHesapla(sinavTuru, ds.d, ds.y)
+          dogru: ds.dogru,
+          yanlis: ds.yanlis,
+          bos: ds.bos || 0,
+          net: ds.net
         });
         kaydedilenDersSayisi++;
       }
@@ -670,7 +733,6 @@ export function pdfOnaylaVeKaydet() {
 
   toast(msg, true);
 
-  // Formu temizle ve listeleri güncelle
   pdfTemizle();
   dersListesiniOlustur();
   renderDenemeler();

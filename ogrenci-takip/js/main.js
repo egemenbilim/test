@@ -37,6 +37,11 @@ import {
   disaAktar, iceriAktar, handleFile, tumunuSil,
   renderCikti, setBackupReloadCallback
 } from './modules/backup.js';
+import {
+  parsePdfFile, parseExamLines, renderPdfOnayPaneli,
+  pdfSecTumuDegistir, pdfRowToggle, pdfTopluSinifUygula,
+  pdfTemizle, pdfOnaylaVeKaydet, setPdfSelectCallback
+} from './modules/pdfParser.js';
 
 /* ═════ NAVİGASYON VE SEKME YÖNETİMİ ═════ */
 export function goto(v) {
@@ -69,8 +74,12 @@ export function ogrTab(m) {
 export function denTab(m) {
   $('denTekli').classList.toggle('hidden', m !== 'tek');
   $('denToplu').classList.toggle('hidden', m !== 'toplu');
+  const dp = $('denPdf');
+  if (dp) dp.classList.toggle('hidden', m !== 'pdf');
   $('denTabTek').className = 'tab' + (m === 'tek' ? ' on' : '');
   $('denTabToplu').className = 'tab' + (m === 'toplu' ? ' on' : '');
+  const tp = $('denTabPdf');
+  if (tp) tp.className = 'tab' + (m === 'pdf' ? ' on' : '');
 }
 
 export function hfTab(m) {
@@ -97,6 +106,7 @@ export function doldurSelectler() {
 setSinifSelectCallback(doldurSelectler);
 setOgrSelectCallback(doldurSelectler);
 setDenSelectCallback(doldurSelectler);
+setPdfSelectCallback(doldurSelectler);
 setBackupReloadCallback(() => {
   doldurSelectler();
   aktifSurecRender();
@@ -105,6 +115,7 @@ setBackupReloadCallback(() => {
 
 /* ═════ INLINE HTML ETKİLEŞİMLERİ İÇİN GLOBAL WINDOW BAĞLAMASI ═════ */
 window.$ = $;
+window.DB = DB;
 window.goto = goto;
 window.ogrTab = ogrTab;
 window.denTab = denTab;
@@ -172,6 +183,71 @@ window.gelisimTemizle = gelisimTemizle;
 window.renderRapor = renderRapor;
 window.raporPDF = raporPDF;
 
+// PDF Ayrıştırma ve Onay
+window.pdfDosyaSecildi = async function(ev) {
+  const file = (ev.target && ev.target.files && ev.target.files[0]) || (ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0]);
+  if (!file) return;
+
+  const yk = $('pdfYukleniyor');
+  const ht = $('pdfHata');
+  if (yk) yk.classList.remove('hidden');
+  if (ht) ht.classList.add('hidden');
+
+  try {
+    const parsed = await parsePdfFile(file);
+    if (parsed.error) {
+      if (ht) {
+        ht.textContent = '❌ ' + parsed.error;
+        ht.classList.remove('hidden');
+      }
+      toast(parsed.error, false);
+    } else {
+      renderPdfOnayPaneli(parsed);
+      toast(`✅ PDF okundu: ${parsed.ogrenciler.length} öğrenci bulundu`);
+    }
+  } catch (err) {
+    console.error(err);
+    if (ht) {
+      ht.textContent = '❌ PDF okunurken hata oluştu: ' + (err.message || err);
+      ht.classList.remove('hidden');
+    }
+    toast('PDF okunamadı', false);
+  } finally {
+    if (yk) yk.classList.add('hidden');
+  }
+};
+
+window.pdfMetinCozumle = function() {
+  const txt = $('pdfMetinInput').value.trim();
+  const ht = $('pdfHata');
+  if (ht) ht.classList.add('hidden');
+
+  if (!txt) {
+    toast('Lütfen metin yapıştırın', false);
+    return;
+  }
+
+  const lines = txt.split(/\r?\n/).filter(l => l.trim().length > 0);
+  const parsed = parseExamLines(lines);
+
+  if (parsed.error) {
+    if (ht) {
+      ht.textContent = '❌ ' + parsed.error;
+      ht.classList.remove('hidden');
+    }
+    toast(parsed.error, false);
+  } else {
+    renderPdfOnayPaneli(parsed);
+    toast(`✅ Metin çözümlendi: ${parsed.ogrenciler.length} öğrenci bulundu`);
+  }
+};
+
+window.pdfSecTumuDegistir = pdfSecTumuDegistir;
+window.pdfRowToggle = pdfRowToggle;
+window.pdfTopluSinifUygula = pdfTopluSinifUygula;
+window.pdfTemizle = pdfTemizle;
+window.pdfOnaylaVeKaydet = pdfOnaylaVeKaydet;
+
 // Yedek
 window.disaAktar = disaAktar;
 window.iceriAktar = iceriAktar;
@@ -201,7 +277,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Drag & drop dosya yükleme (JSON yedek için)
+  // Drag & drop dosya yükleme (JSON yedek ve PDF için)
   ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(ev => {
     document.body.addEventListener(ev, e => {
       e.preventDefault();
@@ -216,9 +292,36 @@ document.addEventListener('DOMContentLoaded', () => {
       const f = files[0];
       if (f.name.endsWith('.json')) {
         handleFile(f);
+      } else if (f.name.endsWith('.pdf')) {
+        goto('deneme');
+        denTab('pdf');
+        window.pdfDosyaSecildi({ dataTransfer: { files: [f] } });
       }
     }
   }, false);
+
+  const dropZone = $('pdfDropZone');
+  if (dropZone) {
+    dropZone.addEventListener('dragover', e => {
+      e.preventDefault();
+      dropZone.style.background = '#e0e7ff';
+      dropZone.style.borderColor = 'var(--indigo2)';
+    });
+    dropZone.addEventListener('dragleave', e => {
+      e.preventDefault();
+      dropZone.style.background = '#f8fafc';
+      dropZone.style.borderColor = 'var(--indigo)';
+    });
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.style.background = '#f8fafc';
+      dropZone.style.borderColor = 'var(--indigo)';
+      const files = e.dataTransfer && e.dataTransfer.files;
+      if (files && files.length) {
+        window.pdfDosyaSecildi({ dataTransfer: { files: [files[0]] } });
+      }
+    });
+  }
 
   goto('dashboard');
 });

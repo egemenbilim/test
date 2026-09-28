@@ -7,6 +7,14 @@
   
   <!-- Özel Modüler Stiller -->
   <link rel="stylesheet" href="css/style.css">
+  
+  <!-- PDF.js Kütüphanesi -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>
+    if (window.pdfjsLib) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+  </script>
 </head>
 <body>
 
@@ -178,7 +186,8 @@ Veli Bilgisi / Telefon: Ayşe Kaya</pre>
 <section id="deneme" class="hidden">
   <div class="tabbar">
     <div class="tab on" id="denTabTek" onclick="denTab('tek')">📝 Tekli Giriş</div>
-    <div class="tab" id="denTabToplu" onclick="denTab('toplu')">📋 Toplu Giriş</div>
+    <div class="tab" id="denTabToplu" onclick="denTab('toplu')">📋 Toplu Metin Girişi</div>
+    <div class="tab" id="denTabPdf" onclick="denTab('pdf')">📄 PDF ile Otomatik Aktar</div>
   </div>
   <div id="denTekli">
     <div class="card">
@@ -244,6 +253,49 @@ Deneme Adı: Özdebir AYT 1
       <div id="topluDersTablosu"></div>
     </div>
   </div>
+
+  <!-- PDF İLE OTOMATİK AKTAR -->
+  <div id="denPdf" class="hidden">
+    <!-- PDF YÜKLEME KARTI -->
+    <div class="card" id="pdfDropZone" style="background:#f8fafc;border:2px dashed var(--indigo);text-align:center;padding:32px 20px;transition:all .2s;cursor:pointer" onclick="$('pdfDosyaInput').click()">
+      <div style="font-size:46px;margin-bottom:8px">📄</div>
+      <h2 style="color:var(--indigo);margin-bottom:6px">Deneme Sonuç PDF'ini Buraya Sürükleyin veya Seçin</h2>
+      <p style="color:var(--muted);font-size:13px;max-width:560px;margin:0 auto 16px;line-height:1.6">
+        Kurumunuzdan gelen <b>TYT / AYT Şube Net-Puan Listesi</b> PDF dosyasını buraya bırakın. Sistem sınav adını, tarihini, öğrenci isimlerini, sınıflarını ve tüm ders netlerini otomatik olarak ayıklar.
+      </p>
+
+      <div style="display:flex;justify-content:center;gap:12px;align-items:center;flex-wrap:wrap" onclick="event.stopPropagation()">
+        <button class="btn" style="padding:10px 24px;font-size:14px" onclick="$('pdfDosyaInput').click()">📂 PDF Dosyası Seç</button>
+        <input type="file" id="pdfDosyaInput" accept=".pdf" class="hidden" onchange="window.pdfDosyaSecildi(event)">
+        <button class="btn gray sm" onclick="$('pdfMetinKutusu').classList.toggle('hidden')">📋 veya Kopyalanan Metni Yapıştır</button>
+      </div>
+
+      <div id="pdfYukleniyor" class="hidden" style="margin-top:16px;font-weight:600;color:var(--indigo)">
+        ⏳ PDF taranıyor ve veriler ayıklanıyor, lütfen bekleyin...
+      </div>
+      <p id="pdfHata" class="alert err hidden mt-3" style="max-width:600px;margin-left:auto;margin-right:auto"></p>
+    </div>
+
+    <!-- ALTERNATİF METİN KUTUSU -->
+    <div id="pdfMetinKutusu" class="card mt-3 hidden" style="background:#fffbeb;border-color:#fde68a">
+      <div class="flex" style="justify-content:space-between;align-items:center;margin-bottom:8px">
+        <h3 style="margin:0;font-size:14px;color:#92400e">📋 PDF'ten Kopyalanan Ham Metni Yapıştırın</h3>
+        <button class="btn gray sm" onclick="$('pdfMetinKutusu').classList.add('hidden')">Gizle</button>
+      </div>
+      <p style="color:#78350f;font-size:12px;margin-bottom:8px">
+        PDF tablosundaki satırları kopyalayıp buraya yapıştırarak da aynı akıllı ayrıştırmayı çalıştırabilirsiniz:
+      </p>
+      <textarea id="pdfMetinInput" class="copy-area" style="min-height:120px" placeholder="1 39791 HÜSEYİN UMU ARSLAN 1112 B 28 12 25,00 ..."></textarea>
+      <div class="flex mt-2">
+        <button class="btn green sm" onclick="window.pdfMetinCozumle()">🔍 Metni Çözümle</button>
+        <button class="btn gray sm" onclick="$('pdfMetinInput').value=''">Temizle</button>
+      </div>
+    </div>
+
+    <!-- ONAY VE ÖNİZLEME ALANI -->
+    <div id="pdfOnayAlani" class="mt-4 hidden"></div>
+  </div>
+
   <div class="mt-6"><h2 style="font-size:16px;margin-bottom:10px">📋 Kayıtlı Denemeler</h2><div id="denemeListesi"></div></div>
 </section>
 

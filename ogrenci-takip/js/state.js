@@ -141,3 +141,13 @@ export function denemeBulVeyaOlustur(ad, tur, tarih) {
   DB.denemeler.push(d);
   return { deneme: d, yeni: true };
 }
+
+export function sinifAdi(id) {
+  const s = DB.siniflar.find(x => x.id === id);
+  return s ? s.ad : '—';
+}
+
+export function netHesapla(tur, d, y) {
+  return Math.round(Math.max(0, d - y / (tur === 'LGS' ? 3 : 4)) * 100) / 100;
+}
+

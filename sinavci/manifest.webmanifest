@@ -1,0 +1,16 @@
+{
+  "name": "Egemen's Testmaker",
+  "short_name": "Testmaker",
+  "description": "Profesyonel Yaprak Test, Yazılı Sınav ve Konu Anlatım Föyü Hazırlama Stüdyosu",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

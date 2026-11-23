@@ -1,0 +1,112 @@
+TYT   Detaylı   Sonuç   Karnesi
+Ö   ğ   renci   Adı   Sınıfı   No   Kitapçık   Türü
+KEREM   DEM   İ   RER   1313   46164   B
+Sınav   Adı   Ş   ube   Sınav   Kodu   Sınav   Tarihi
+ALTERNAT   İ   F   TYT   İ   zmit   120801   07.11.2026
+Puan   -   Sıralama   Bilgileri
+Genel   Yüzdelik   Genel   İ   l   İ   lçe   Ş   ube   Sınıf   OSYM   OSYM
+Puan
+Puan   Ort   Dilim   Sıra   Sıra   Sıra   Sıra   Sıra   26   25
+TYT
+284,787   %   89,83   53   53   53   53   8   1.248.573   1.290.416
+225,837
+Sınava   Katılan   Ö   ğ   renci   Sayısı   59   59   59   59   9
+Ders   -   Sıralama   Bilgileri
+Ders   Soru   Do   ğ   ru   Yanlı   ş   Bo   ş   Net   Genel   Ş   ube   Sınıf   Genel   Ş   ube   Sınıf   TYT
+Sayısı   Cevap   Cevap   Sıra   Sıra   Sıra   Ort   Ort   Ort   Kayıp   Puan
+TYT_Türkçe   40   15   15   10   11,25   21,25   21,25   16,75   77,22
+TYT_Türkçe   40   15   15   10   11,25   54   54   8   21,25   21,25   16,75   77,22
+TYT_Sosyal   Bilimler   20   9   2   9   8,50   10,29   10,29   9,48   35,71
+TYT_Tarih   5   0   0   5   0,00   48   48   8   1,91   1,91   1,81   15,53
+TYT_Co   ğ   rafya   5   3   1   1   2,75   32   32   5   3,14   3,14   2,92   6,99
+TYT_Felsefe   5   2   1   2   1,75   27   27   3   1,89   1,89   1,44   10,09
+TYT_DinKültürü   5   4   0   1   4,00   11   11   1   3,35   3,35   3,31   3,11
+TYT_Matematik   40   6   1   33   5,75   10,47   10,47   5,72   110,32
+TYT_Matematik   30   5   1   24   4,75   38   38   5   8,34   8,34   4,86   81,33
+TYT_Geometri   10   1   0   9   1,00   27   27   3   2,13   2,13   0,86   28,99
+TYT_Fen   Bilimleri   20   1   4   15   0,00   4,43   4,43   4,11   51,02
+TYT_Fizik   7   0   1   6   -0,25   52   52   8   1,00   1,00   1,11   18,49
+TYT_Kimya   7   0   0   7   0,00   42   42   8   1,99   1,99   1,58   17,86
+TYT_Biyoloji   6   1   3   2   0,25   34   34   6   1,44   1,44   1,42   14,67
+Toplam   120   31   22   67   25,50   46,45   46,45   36,06   274,27
+Geçmi   ş   -   Sınav   Kar   ş   ıla   ş   tırması
+400
+200
+0
+120801   120901
+TYT   Genel   Ortalama
+
+--- PAGE END ---
+Ders   Soru   Analizleri
+Sr   Konu   DC   OC   Sr   Konu   DC   OC
+TYT_Türkçe   2   Çift Sayi, Tek Sayi   B   B
+1   Cümlede Anlam   A   A   3   Sayı - Kesir Problemleri   A
+2   Cümlede Anlam   A   A   4   Bölünebilme   A
+3   Anlatımın Akışını Bozan Cümle   A   B   5   Kümeler   E
+4   Yazım Kuralları   C   D   6   Rasyonel Sayılar   A   A
+5   Sözcükte Anlam   E   E   7   Ondalık Sayılar   E   E
+6   Söz Gruplarının Anlamı   B   8   Üslü Sayılar   E
+7   Cümlede Anlam   D   D   9   D
+8   Sözcükte Anlam   C   10   Denklemler   D   B
+9   Çekim Ekleri   D   D   11   Basit Eşitsizlikler   A
+10   Tamlamalar   B   12   Hareket Problemleri   A
+11   Yazım Kuralları   D   13   Oran - Orantı   D   D
+12   Yazım Kuralları   C   14   Mantık   A
+13   Noktalama İşaretleri   B   D   15   Kartezyen Çarpım   E
+14   Noktalama İşaretleri   C   16   Permütasyon   E
+15   Noktalama İşaretleri   A   17   Polinomlar   D
+16   Kelimede Yapı   E   18   Hız Problemleri   D
+17   Cümlenin Temel Ögeleri   A   19   Olasılık   E
+18   Sözcük Türleri   B   20   Kar-Zarar Problemleri   B   B
+19   Paragraf Bilgisi   C   D   21   Verilerin Grafikle Gösterilmesi   C
+20   Paragraf Bilgisi   A   A   22   Rutin Olmayan Problemler   B
+21   Paragraf Bilgisi   E   C   23   Fonksiyonlar   B
+22   Paragraf Bilgisi   C   C   24   Sayı - Kesir Problemleri   B
+23   Paragraf Bilgisi   D   D   25   Sayı - Kesir Problemleri   D
+24   Paragraf Bilgisi   E   C   26   Yüzde Problemleri   C
+25   Paragraf Bilgisi   E   C   27   Sayı - Kesir Problemleri   D
+26   Paragraf Bilgisi   E   E   28   Yaş Problemleri   B
+27   Paragraf Bilgisi   A   C   29   Rutin Olmayan Problemler   D
+28   Paragrafta Yardımcı Düşünce   D   A   30   Sayı - Kesir Problemleri   D
+29   Paragrafı İkiye Bölme   C   B   TYT_Geometri
+30   Paragrafta Ana Düşünce   B   D   31   A
+31   Düşüncenin Akışını Bozan Cümleler   E   E   32   Dörtgenler   C
+32   Paragraf Bilgisi   A   B   33   Çokgenler   A
+33   Metindeki Boşlukların Uygun Sözcüklerle Tamamlanması   E   E   34   Özel Üçgenler   D
+34   Paragraf Bilgisi   D   E   35   Geometrik Cisimler   B
+35   Paragrafta Ana Düşünce   A   A   36   Geometrik Cisimler   E
+36   Paragrafın Dil Ve Anlatımı   B   A   37   Üçgende Açı   B   B
+37   Paragrafın Yapısı   E   E   38   Üçgende Benzerlik   B
+38   Paragrafın Yapısı   A   A   39   Üçgende Alan   D
+39   Paragrafın Yapısı   A   E   40   B
+40   Paragrafın Yapısı   C   C   TYT_Fizik
+TYT_Tarih   1   Yay Dalgaları   A   D
+1   Uluslararası İlişkilerde Denge Stratejisi   E   2   Mercekler   E
+2   Atatürkçülük ve Türk inkılabı   A   3   Karışımların Özkütlesi   C
+3   Yerleşme ve Devletleşme Sürecinde Selçuklu Türkiyesi   B   4   Basınç   B
+4   Orta Çağ da Dünya   B   5   Madde Ve Özellikleri   B
+5   Milli Mücadele nin Hazırlık Dönemi   D   6   Hareket   A
+TYT_Co   ğ   rafya   7   Elektrik Devreleri   C
+6   Uluslararası Ulaşım Hatları   D   D   TYT_Kimya
+7   Doğal Afetler   A   8   Heterojen Ve Homojen Karışımlar   D
+8   Nüfus   E   E   9   Katılar   C
+9   Doğadaki Üç Unsur: Su - Toprak - Bitki   C   A   10   Periyodik Sistem   D
+10   Doğa Ve İnsan   E   E   11   Laboratuvar Malzemeleri   C
+TYT_Felsefe   12   Molekül Oluşumu Ve Lewis Yapısı   C
+11   Varlık Felsefesi   B   B   13   Katlı Oranlar Kanunu   D
+12   Bilgi Felsefesi   A   A   14   Nötralleşme Reaksiyonları Ve Tampon Çözeltileri   E
+13   15. YY - 17. YY Filozoflarının Felsefi Görüşlerinin Analizi   D   TYT_Biyoloji
+14   Varlık Felsefesi   C   15   Eşeysiz Üreme   A
+15   MÖ 6. YY - MS 2. YY filozoflarının felsefi görüşlerinin analizi   C   B   16   Besin Zinciri Ve Piramidi   D   A
+TYT_DinKültürü   17   Kalıtımda Soyağaçları   E   A
+16   İnsanın Doğası ve Din   B   B   18   Lipitler   E
+17   İslam Düşünceside Yorumlar   D   D   19   Hücre Ve Organeller   A   A
+18   Bilgi ve İnanç, Ahiret, İnançla İlgili Meseleler   E   E   20   Canlıların Çeşitliliği Ve Sınıflandırılması   A   D
+19   Allah İnancı   A   A
+20   Kuran-ı Kerimdeki Bazı Kavramlar   B
+TYT_Matematik
+1   Mutlak Değer   A
+
+--- PAGE END ---
+
+--- PAGE END ---

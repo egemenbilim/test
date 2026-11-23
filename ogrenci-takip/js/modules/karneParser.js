@@ -40,6 +40,7 @@ export function parseKarneMetin(text) {
   }
 
   const cleanText = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const lines = cleanText.split('\n').map(l => l.trim()).filter(Boolean);
 
   // 1. Üst Bilgileri Çıkar
   let ogrenciAdi = '';
@@ -57,38 +58,138 @@ export function parseKarneMetin(text) {
   let osym26 = '';
   let osym25 = '';
 
-  // Regex aramaları
-  const mOgr = cleanText.match(/Öğrenci Adı\s*[:\n\r\t]+([^\n\r]+)/i);
-  if (mOgr) ogrenciAdi = mOgr[1].trim();
-
-  const mSnv = cleanText.match(/Sınav Adı\s*[:\n\r\t]+([^\n\r]+)/i);
-  if (mSnv) sinavAdi = mSnv[1].trim();
-
-  const mTar = cleanText.match(/Sınav Tarihi\s*[:\n\r\t]+(\d{1,2}\.\d{1,2}\.\d{4})/i) ||
-               cleanText.match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/);
-  if (mTar) {
-    if (mTar[1] && mTar[1].includes('.')) {
-      const pts = mTar[1].split('.');
-      sinavTarihi = `${pts[2]}-${pts[1].padStart(2, '0')}-${pts[0].padStart(2, '0')}`;
-    } else if (mTar[3]) {
-      sinavTarihi = `${mTar[3]}-${mTar[2].padStart(2, '0')}-${mTar[1].padStart(2, '0')}`;
+  // 1.A. Öğrenci Adı Tespiti
+  // Format 1: İki nokta ile ("Öğrenci Adı: KEREM DEMİRER")
+  const mOgrColon = cleanText.match(/Öğrenci\s*Adı\s*:\s*([^\n\r]+)/i);
+  if (mOgrColon) {
+    let val = mOgrColon[1].trim();
+    val = val.split(/\s{2,}|\bSınıfı\b|\bNo\b|\bKitapçık\b/i)[0].trim();
+    if (val && !/^(?:Sınıfı|No|Kitapçık|Türü)/i.test(val)) {
+      ogrenciAdi = val;
     }
   }
 
-  const mKod = cleanText.match(/Sınav Kodu\s*[:\n\r\t]+([0-9A-Za-z]+)/i);
-  if (mKod) sinavKodu = mKod[1].trim();
+  // Format 2: Tablo Başlığı ve Alt Değer Satırı
+  // Başlık: "Öğrenci Adı   Sınıfı   No   Kitapçık Türü"
+  // Değer:  "KEREM DEMİRER   1313   46164   B"
+  if (!ogrenciAdi) {
+    for (let i = 0; i < lines.length; i++) {
+      const l = lines[i];
+      if (/Öğrenci\s*Adı/i.test(l)) {
+        if (/Sınıfı|No|Kitapçık/i.test(l)) {
+          if (i + 1 < lines.length) {
+            const valLine = lines[i + 1];
+            // Regex ile Ad Soyad + Sınıf + No + Kitapçık
+            const vm = valLine.match(/^([A-ZÇĞİÖŞÜa-zçğıöşü\s]+?)\s+(\d{1,5}[A-Za-z\-]*)\s+(\d{2,10})(?:\s+([A-D]))?$/);
+            if (vm) {
+              ogrenciAdi = vm[1].trim();
+              if (!ogrenciSinifi) ogrenciSinifi = vm[2].trim();
+              if (!ogrenciNo) ogrenciNo = vm[3].trim();
+              if (vm[4]) kitapcik = vm[4].trim();
+              break;
+            } else {
+              const parts = valLine.split(/\s{2,}|\b\d{2,}\b/);
+              if (parts && parts[0].trim().length > 2) {
+                ogrenciAdi = parts[0].trim();
+                break;
+              }
+            }
+          }
+        } else {
+          if (i + 1 < lines.length) {
+            const nextL = lines[i + 1];
+            if (!/^(?:Sınıfı|No|Kitapçık|Türü|Sınav|Puan)/i.test(nextL)) {
+              ogrenciAdi = nextL.trim();
+              break;
+            }
+          }
+        }
+      }
+    }
+  }
 
-  const mNo = cleanText.match(/No\s*[:\n\r\t]+([0-9A-Za-z]+)/i);
-  if (mNo) ogrenciNo = mNo[1].trim();
+  // 1.B. Sınav Adı, Şube, Kodu, Tarihi
+  const mSnvColon = cleanText.match(/Sınav\s*Adı\s*:\s*([^\n\r]+)/i);
+  if (mSnvColon) {
+    let val = mSnvColon[1].trim();
+    val = val.split(/\s{2,}|\bŞube\b|\bSınav Kodu\b|\bSınav Tarihi\b/i)[0].trim();
+    if (val) sinavAdi = val;
+  }
 
-  const mSin = cleanText.match(/Sınıfı\s*[:\n\r\t]+([^\n\r]+)/i);
-  if (mSin) ogrenciSinifi = mSin[1].trim();
+  if (!sinavAdi) {
+    for (let i = 0; i < lines.length; i++) {
+      const l = lines[i];
+      if (/Sınav\s*Adı/i.test(l)) {
+        if (/Şube|Sınav Kodu|Tarih/i.test(l)) {
+          if (i + 1 < lines.length) {
+            const valLine = lines[i + 1];
+            // "ALTERNATİF TYT   İzmit   120801   07.11.2026"
+            const vm = valLine.match(/^(.+?)\s+([A-ZÇĞİÖŞÜa-zçğıöşü]+)\s+(\d{4,10})\s+(\d{1,2}\.\d{1,2}\.\d{4})$/);
+            if (vm) {
+              sinavAdi = vm[1].trim();
+              sube = vm[2].trim();
+              if (!sinavKodu) sinavKodu = vm[3].trim();
+              if (!sinavTarihi) {
+                const pts = vm[4].split('.');
+                sinavTarihi = `${pts[2]}-${pts[1].padStart(2, '0')}-${pts[0].padStart(2, '0')}`;
+              }
+              break;
+            } else {
+              const parts = valLine.split(/\s{2,}|\b\d{4,}\b|\b\d{2}\.\d{2}\.\d{4}\b/);
+              if (parts && parts[0].trim().length > 2) {
+                sinavAdi = parts[0].trim();
+                break;
+              }
+            }
+          }
+        } else {
+          if (i + 1 < lines.length) {
+            const nextL = lines[i + 1];
+            if (!/^(?:Şube|Sınav Kodu|Tarih|Puan|TYT|AYT|LGS)/i.test(nextL)) {
+              sinavAdi = nextL.trim();
+              break;
+            }
+          }
+        }
+      }
+    }
+  }
 
-  const mKit = cleanText.match(/Kitapçık Türü\s*[:\n\r\t]+([A-Za-z0-9]+)/i);
-  if (mKit) kitapcik = mKit[1].trim();
+  // Tarih desteği
+  if (!sinavTarihi) {
+    const mTar = cleanText.match(/Sınav Tarihi\s*[:\n\r\t]+(\d{1,2}\.\d{1,2}\.\d{4})/i) ||
+                 cleanText.match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/);
+    if (mTar) {
+      if (mTar[1] && mTar[1].includes('.')) {
+        const pts = mTar[1].split('.');
+        sinavTarihi = `${pts[2]}-${pts[1].padStart(2, '0')}-${pts[0].padStart(2, '0')}`;
+      } else if (mTar[3]) {
+        sinavTarihi = `${mTar[3]}-${mTar[2].padStart(2, '0')}-${mTar[1].padStart(2, '0')}`;
+      }
+    }
+  }
 
-  const mSub = cleanText.match(/Şube\s*[:\n\r\t]+([^\n\r]+)/i);
-  if (mSub) sube = mSub[1].trim();
+  if (!sinavKodu) {
+    const mKod = cleanText.match(/Sınav Kodu\s*[:\n\r\t]+([0-9A-Za-z]+)/i);
+    if (mKod) sinavKodu = mKod[1].trim();
+  }
+
+  if (!ogrenciNo) {
+    const mNo = cleanText.match(/\bNo\s*[:\n\r\t]+([0-9A-Za-z]+)/i);
+    if (mNo) ogrenciNo = mNo[1].trim();
+  }
+
+  if (!ogrenciSinifi) {
+    const mSin = cleanText.match(/\bSınıfı\s*[:\n\r\t]+([^\n\r]+)/i);
+    if (mSin) ogrenciSinifi = mSin[1].trim();
+  }
+
+  // Temizleme: Öğrenci adı içindeki artık etiketleri temizle
+  ogrenciAdi = ogrenciAdi.replace(/^(?:Öğrenci\s*Adı|Adı\s*Soyadı)\s*[:\s]*/i, '').trim();
+  ogrenciAdi = ogrenciAdi.replace(/\s{2,}/g, ' ').trim();
+  if (!ogrenciAdi || ogrenciAdi.toLowerCase() === 'öğrenci adı') ogrenciAdi = 'Öğrenci';
+  if (!sinavAdi) sinavAdi = 'TYT Detaylı Deneme';
+  if (!sinavTarihi) sinavTarihi = new Date().toISOString().split('T')[0];
 
   // Puan & Sıralamalar
   const mPuan = cleanText.match(/TYT\s*\n\s*(\d{2,3}[,\.]\d{1,4})/i) ||
@@ -128,21 +229,6 @@ export function parseKarneMetin(text) {
     siralama.sinif = parseInt(mSira[5], 10);
   }
 
-  if (!ogrenciAdi) {
-    // Alternatif satır satır arama
-    const lines = cleanText.split('\n');
-    for (let i = 0; i < lines.length; i++) {
-      if (lines[i].includes('Öğrenci Adı') && lines[i + 1]) {
-        ogrenciAdi = lines[i + 1].trim();
-        break;
-      }
-    }
-  }
-
-  if (!ogrenciAdi) ogrenciAdi = 'Öğrenci';
-  if (!sinavAdi) sinavAdi = 'TYT Detaylı Deneme';
-  if (!sinavTarihi) sinavTarihi = new Date().toISOString().split('T')[0];
-
   // 2. Sayfa 2: "Ders Soru Analizleri"
   const subjectList = [
     'TYT_Türkçe', 'TYT_Tarih', 'TYT_Coğrafya', 'TYT_Felsefe', 'TYT_DinKültürü',
@@ -152,75 +238,79 @@ export function parseKarneMetin(text) {
   let curSubject = 'TYT_Türkçe';
   const questions = [];
 
-  const lines = cleanText.split('\n');
   for (let i = 0; i < lines.length; i++) {
-    const l = lines[i].trim();
-    if (!l) continue;
+    const rawLine = lines[i];
+    if (!rawLine) continue;
 
-    // Ders başlığı tespiti
-    let foundSubj = false;
-    for (const s of subjectList) {
-      if (l === s || l.startsWith(s + ' ') || l.startsWith(s + '\t')) {
-        curSubject = s;
-        foundSubj = true;
-        break;
+    // Satır içinde yan yana birden çok soru veya sütun varsa segmentlere ayır
+    const segments = rawLine.split(/\s{3,}|\t/).map(s => s.trim()).filter(Boolean);
+
+    for (const l of segments) {
+      // Ders başlığı tespiti
+      let foundSubj = false;
+      for (const s of subjectList) {
+        if (l === s || l.startsWith(s + ' ') || l.startsWith(s + '\t')) {
+          curSubject = s;
+          foundSubj = true;
+          break;
+        }
       }
-    }
-    if (foundSubj) continue;
+      if (foundSubj) continue;
 
-    // Pattern 1: No + Konu + DC + OC (örn: "19 Paragraf Bilgisi C D")
-    let m = l.match(/^(\d{1,3})\s+(.+?)\s+([A-E])\s+([A-E])$/i);
-    if (m) {
-      const qNo = parseInt(m[1], 10);
-      const hamKonu = m[2].trim();
-      const dc = m[3].toUpperCase();
-      const oc = m[4].toUpperCase();
-      questions.append ? questions.append : questions.push({
-        no: qNo,
-        ders: normalizeDersAdi(curSubject),
-        hamKonu,
-        catiKonu: getCatiKonu(curSubject, hamKonu),
-        dc,
-        oc,
-        durum: dc === oc ? 'D' : 'Y'
-      });
-      continue;
-    }
+      // Pattern 1: No + Konu + DC + OC (örn: "19 Paragraf Bilgisi C D")
+      let m = l.match(/^(\d{1,3})\s+(.+?)\s+([A-E])\s+([A-E])$/i);
+      if (m) {
+        const qNo = parseInt(m[1], 10);
+        const hamKonu = m[2].trim();
+        const dc = m[3].toUpperCase();
+        const oc = m[4].toUpperCase();
+        questions.push({
+          no: qNo,
+          ders: normalizeDersAdi(curSubject),
+          hamKonu,
+          catiKonu: getCatiKonu(curSubject, hamKonu),
+          dc,
+          oc,
+          durum: dc === oc ? 'D' : 'Y'
+        });
+        continue;
+      }
 
-    // Pattern 2: No + Konu + DC (Boş bırakılmış soru, örn: "6 Söz Gruplarının Anlamı B")
-    m = l.match(/^(\d{1,3})\s+(.+?)\s+([A-E])$/i);
-    if (m) {
-      const qNo = parseInt(m[1], 10);
-      const hamKonu = m[2].trim();
-      const dc = m[3].toUpperCase();
-      questions.push({
-        no: qNo,
-        ders: normalizeDersAdi(curSubject),
-        hamKonu,
-        catiKonu: getCatiKonu(curSubject, hamKonu),
-        dc,
-        oc: '',
-        durum: 'B'
-      });
-      continue;
-    }
+      // Pattern 2: No + Konu + DC (Boş bırakılmış soru, örn: "6 Söz Gruplarının Anlamı B")
+      m = l.match(/^(\d{1,3})\s+(.+?)\s+([A-E])$/i);
+      if (m) {
+        const qNo = parseInt(m[1], 10);
+        const hamKonu = m[2].trim();
+        const dc = m[3].toUpperCase();
+        questions.push({
+          no: qNo,
+          ders: normalizeDersAdi(curSubject),
+          hamKonu,
+          catiKonu: getCatiKonu(curSubject, hamKonu),
+          dc,
+          oc: '',
+          durum: 'B'
+        });
+        continue;
+      }
 
-    // Pattern 3: No + DC (Konu adı belirtilmemiş tek soru, örn: "9 D", "31 A", "40 B")
-    m = l.match(/^(\d{1,3})\s+([A-E])$/i);
-    if (m) {
-      const qNo = parseInt(m[1], 10);
-      const dc = m[2].toUpperCase();
-      const defaultKonu = curSubject.includes('Geometri') ? 'Geometri' : (curSubject.includes('Matematik') ? 'Temel Kavramlar & Sayılar' : 'Genel Soru');
-      questions.push({
-        no: qNo,
-        ders: normalizeDersAdi(curSubject),
-        hamKonu: defaultKonu,
-        catiKonu: getCatiKonu(curSubject, defaultKonu),
-        dc,
-        oc: '',
-        durum: 'B'
-      });
-      continue;
+      // Pattern 3: No + DC (Konu adı belirtilmemiş tek soru, örn: "9 D", "31 A", "40 B")
+      m = l.match(/^(\d{1,3})\s+([A-E])$/i);
+      if (m) {
+        const qNo = parseInt(m[1], 10);
+        const dc = m[2].toUpperCase();
+        const defaultKonu = curSubject.includes('Geometri') ? 'Geometri' : (curSubject.includes('Matematik') ? 'Temel Kavramlar & Sayılar' : 'Genel Soru');
+        questions.push({
+          no: qNo,
+          ders: normalizeDersAdi(curSubject),
+          hamKonu: defaultKonu,
+          catiKonu: getCatiKonu(curSubject, defaultKonu),
+          dc,
+          oc: '',
+          durum: 'B'
+        });
+        continue;
+      }
     }
   }
 
@@ -281,6 +371,67 @@ export function parseKarneMetin(text) {
 }
 
 /**
+ * PDF.js text item'larını aralarındaki X mesafesine göre birleştirip satırlara dönüştürür.
+ * İki parça arasındaki mesafe küçükse (örn: DEM + İ + RER) boşluksuz birleştirir;
+ * büyükse kelime boşluğu veya sütun ayracı ekler.
+ */
+function processPdfItemsToLines(items) {
+  const rowMap = new Map();
+  items.forEach(item => {
+    const text = item.str;
+    if (!text || (!text.trim() && text !== ' ')) return;
+    const y = item.transform[5];
+    let foundKey = null;
+    for (const k of rowMap.keys()) {
+      if (Math.abs(k - y) < 4.0) {
+        foundKey = k;
+        break;
+      }
+    }
+    if (foundKey === null) {
+      foundKey = y;
+      rowMap.set(foundKey, []);
+    }
+    rowMap.get(foundKey).push({ str: text, x: item.transform[4], width: item.width || 0 });
+  });
+
+  const sortedYs = Array.from(rowMap.keys()).sort((a, b) => b - a);
+  const lines = [];
+
+  sortedYs.forEach(yKey => {
+    const rowItems = rowMap.get(yKey);
+    rowItems.sort((a, b) => a.x - b.x);
+
+    let lineStr = '';
+    let lastEnd = null;
+    for (let i = 0; i < rowItems.length; i++) {
+      const it = rowItems[i];
+      if (!it.str) continue;
+      if (lastEnd === null) {
+        lineStr += it.str;
+      } else {
+        const gap = it.x - lastEnd;
+        if (gap > 10.0) {
+          lineStr += '   ' + it.str;
+        } else if (gap > 2.0) {
+          if (!lineStr.endsWith(' ') && !it.str.startsWith(' ')) {
+            lineStr += ' ' + it.str;
+          } else {
+            lineStr += it.str;
+          }
+        } else {
+          // Bitişik karakter parçası (Türkçe harfler vb.)
+          lineStr += it.str;
+        }
+      }
+      lastEnd = it.x + it.width;
+    }
+    if (lineStr.trim()) lines.push(lineStr.trim());
+  });
+  return lines;
+}
+
+/**
  * PDF dosyasını (PDF.js üzerinden) asenkron okur ve parse eder.
  */
 export async function parseKarnePdfFile(file) {
@@ -302,36 +453,24 @@ export async function parseKarnePdfFile(file) {
     const page = await pdfDoc.getPage(pageNum);
     const content = await page.getTextContent();
 
-    // Satır bazlı Y hizalaması
-    const rowMap = new Map();
-    content.items.forEach(item => {
-      const text = item.str;
-      if (!text || !text.trim()) return;
-      const y = item.transform[5];
-      let foundKey = null;
-      for (const k of rowMap.keys()) {
-        if (Math.abs(k - y) < 4.0) {
-          foundKey = k;
-          break;
-        }
+    if (pageNum === 1) {
+      // 1. Sayfa: Geniş özet ve üst bilgiler tablosu
+      const lines = processPdfItemsToLines(content.items);
+      combinedText += lines.join('\n') + '\n--- SAYFA SONU ---\n';
+    } else {
+      // 2. Sayfa ve sonrası: 2 sütunlu soru analizi (Sol: x < 300, Sağ: x >= 300)
+      const hasTwoCols = content.items.some(it => it.transform[4] >= 300 && it.str && it.str.trim());
+      if (hasTwoCols) {
+        const leftItems = content.items.filter(it => it.transform[4] < 300);
+        const rightItems = content.items.filter(it => it.transform[4] >= 300);
+        const leftLines = processPdfItemsToLines(leftItems);
+        const rightLines = processPdfItemsToLines(rightItems);
+        combinedText += leftLines.join('\n') + '\n' + rightLines.join('\n') + '\n--- SAYFA SONU ---\n';
+      } else {
+        const lines = processPdfItemsToLines(content.items);
+        combinedText += lines.join('\n') + '\n--- SAYFA SONU ---\n';
       }
-      if (foundKey === null) {
-        foundKey = y;
-        rowMap.set(foundKey, []);
-      }
-      rowMap.get(foundKey).push({ str: text, x: item.transform[4], width: item.width || 0 });
-    });
-
-    const sortedYs = Array.from(rowMap.keys()).sort((a, b) => b - a);
-    sortedYs.forEach(yKey => {
-      const itemsInRow = rowMap.get(yKey);
-      itemsInRow.sort((a, b) => a.x - b.x);
-      let lineStr = itemsInRow.map(it => it.str).join(' ');
-      if (lineStr.trim()) {
-        combinedText += lineStr.trim() + '\n';
-      }
-    });
-    combinedText += '\n--- SAYFA SONU ---\n';
+    }
   }
 
   return parseKarneMetin(combinedText);
@@ -582,6 +721,37 @@ export function renderKarneYuklePaneli() {
 
   // Selectleri doldur
   doldurKarneOgrenciSelectleri();
+
+  // Sürükle bırak olaylarını dropzone'a doğrudan bağla
+  const dropZone = $('karneDropZone');
+  if (dropZone) {
+    ['dragenter', 'dragover'].forEach(ev => {
+      dropZone.addEventListener(ev, e => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropZone.style.background = '#e0e7ff';
+        dropZone.style.borderColor = 'var(--indigo2)';
+      });
+    });
+    ['dragleave'].forEach(ev => {
+      dropZone.addEventListener(ev, e => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropZone.style.background = '#f8fafc';
+        dropZone.style.borderColor = '#818cf8';
+      });
+    });
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropZone.style.background = '#f8fafc';
+      dropZone.style.borderColor = '#818cf8';
+      const files = e.dataTransfer && e.dataTransfer.files;
+      if (files && files.length) {
+        window.karnePdfSecildi({ dataTransfer: e.dataTransfer });
+      }
+    });
+  }
 }
 
 /**
@@ -703,16 +873,32 @@ export function gosterKarneOnizleme(parsed) {
 
   card.innerHTML = `
     <div style="background:#f1f5f9;border-radius:10px;padding:16px;border:1.5px solid #cbd5e1">
-      <div class="flex" style="justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
-        <div>
-          <span class="badge" style="background:#dbeafe;color:#1e40af;font-size:11px;font-weight:700">KARNE ÖNİZLEME</span>
-          <h3 style="margin:4px 0 2px 0;font-size:18px;color:#0f172a">👤 ${parsed.ogrenciAdi}</h3>
-          <div class="muted" style="font-size:12px">
-            Sınav: <b>${parsed.sinavAdi}</b> • Tarih: ${fmtTarih(parsed.sinavTarihi)} • Sınıfı: ${parsed.ogrenciSinifi || '—'} ➔ <b>Karne Sınıfı'na Geçirilecek</b>
+      <div class="flex" style="justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
+        <div style="flex:1;min-width:300px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <span class="badge" style="background:#dbeafe;color:#1e40af;font-size:11px;font-weight:700">KARNE ÖNİZLEME</span>
+            <span style="font-size:11.5px;color:#64748b">Bilgileri kontrol edip gerekirse değiştirebilirsiniz:</span>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+            <div style="flex:1;min-width:180px">
+              <label style="font-size:11px;font-weight:700;color:#334155;display:block">👤 Öğrenci Adı Soyadı:</label>
+              <input type="text" id="karnePvOgrenciAd" value="${parsed.ogrenciAdi}" style="font-size:15px;font-weight:700;color:#0f172a;width:100%;padding:5px 8px;border:1.5px solid #cbd5e1;border-radius:6px;background:#fff">
+            </div>
+            <div style="flex:1;min-width:160px">
+              <label style="font-size:11px;font-weight:700;color:#334155;display:block">📝 Sınav Adı:</label>
+              <input type="text" id="karnePvSinavAd" value="${parsed.sinavAdi}" style="font-size:13px;font-weight:600;color:#0f172a;width:100%;padding:5px 8px;border:1.5px solid #cbd5e1;border-radius:6px;background:#fff">
+            </div>
+            <div style="width:130px">
+              <label style="font-size:11px;font-weight:700;color:#334155;display:block">📅 Sınav Tarihi:</label>
+              <input type="date" id="karnePvTarih" value="${parsed.sinavTarihi}" style="font-size:13px;color:#0f172a;width:100%;padding:5px 8px;border:1.5px solid #cbd5e1;border-radius:6px;background:#fff">
+            </div>
+          </div>
+          <div class="muted" style="font-size:11.5px;margin-top:6px">
+            Sınıfı: <b>${parsed.ogrenciSinifi || '—'}</b> • No: <b>${parsed.ogrenciNo || '—'}</b> ➔ Otomatik olarak <b>"Karne Sınıfı"</b>na geçirilecektir.
           </div>
         </div>
         <div class="flex" style="gap:8px">
-          <button type="button" class="btn green" onclick="window.karneOnaylaVeKaydetBtn()">💾 Sisteme & Karne Sınıfına Kaydet</button>
+          <button type="button" class="btn green" onclick="window.karneOnaylaVeKaydetBtn()" style="padding:10px 16px;font-weight:700;font-size:13px">💾 Sisteme & Karne Sınıfına Kaydet</button>
           <button type="button" class="btn gray sm" onclick="$('karneOnizlemeKarti').classList.add('hidden')">✕ İptal</button>
         </div>
       </div>

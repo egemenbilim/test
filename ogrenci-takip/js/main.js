@@ -375,6 +375,10 @@ window.pdfManuelEsleSec = pdfManuelEsleSec;
 window.pdfManuelEsleKaldir = pdfManuelEsleKaldir;
 window.pdfManuelEsleKaldirAction = pdfManuelEsleKaldirAction;
 
+// Navigasyon & Sekmeler
+window.goto = goto;
+window.denTab = denTab;
+
 // Yedek
 window.disaAktar = disaAktar;
 window.iceriAktar = iceriAktar;
@@ -397,6 +401,9 @@ window.karnePdfSecildi = async function(event) {
   } catch (err) {
     console.error(err);
     toast('PDF okunamadı: ' + (err.message || err), false);
+  } finally {
+    const fileInput = document.getElementById('karneFileInput');
+    if (fileInput) fileInput.value = '';
   }
 };
 
@@ -422,6 +429,15 @@ window.karneOnaylaVeKaydetBtn = function() {
     toast('Önce bir karne yükleyin', false);
     return;
   }
+
+  // Kullanıcının önizleme kartında yaptığı düzenlemeleri aktar
+  const edOgr = $('karnePvOgrenciAd')?.value?.trim();
+  const edSnv = $('karnePvSinavAd')?.value?.trim();
+  const edTar = $('karnePvTarih')?.value?.trim();
+  if (edOgr) parsed.ogrenciAdi = edOgr;
+  if (edSnv) parsed.sinavAdi = edSnv;
+  if (edTar) parsed.sinavTarihi = edTar;
+
   const res = karneVerisiniKaydet(parsed);
   if (res) {
     $('karneOnizlemeKarti').classList.add('hidden');
@@ -432,6 +448,7 @@ window.karneOnaylaVeKaydetBtn = function() {
       $('karneSeciliOgrenci').value = String(res.ogrenci.id);
       karneOgrenciDegisti(res.ogrenci.id);
     }
+    $('karneKarsilastirmaBolumu')?.scrollIntoView({ behavior: 'smooth' });
   }
 };
 
@@ -514,9 +531,15 @@ document.addEventListener('DOMContentLoaded', () => {
       if (f.name.endsWith('.json')) {
         handleFile(f);
       } else if (f.name.endsWith('.pdf')) {
-        goto('deneme');
-        denTab('pdf');
-        window.pdfDosyaSecildi({ dataTransfer: { files: [f] } });
+        const isKarneTab = $('denTabKarne')?.classList.contains('active') ||
+                           (!$('denTabKarne')?.classList.contains('hidden') && $('denKarneAlani') && !$('denKarneAlani').classList.contains('hidden'));
+        if (isKarneTab) {
+          window.karnePdfSecildi({ dataTransfer: { files: [f] } });
+        } else {
+          goto('deneme');
+          denTab('pdf');
+          window.pdfDosyaSecildi({ dataTransfer: { files: [f] } });
+        }
       }
     }
   }, false);

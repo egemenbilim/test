@@ -63,7 +63,7 @@ import {
   renderKarneYuklePaneli, parseKarnePdfFile, parseKarneMetin,
   karneVerisiniKaydet, gosterKarneOnizleme, getAktifKarneVerisi,
   doldurKarneOgrenciSelectleri, karneOgrenciDegisti, karneKarsilastirManuel,
-  karneDersToggle, karneDersFiltreTemizle
+  karneDersToggle, karneDersFiltreTemizle, karneRaporModuDegistir
 } from './modules/karneParser.js';
 import { renderKarneKarsilastirmaRaporu } from './modules/karneKarsilastirma.js';
 
@@ -456,6 +456,7 @@ window.karneOgrenciDegisti = karneOgrenciDegisti;
 window.karneKarsilastirManuel = karneKarsilastirManuel;
 window.karneDersToggle = karneDersToggle;
 window.karneDersFiltreTemizle = karneDersFiltreTemizle;
+window.karneRaporModuDegistir = karneRaporModuDegistir;
 
 window.karneRaporYazdir = function() {
   const rep = $('karneRaporYazdirAlani');
@@ -463,7 +464,75 @@ window.karneRaporYazdir = function() {
     toast('Yazdırılacak rapor bulunamadı', false);
     return;
   }
-  window.print();
+
+  // Özel ve izole bir yazdırma penceresi aç (tüm sayfa yerine yalnızca rapor alanı)
+  const repHtml = rep.innerHTML;
+  const printWin = window.open('', '_blank', 'width=960,height=800');
+  if (printWin) {
+    printWin.document.open();
+    printWin.document.write(`
+      <!DOCTYPE html>
+      <html lang="tr">
+      <head>
+        <meta charset="UTF-8">
+        <title>Karşılaştırmalı Gelişim & Çalışma Raporu</title>
+        <style>
+          @page { size: A4; margin: 10mm 12mm; }
+          * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            color: #0f172a;
+            background: #ffffff;
+            margin: 0;
+            padding: 4mm;
+            font-size: 11.5px;
+            line-height: 1.45;
+          }
+          h2, h3, h4 { margin: 0; color: #0f172a; }
+          .kr-subject-card {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+            border: 1px solid #cbd5e1 !important;
+            border-radius: 8px !important;
+            margin-bottom: 12px !important;
+            padding: 12px 14px !important;
+          }
+          .kr-pill, .kr-stat-bad, .kr-stat-good {
+            display: inline-flex !important;
+            align-items: center !important;
+            width: auto !important;
+            height: auto !important;
+            box-sizing: border-box !important;
+          }
+          table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 11px; }
+          th, td { border: 1px solid #e2e8f0; padding: 6px 8px; text-align: left; }
+          th { background: #f8fafc; font-weight: 700; color: #334155; }
+          .num { text-align: right; }
+          .mono { font-family: monospace; }
+          details { display: none !important; }
+          .noprint { display: none !important; }
+        </style>
+      </head>
+      <body>
+        ${repHtml}
+        <script>
+          window.onload = function() {
+            setTimeout(function() {
+              window.print();
+              window.onafterprint = function() { window.close(); };
+            }, 300);
+          };
+        </script>
+      </body>
+      </html>
+    `);
+    printWin.document.close();
+  } else {
+    // Popup engellendiyse sayfa üzerinde izole yazdırma sınıfını kullan
+    document.body.classList.add('karne-print-only');
+    window.print();
+    setTimeout(() => document.body.classList.remove('karne-print-only'), 1000);
+  }
 };
 
 window.karneOrnekYukle = function() {

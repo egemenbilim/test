@@ -193,8 +193,8 @@ TYT_Biyoloji
         assert "KEREM DEMİRER" in rep_text
         assert "ALTERNATİF TYT" in rep_text
         assert "ÖZDEBİR TYT 2" in rep_text
-        assert "Nelerde Gelişme Var?" in rep_text
         assert "Nelere Çalışmalı?" in rep_text
+        assert "Şunlara Çalış:" in rep_text
         assert "Ders Filtresi" in rep_text
         assert "Genel Paragraf" in rep_text
 

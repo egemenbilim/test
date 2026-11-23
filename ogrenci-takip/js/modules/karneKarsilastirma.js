@@ -5,6 +5,7 @@
    ══════════════════════════════════════════════════════ */
 
 import { fmtTarih } from '../utils.js';
+import { DB } from '../state.js';
 import { getCalismaTavsiyesi } from './karneTaxonomy.js';
 
 /**
@@ -188,204 +189,245 @@ export function karsilastirKarneler(k1, k2, seciliDersler = []) {
   };
 }
 
+function getDersIcon(ders) {
+  const d = (ders || '').toLowerCase();
+  if (d.includes('turkce') || d.includes('edebiyat')) return '📚';
+  if (d.includes('geometri')) return '📏';
+  if (d.includes('matematik')) return '📐';
+  if (d.includes('tarih')) return '🏛️';
+  if (d.includes('cografya')) return '🌍';
+  if (d.includes('felsefe')) return '💭';
+  if (d.includes('din')) return '🕌';
+  if (d.includes('fizik')) return '⚡';
+  if (d.includes('kimya')) return '🧪';
+  if (d.includes('biyoloji')) return '🧬';
+  if (d.includes('fen')) return '🔬';
+  if (d.includes('sosyal')) return '🌐';
+  return '📖';
+}
+
 /**
- * Sade, ferah ve pedagojik karşılaştırma raporunu oluşturur.
+ * Sade, ferah, pedagojik ve ders bazında yapılandırılmış karşılaştırma raporunu oluşturur.
+ * @param {Object} k1 - 1. Karne
+ * @param {Object} k2 - 2. Karne
+ * @param {Array<string>|Set<string>} seciliDersler - Filtre dersleri (Boş ise hepsi)
+ * @param {string} raporModu - 'hepsi' | 'sadece_calis'
  */
-export function renderKarneKarsilastirmaRaporu(k1, k2, seciliDersler = []) {
+export function renderKarneKarsilastirmaRaporu(k1, k2, seciliDersler = [], raporModu = 'hepsi') {
   const analiz = karsilastirKarneler(k1, k2, seciliDersler);
   if (!analiz) return '<div class="empty">Karşılaştırma hesaplanamadı.</div>';
+
+  const isSadeceCalis = (raporModu === 'sadece_calis');
 
   const {
     filtreAktif, seciliDersler: aktifDersListesi,
     puanFarki, netFarki, dogruFarki, yanlisFarki, bosFarki,
     k1TopNet, k2TopNet, k1TopD, k2TopD, k1TopY, k2TopY,
-    dersKarsilastirma, konuKarsilastirma, gelisenKonular, calisilacakKonular
+    dersKarsilastirma, konuKarsilastirma
   } = analiz;
 
   const netFarkStr = netFarki >= 0 ? `+${netFarki.toFixed(2)}` : netFarki.toFixed(2);
-  const netBadgeColor = netFarki >= 0 ? '#10b981' : '#ef4444';
+  const netBadgeColor = netFarki >= 0 ? '#15803d' : '#b91c1c';
+  const netBadgeBg = netFarki >= 0 ? '#dcfce7' : '#fee2e2';
+  const netBadgeBrd = netFarki >= 0 ? '#bbf7d0' : '#fecaca';
 
-  // 1. NELERDE GELİŞME VAR (Sade ve Net Kartlar)
-  let gelismeHtml = '';
-  if (!gelisenKonular.length) {
-    gelismeHtml = `
-      <div style="background:#f8fafc;padding:12px 16px;border-radius:8px;border:1px solid #e2e8f0;font-size:13px;color:#64748b">
-        Seçilen kapsamda belirgin bir doğru sayısı artışı kaydedilmedi. Düzenli soru çözümüyle eksiklerin kapatılması önerilir.
-      </div>
-    `;
-  } else {
-    gelismeHtml = `
-      <div style="display:flex;flex-direction:column;gap:8px">
-        ${gelisenKonular.map(item => {
-          const dFarkStr = item.dogruFark >= 0 ? `+${item.dogruFark}` : `${item.dogruFark}`;
-          const basariFarkStr = item.basariFark >= 0 ? `+${item.basariFark}%` : `${item.basariFark}%`;
-          return `
-            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-left:4px solid #16a34a;border-radius:6px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
-              <div>
-                <div style="display:flex;align-items:center;gap:6px">
-                  <span style="font-size:11px;font-weight:700;color:#15803d;background:#dcfce7;padding:2px 6px;border-radius:4px">${item.ders}</span>
-                  <b style="font-size:13.5px;color:#14532d">${item.etiket}</b>
-                </div>
-                <div style="font-size:11.5px;color:#475569;margin-top:3px">
-                  Önceki: <b>${item.k1.dogru}D / ${item.k1.yanlis}Y</b> (%${item.k1.basariYuzde}) ➔ Yeni: <b>${item.k2.dogru}D / ${item.k2.yanlis}Y</b> (%${item.k2.basariYuzde})
-                </div>
-                <div style="font-size:11.5px;color:#166534;margin-top:2px">💡 ${item.tavsiye}</div>
-              </div>
-              <div style="text-align:right">
-                <span class="badge" style="background:#dcfce7;color:#15803d;font-weight:800;font-size:12px;padding:4px 8px">
-                  ${dFarkStr} Doğru (${basariFarkStr}) 🚀
-                </span>
-              </div>
-            </div>
-          `;
-        }).join('')}
-      </div>
-    `;
-  }
+  // DERS DERS İLERLEYİŞ VE ÇALIŞILMASI GEREKEN KISIMLAR
+  const dersBloklariHtml = dersKarsilastirma.map(d => {
+    const subjTopics = konuKarsilastirma.filter(k => k.ders === d.ders);
 
-  // 2. NELERE ÇALIŞMALI (Sade ve Eylem Odaklı Kartlar)
-  let calismaHtml = '';
-  if (!calisilacakKonular.length) {
-    calismaHtml = `
-      <div style="background:#f0fdf4;padding:12px 16px;border-radius:8px;border:1px solid #bbf7d0;font-size:13px;color:#15803d">
-        Harika! Seçilen kapsamdaki tüm konularda yüksek başarı sağlandı, kritik bir eksik bulunmuyor.
-      </div>
-    `;
-  } else {
-    const oncelikliList = calisilacakKonular.slice(0, 6);
-    calismaHtml = `
-      <div style="display:flex;flex-direction:column;gap:8px">
-        ${oncelikliList.map(item => {
-          const isKritik = item.k2.yanlis >= 2 || item.k2.basariYuzde < 40;
-          const borderLeft = isKritik ? '#dc2626' : '#d97706';
-          const bgCol = isKritik ? '#fef2f2' : '#fffbeb';
-          const brdCol = isKritik ? '#fecaca' : '#fde68a';
-          const txtCol = isKritik ? '#991b1b' : '#92400e';
-          const badgeBg = isKritik ? '#fee2e2' : '#fef3c7';
+    // Çalışılması gereken konular (Yanlışı veya boşu olanlar veya başarısı %60 altı olanlar)
+    const subjCalisma = subjTopics.filter(k => k.k2.yanlis > 0 || k.k2.bos > 0 || k.k2.basariYuzde < 60 || k.basariFark < 0)
+      .sort((a, b) => ((b.k2.yanlis * 2 + b.k2.bos) - (a.k2.yanlis * 2 + a.k2.bos)));
 
-          return `
-            <div style="background:${bgCol};border:1px solid ${brdCol};border-left:4px solid ${borderLeft};border-radius:6px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
-              <div>
-                <div style="display:flex;align-items:center;gap:6px">
-                  <span style="font-size:11px;font-weight:700;color:${txtCol};background:${badgeBg};padding:2px 6px;border-radius:4px">${item.ders}</span>
-                  <b style="font-size:13.5px;color:${txtCol}">${item.etiket}</b>
-                  <span class="badge" style="background:${badgeBg};color:${txtCol};font-size:10px;font-weight:700">
-                    ${isKritik ? '🔴 ACİL ÇALIŞ' : '🟡 PEKİŞTİR'}
-                  </span>
-                </div>
-                <div style="font-size:11.5px;color:#475569;margin-top:3px">
-                  Önceki: <b>${item.k1.dogru}D / ${item.k1.yanlis}Y</b> ➔ Yeni: <b>${item.k2.dogru}D / ${item.k2.yanlis}Y / ${item.k2.bos}B</b> (%${item.k2.basariYuzde} Başarı)
-                </div>
-                <div style="font-size:11.5px;color:${txtCol};margin-top:2px">
-                  🎯 <b>Öneri:</b> ${item.tavsiye}
-                </div>
-              </div>
-              <div style="text-align:right">
-                <span class="badge" style="background:${badgeBg};color:${txtCol};font-weight:700;font-size:11px;padding:4px 8px">
-                  ${item.k2.yanlis} Yanlış / ${item.k2.bos} Boş
-                </span>
-              </div>
-            </div>
-          `;
-        }).join('')}
-      </div>
-    `;
-  }
+    // Gelişme gösterilen konular
+    const subjGelisen = subjTopics.filter(k => k.dogruFark > 0 || (k.yanlisFark < 0 && k.k2.dogru >= k.k1.dogru) || k.basariFark >= 15);
 
-  // 3. SADELEŞTİRİLMİŞ DERS GELİŞİM TABLOSU
-  const dersRows = dersKarsilastirma.map(d => {
     const nFark = d.netFarki >= 0 ? `+${d.netFarki.toFixed(2)}` : d.netFarki.toFixed(2);
-    const nRenk = d.netFarki > 0 ? '#15803d' : (d.netFarki < 0 ? '#b91c1c' : '#64748b');
+    const nRenk = d.netFarki > 0 ? '#15803d' : (d.netFarki < 0 ? '#b91c1c' : '#475569');
+    const nBg = d.netFarki > 0 ? '#dcfce7' : (d.netFarki < 0 ? '#fee2e2' : '#f1f5f9');
+    const nBrd = d.netFarki > 0 ? '#bbf7d0' : (d.netFarki < 0 ? '#fecaca' : '#cbd5e1');
 
-    return `
-      <tr>
-        <td style="font-weight:700;color:#0f172a;font-size:13px">${d.ders}</td>
-        <td class="num mono">${d.d1.dogru}D / ${d.d1.yanlis}Y / ${d.d1.bos}B</td>
-        <td class="num mono" style="font-weight:600">${d.d1.net.toFixed(2)}</td>
-        <td class="num mono">${d.d2.dogru}D / ${d.d2.yanlis}Y / ${d.d2.bos}B</td>
-        <td class="num mono" style="font-weight:700;color:var(--indigo)">${d.d2.net.toFixed(2)}</td>
-        <td class="num mono" style="font-weight:800;color:${nRenk}">${nFark} Net</td>
-      </tr>
-    `;
-  }).join('');
-
-  // 4. DETAYLI KONU TABLOSU SATIRLARI (İsteğe bağlı açılabilir akordeon içinde)
-  const konuTabloRows = konuKarsilastirma.map(item => {
-    const trendRenk = item.dogruFark > 0 ? '#15803d' : (item.dogruFark < 0 ? '#b91c1c' : '#64748b');
-    const trendTxt = item.dogruFark > 0 ? `+${item.dogruFark} Doğru 📈` : (item.dogruFark < 0 ? `${item.dogruFark} Doğru 📉` : 'Değişmedi ➖');
-
-    return `
-      <tr>
-        <td style="font-size:11.5px;color:#64748b">${item.ders}</td>
-        <td style="font-weight:700;color:var(--indigo);font-size:12.5px">${item.etiket}</td>
-        <td class="num mono">${item.k1.dogru}D / ${item.k1.yanlis}Y</td>
-        <td class="num mono">%${item.k1.basariYuzde}</td>
-        <td class="num mono">${item.k2.dogru}D / ${item.k2.yanlis}Y</td>
-        <td class="num mono" style="font-weight:700">%${item.k2.basariYuzde}</td>
-        <td class="num mono" style="font-weight:700;color:${trendRenk}">${trendTxt}</td>
-      </tr>
-    `;
-  }).join('');
-
-  return `
-    <div id="karneRaporYazdirAlani" style="background:#ffffff;padding:18px 20px;border-radius:10px;border:1px solid #e2e8f0">
-      
-      <!-- SADE VE ŞIK BAŞLIK KARTI -->
-      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;padding-bottom:12px;border-bottom:2px solid #4f46e5;margin-bottom:16px">
-        <div>
-          <div style="font-size:11px;font-weight:700;color:#4f46e5;text-transform:uppercase;letter-spacing:0.5px">Karşılaştırmalı Gelişim Raporu</div>
-          <h2 style="margin:2px 0 0 0;font-size:18px;color:#0f172a">
-            👤 ${k2.ogrenciAdi || k1.ogrenciAdi || 'Öğrenci'}
-            <span class="badge" style="background:#eff6ff;color:#4f46e5;font-weight:700;margin-left:6px;font-size:11px">Karne Sınıfı</span>
-          </h2>
-          <div style="font-size:12px;color:#64748b;margin-top:2px">
-            <b>1. Sınav:</b> ${k1.sinavAdi} (${fmtTarih(k1.sinavTarihi)}) &nbsp;➔&nbsp; <b>2. Sınav:</b> ${k2.sinavAdi} (${fmtTarih(k2.sinavTarihi)})
+    // Eğer sadece eksikler modu seçildiyse ve bu derste hiç eksik yoksa:
+    if (isSadeceCalis && subjCalisma.length === 0) {
+      if (filtreAktif) {
+        return `
+          <div class="kr-subject-card" style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:10px;padding:12px 16px;margin-bottom:12px">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+              <div style="font-weight:700;font-size:14px;color:#166534;display:flex;align-items:center;gap:8px">
+                <span>${getDersIcon(d.ders)}</span> <span>${d.ders}</span>
+              </div>
+              <div style="font-size:12px;color:#15803d;font-weight:600">
+                ✅ Bu derste tüm sorular doğru cevaplandı; çalışılması gereken öncelikli bir eksik bulunmuyor.
+              </div>
+            </div>
           </div>
-        </div>
+        `;
+      }
+      return ''; // Genel filtrede sıfır eksikli dersler aşağıda tek blokta toplanır
+    }
 
-        <!-- SAĞ: NET DEĞİŞİMİ BÜYÜK GÖSTERGE -->
-        <div style="display:flex;align-items:center;gap:14px;background:#f8fafc;padding:8px 16px;border-radius:8px;border:1px solid #e2e8f0">
+    return `
+      <div class="kr-subject-card" style="background:#ffffff;border:1.5px solid #e2e8f0;border-radius:10px;padding:16px 18px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,0.02)">
+        
+        <!-- DERS ÜST BİLGİSİ & İLERLEYİŞ ÖZETİ -->
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;padding-bottom:12px;border-bottom:1px solid #f1f5f9">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:22px">${getDersIcon(d.ders)}</span>
+            <div>
+              <h3 style="margin:0;font-size:15.5px;color:#0f172a;font-weight:800">${d.ders}</h3>
+              <div style="font-size:12px;color:#475569;margin-top:2px">
+                1. Sınav: <b>${d.d1.dogru}D / ${d.d1.yanlis}Y / ${d.d1.bos}B</b> (${d.d1.net.toFixed(2)} Net) &nbsp;➔&nbsp;
+                2. Sınav: <b>${d.d2.dogru}D / ${d.d2.yanlis}Y / ${d.d2.bos}B</b> (${d.d2.net.toFixed(2)} Net)
+              </div>
+            </div>
+          </div>
           <div>
-            <div style="font-size:10.5px;color:#64748b;font-weight:600">SEÇİLİ KAPSAM NETİ</div>
-            <div style="font-size:18px;font-weight:800;color:#0f172a">${k1TopNet.toFixed(2)} ➔ ${k2TopNet.toFixed(2)}</div>
-          </div>
-          <div style="border-left:1px solid #cbd5e1;padding-left:14px">
-            <div style="font-size:10.5px;color:#64748b;font-weight:600">NET FARKI</div>
-            <div style="font-size:18px;font-weight:800;color:${netBadgeColor}">${netFarkStr} Net</div>
+            <span class="kr-pill" style="background:${nBg};color:${nRenk};border:1px solid ${nBrd};font-size:13px;padding:4px 10px">
+              ${nFark} Net ${d.netFarki > 0 ? '🚀' : (d.netFarki < 0 ? '📉' : '➖')}
+            </span>
           </div>
         </div>
-      </div>
 
-      <!-- KAPSAM BİLGİLENDİRME BİLGİSİ -->
-      <div style="font-size:12px;color:#475569;margin-bottom:14px;background:#f8fafc;padding:6px 12px;border-radius:6px;border:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center">
-        <span>📌 <b>Kapsam:</b> ${filtreAktif ? `Sadece seçilen <b>${aktifDersListesi.join(', ')}</b> dersleri gösteriliyor.` : '<b>Tüm Dersler</b> dahil edildi.'}</span>
-        <span style="font-size:11px;color:#64748b">Toplam Soru Değişimi: <b>${dogruFarki >= 0 ? '+' + dogruFarki : dogruFarki} Doğru, ${yanlisFarki <= 0 ? yanlisFarki : '+' + yanlisFarki} Yanlış</b></span>
-      </div>
+        <!-- 🎯 ÇALIŞILMASI GEREKEN KISIMLAR (ŞUNLARA ŞUNLARA ÇALIŞ) -->
+        <div style="margin-top:14px">
+          <div style="font-size:13px;font-weight:800;color:#991b1b;margin-bottom:10px;display:flex;align-items:center;gap:6px">
+            <span>🎯</span> <span>Nelere Çalışmalı? (Öncelikli Eksikler & Eylem Planı):</span>
+          </div>
 
-      <!-- 2 SÜTUNLU SADE ODAK ALANI -->
-      <div class="grid-2" style="gap:16px;margin-bottom:20px">
-        <!-- SOL: NELERDE GELİŞME VAR -->
-        <div>
-          <h3 style="margin:0 0 8px 0;font-size:14px;color:#15803d;display:flex;align-items:center;gap:6px">
-            <span>🚀</span> <span>Nelerde Gelişme Var? (Güçlü Yönler)</span>
-          </h3>
-          ${gelismeHtml}
+          ${subjCalisma.length === 0 ? `
+            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:10px 14px;color:#166534;font-size:12px;font-weight:600">
+              ✅ Bu derste hedeflenen başarı sağlandı, kritik bir çalışma ihtiyacı bulunmuyor.
+            </div>
+          ` : `
+            <div style="display:flex;flex-direction:column;gap:10px">
+              ${subjCalisma.map(item => {
+                const isKritik = item.k2.yanlis >= 2 || item.k2.basariYuzde < 40;
+                const borderLeft = isKritik ? '#dc2626' : '#ea580c';
+                const cardBg = isKritik ? '#fff5f5' : '#fffaf0';
+                const cardBorder = isKritik ? '#fecaca' : '#fed7aa';
+
+                return `
+                  <div style="background:${cardBg};border:1px solid ${cardBorder};border-left:4px solid ${borderLeft};border-radius:8px;padding:12px 14px">
+                    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+                      <div style="display:flex;align-items:center;gap:8px">
+                        <b style="font-size:14px;color:#0f172a">${item.etiket}</b>
+                        <span class="kr-pill" style="background:${isKritik ? '#fee2e2' : '#fef3c7'};color:${isKritik ? '#991b1b' : '#92400e'};font-size:10.5px">
+                          ${isKritik ? '🔴 Acil Çalışılmalı' : '🟡 Pekiştirilmeli'}
+                        </span>
+                      </div>
+                      <div>
+                        <!-- Temiz, ferah, üst üste binmeyen istatistik kutusu -->
+                        <span class="kr-stat-bad">
+                          ${item.k2.yanlis} Yanlış &nbsp;•&nbsp; ${item.k2.bos} Boş &nbsp;•&nbsp; %${item.k2.basariYuzde} Başarı
+                        </span>
+                      </div>
+                    </div>
+
+                    <div style="font-size:12px;color:#475569;margin-top:4px">
+                      1. Sınav: <b>${item.k1.dogru}D / ${item.k1.yanlis}Y</b> (%${item.k1.basariYuzde}) &nbsp;➔&nbsp; 
+                      2. Sınav: <b>${item.k2.dogru}D / ${item.k2.yanlis}Y / ${item.k2.bos}B</b> (%${item.k2.basariYuzde})
+                    </div>
+
+                    <!-- ŞUNLARA ŞUNLARA ÇALIŞ BÖLÜMÜ -->
+                    <div style="margin-top:8px;background:#ffffff;border:1px dashed ${isKritik ? '#f87171' : '#fb923c'};border-radius:6px;padding:8px 12px;font-size:12.5px;color:#7c2d12;line-height:1.55">
+                      👉 <b>Şunlara Çalış:</b> ${item.tavsiye}
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          `}
         </div>
 
-        <!-- SAĞ: NELERE ÇALIŞMALI -->
-        <div>
-          <h3 style="margin:0 0 8px 0;font-size:14px;color:#b91c1c;display:flex;align-items:center;gap:6px">
-            <span>🎯</span> <span>Nelere Çalışmalı? (Öncelikli Eksikler)</span>
-          </h3>
-          ${calismaHtml}
-        </div>
-      </div>
+        <!-- 🚀 BU DERSTE GELİŞME GÖSTERİLEN KONULAR (Sadece Tam Rapor Modunda) -->
+        ${!isSadeceCalis && subjGelisen.length > 0 ? `
+          <div style="margin-top:14px;padding-top:12px;border-top:1px dashed #e2e8f0">
+            <div style="font-size:12.5px;font-weight:700;color:#166534;margin-bottom:8px;display:flex;align-items:center;gap:6px">
+              <span>🚀</span> <span>Bu Derste Gelişme Gösterilen Konular:</span>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px">
+              ${subjGelisen.map(g => {
+                const dFarkStr = g.dogruFark >= 0 ? `+${g.dogruFark}` : `${g.dogruFark}`;
+                return `
+                  <div class="kr-pill" style="background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;padding:4px 10px;font-size:12px">
+                    <b>${g.etiket}</b>: ${dFarkStr} Doğru Artış (%${g.k1.basariYuzde} ➔ %${g.k2.basariYuzde}) 📈
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        ` : ''}
 
-      <!-- SADE DERS BAZLI GELİŞİM TABLOSU -->
-      <div style="margin-bottom:16px">
-        <h3 style="margin:0 0 8px 0;font-size:14px;color:#0f172a">📚 Ders Bazında Net Değişim Özeti</h3>
+      </div>
+    `;
+  }).filter(Boolean).join('');
+
+  // Sıfır eksikli dersler özeti (Eğer sadece çalış moduysa ve toplu görünümdeyse)
+  let sifirEksikliDerslerHtml = '';
+  if (isSadeceCalis && !filtreAktif) {
+    const hatasizDersler = dersKarsilastirma.filter(d => {
+      const subjTopics = konuKarsilastirma.filter(k => k.ders === d.ders);
+      const subjCalisma = subjTopics.filter(k => k.k2.yanlis > 0 || k.k2.bos > 0 || k.k2.basariYuzde < 60 || k.basariFark < 0);
+      return subjCalisma.length === 0;
+    });
+    if (hatasizDersler.length > 0) {
+      sifirEksikliDerslerHtml = `
+        <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px 16px;margin-top:14px">
+          <b style="color:#166534;font-size:13px">✅ Öncelikli Eksik Bulunmayan Başarılı Dersler:</b>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px">
+            ${hatasizDersler.map(d => `
+              <span class="kr-pill" style="background:#dcfce7;color:#15803d;border:1px solid #86efac;font-size:12px">
+                ${getDersIcon(d.ders)} ${d.ders} (Hedef Başarı Sağlandı)
+              </span>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+  }
+
+  // SADELEŞTİRİLMİŞ DERS GELİŞİM TABLOSU (Sadece Tam Rapor Modunda)
+  let genelTabloHtml = '';
+  if (!isSadeceCalis) {
+    const dersRows = dersKarsilastirma.map(d => {
+      const nFark = d.netFarki >= 0 ? `+${d.netFarki.toFixed(2)}` : d.netFarki.toFixed(2);
+      const nRenk = d.netFarki > 0 ? '#15803d' : (d.netFarki < 0 ? '#b91c1c' : '#64748b');
+
+      return `
+        <tr>
+          <td style="font-weight:700;color:#0f172a;font-size:13px">${d.ders}</td>
+          <td class="num mono">${d.d1.dogru}D / ${d.d1.yanlis}Y / ${d.d1.bos}B</td>
+          <td class="num mono" style="font-weight:600">${d.d1.net.toFixed(2)}</td>
+          <td class="num mono">${d.d2.dogru}D / ${d.d2.yanlis}Y / ${d.d2.bos}B</td>
+          <td class="num mono" style="font-weight:700;color:var(--indigo)">${d.d2.net.toFixed(2)}</td>
+          <td class="num mono" style="font-weight:800;color:${nRenk}">${nFark} Net</td>
+        </tr>
+      `;
+    }).join('');
+
+    // Akordeon Konu Listesi
+    const konuTabloRows = konuKarsilastirma.map(item => {
+      const trendRenk = item.dogruFark > 0 ? '#15803d' : (item.dogruFark < 0 ? '#b91c1c' : '#64748b');
+      const trendTxt = item.dogruFark > 0 ? `+${item.dogruFark} Doğru 📈` : (item.dogruFark < 0 ? `${item.dogruFark} Doğru 📉` : 'Değişmedi ➖');
+
+      return `
+        <tr>
+          <td style="font-size:11.5px;color:#64748b">${item.ders}</td>
+          <td style="font-weight:700;color:var(--indigo);font-size:12.5px">${item.etiket}</td>
+          <td class="num mono">${item.k1.dogru}D / ${item.k1.yanlis}Y</td>
+          <td class="num mono">%${item.k1.basariYuzde}</td>
+          <td class="num mono">${item.k2.dogru}D / ${item.k2.yanlis}Y</td>
+          <td class="num mono" style="font-weight:700">%${item.k2.basariYuzde}</td>
+          <td class="num mono" style="font-weight:700;color:${trendRenk}">${trendTxt}</td>
+        </tr>
+      `;
+    }).join('');
+
+    genelTabloHtml = `
+      <div style="margin-top:20px;padding-top:16px;border-top:1px solid #e2e8f0">
+        <h3 style="margin:0 0 10px 0;font-size:14px;color:#0f172a">📚 Ders Bazında Net Değişim Özeti Tablosu</h3>
         <div style="overflow-x:auto">
-          <table class="table" style="font-size:12px">
+          <table class="table" style="font-size:12px;background:#fff">
             <thead>
               <tr>
                 <th>Ders</th>
@@ -401,10 +443,9 @@ export function renderKarneKarsilastirmaRaporu(k1, k2, seciliDersler = []) {
         </div>
       </div>
 
-      <!-- AKORDEON: TÜM KONU DETAYLARI (İSTENİRSE AÇILIR, ARAYÜZÜ YORMAZ) -->
-      <details style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px">
+      <details style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 14px;margin-top:16px">
         <summary style="font-weight:700;font-size:12.5px;color:#4f46e5;cursor:pointer;user-select:none">
-          🔍 Tüm Konuların Detaylı Listesini Gör (${konuKarsilastirma.length} Konu Çatısı) ▾
+          🔍 Tüm Konuların Detaylı Karşılaştırmalı Tablosunu Gör (${konuKarsilastirma.length} Konu Çatısı) ▾
         </summary>
         <div style="overflow-x:auto;margin-top:10px">
           <table class="table" style="font-size:11.5px;background:#ffffff">
@@ -423,6 +464,61 @@ export function renderKarneKarsilastirmaRaporu(k1, k2, seciliDersler = []) {
           </table>
         </div>
       </details>
+    `;
+  }
+
+  const ogrObj = (DB && DB.ogrenciler) ? DB.ogrenciler.find(o => o.id === (k2.ogrenciId || k1.ogrenciId)) : null;
+  const gorunenOgrAd = k2.ogrenciAdi || k1.ogrenciAdi || (ogrObj ? ogrObj.adSoyad : 'Öğrenci');
+
+  return `
+    <div id="karneRaporYazdirAlani" style="background:#ffffff;padding:20px 22px;border-radius:10px;border:1px solid #cbd5e1;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
+      
+      <!-- BAŞLIK & ÖĞRENCİ KARTI -->
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;padding-bottom:14px;border-bottom:2.5px solid #4f46e5;margin-bottom:16px">
+        <div>
+          <div style="font-size:11px;font-weight:800;color:#4f46e5;text-transform:uppercase;letter-spacing:0.8px">
+            ${isSadeceCalis ? '🎯 ÖNCELİKLİ EKSİKLER & ÇALIŞMA EYLEM PLANI' : '📊 KARŞILAŞTIRMALI GELİŞİM & DEĞİŞİM ANALİZİ RAPORU'}
+          </div>
+          <h2 style="margin:4px 0 0 0;font-size:20px;color:#0f172a;display:flex;align-items:center;gap:8px">
+            <span>👤 ${gorunenOgrAd}</span>
+            <span class="kr-pill" style="background:#eff6ff;color:#4f46e5;border:1px solid #bfdbfe;font-size:11.5px">Karne Sınıfı</span>
+          </h2>
+          <div style="font-size:12px;color:#475569;margin-top:4px">
+            <b>1. Sınav:</b> ${k1.sinavAdi} (${fmtTarih(k1.sinavTarihi)}) &nbsp;➔&nbsp; <b>2. Sınav:</b> ${k2.sinavAdi} (${fmtTarih(k2.sinavTarihi)})
+          </div>
+        </div>
+
+        <!-- SAĞ: NET SKOR VE DEĞİŞİM GÖSTERGESİ -->
+        <div style="display:flex;align-items:center;gap:14px;background:#f8fafc;padding:10px 18px;border-radius:8px;border:1px solid #e2e8f0">
+          <div>
+            <div style="font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase">Seçili Kapsam Neti</div>
+            <div style="font-size:18px;font-weight:800;color:#0f172a">${k1TopNet.toFixed(2)} ➔ ${k2TopNet.toFixed(2)}</div>
+          </div>
+          <div style="border-left:1.5px solid #cbd5e1;padding-left:14px">
+            <div style="font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase">Net Değişimi</div>
+            <div style="font-size:18px;font-weight:800;color:${netBadgeColor}">${netFarkStr} Net</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- KAPSAM VE ÖZET BİLGİ BANDI -->
+      <div style="font-size:12px;color:#334155;margin-bottom:16px;background:#f8fafc;padding:8px 14px;border-radius:6px;border:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <div>
+          <span>📌 <b>Kapsam:</b> ${filtreAktif ? `Sadece seçilen <b>${aktifDersListesi.join(', ')}</b> dersleri inceleniyor.` : '<b>Tüm Dersler</b> dahil edildi.'}</span>
+        </div>
+        <div style="font-size:11.5px;color:#475569">
+          Toplam Soru Farkı: <b>${dogruFarki >= 0 ? '+' + dogruFarki : dogruFarki} Doğru, ${yanlisFarki <= 0 ? yanlisFarki : '+' + yanlisFarki} Yanlış</b>
+        </div>
+      </div>
+
+      <!-- DERS DERS İLERLEYİŞ VE ÇALIŞILMASI GEREKEN KISIMLAR -->
+      <div>
+        ${dersBloklariHtml || '<div class="empty">Seçili kapsamda görüntülenecek veri bulunamadı.</div>'}
+      </div>
+
+      ${sifirEksikliDerslerHtml}
+
+      ${genelTabloHtml}
     </div>
   `;
 }

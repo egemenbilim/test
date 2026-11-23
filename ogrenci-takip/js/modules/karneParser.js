@@ -552,6 +552,7 @@ export function karneVerisiniKaydet(karneData) {
   const karneKaydi = {
     id: existingKarneIdx >= 0 ? DB.karneler[existingKarneIdx].id : nid(),
     ogrenciId: ogr.id,
+    ogrenciAdi: ogr.adSoyad,
     denemeId: deneme.id,
     sinavAdi: deneme.ad,
     sinavTarihi: deneme.tarih,
@@ -580,6 +581,12 @@ export function karneVerisiniKaydet(karneData) {
 }
 
 export let seciliKarneDersFiltresi = new Set();
+export let aktifKarneRaporModu = 'hepsi'; // 'hepsi' | 'sadece_calis'
+
+export function karneRaporModuDegistir(mod) {
+  aktifKarneRaporModu = mod;
+  karneKarsilastirManuel();
+}
 
 export function karneDersToggle(dersAdi) {
   if (seciliKarneDersFiltresi.has(dersAdi)) {
@@ -601,11 +608,30 @@ function renderDersChipBar(tumDersler) {
   const hepsiAktif = seciliKarneDersFiltresi.size === 0;
 
   let html = `
-    <div style="background:#f8fafc;padding:10px 14px;border-radius:8px;border:1px solid #e2e8f0;margin-top:12px">
+    <div style="background:#f8fafc;padding:12px 16px;border-radius:10px;border:1px solid #e2e8f0;margin-top:12px">
+      <!-- 1. RAPOR TÜRÜ SEÇİMİ (TAM RAPOR vs SADECE NELERE ÇALIŞMALI) -->
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;padding-bottom:10px;border-bottom:1px solid #e2e8f0;margin-bottom:10px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:12.5px;font-weight:700;color:#0f172a">📋 Rapor Görünümü:</span>
+          <div style="display:inline-flex;background:#e2e8f0;padding:3px;border-radius:8px;gap:3px">
+            <button type="button" class="btn sm ${aktifKarneRaporModu === 'hepsi' ? '' : 'gray'}" onclick="window.karneRaporModuDegistir('hepsi')" style="font-size:12px;padding:5px 12px;cursor:pointer;font-weight:${aktifKarneRaporModu === 'hepsi' ? '700' : '500'};${aktifKarneRaporModu === 'hepsi' ? 'background:var(--indigo);color:#fff;' : ''}">
+              📊 Tam Kapsamlı Rapor (Gelişim + Çalışma Planı)
+            </button>
+            <button type="button" class="btn sm ${aktifKarneRaporModu === 'sadece_calis' ? '' : 'gray'}" onclick="window.karneRaporModuDegistir('sadece_calis')" style="font-size:12px;padding:5px 12px;cursor:pointer;font-weight:${aktifKarneRaporModu === 'sadece_calis' ? '700' : '500'};${aktifKarneRaporModu === 'sadece_calis' ? 'background:#dc2626;color:#fff;' : ''}">
+              🎯 Sadece "Nelere Çalışmalı?" (Öncelikli Eksikler)
+            </button>
+          </div>
+        </div>
+        <div style="font-size:11.5px;color:#64748b">
+          ${aktifKarneRaporModu === 'sadece_calis' ? '⚡ Yalnızca acil eksikler ve çalışma eylem planı görüntülenir.' : 'Tüm net değişimleri, gelişimler ve çalışma planı görüntülenir.'}
+        </div>
+      </div>
+
+      <!-- 2. DERS FİLTRESİ -->
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px">
         <div style="font-size:12px;font-weight:700;color:#334155;display:flex;align-items:center;gap:6px">
           <span>📚 Ders Filtresi:</span>
-          <span style="font-weight:400;color:#64748b;font-size:11.5px">Gelişimini görmek istediğiniz dersleri seçin (seçim yapılmazsa hepsi raporda yer alır):</span>
+          <span style="font-weight:400;color:#64748b;font-size:11.5px">Raporlamak istediğiniz dersleri seçin (seçim yapılmazsa hepsi raporda yer alır):</span>
         </div>
         ${!hepsiAktif ? `<button type="button" class="btn sm gray" onclick="window.karneDersFiltreTemizle()" style="font-size:11px;padding:3px 8px;cursor:pointer">✕ Filtreyi Temizle (Tümünü Göster)</button>` : ''}
       </div>
@@ -834,7 +860,7 @@ export function karneKarsilastirManuel() {
 
   renderDersChipBar(tumDersler);
 
-  repEl.innerHTML = renderKarneKarsilastirmaRaporu(k1, k2, seciliKarneDersFiltresi);
+  repEl.innerHTML = renderKarneKarsilastirmaRaporu(k1, k2, seciliKarneDersFiltresi, aktifKarneRaporModu);
 }
 
 /**
@@ -876,7 +902,7 @@ export function gosterKarneOnizleme(parsed) {
       <div class="flex" style="justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
         <div style="flex:1;min-width:300px">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-            <span class="badge" style="background:#dbeafe;color:#1e40af;font-size:11px;font-weight:700">KARNE ÖNİZLEME</span>
+            <span class="kr-pill" style="background:#dbeafe;color:#1e40af;font-size:11px;font-weight:700">KARNE ÖNİZLEME</span>
             <span style="font-size:11.5px;color:#64748b">Bilgileri kontrol edip gerekirse değiştirebilirsiniz:</span>
           </div>
           <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
